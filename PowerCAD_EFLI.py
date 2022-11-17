@@ -22,6 +22,15 @@ file_path='TrainDataUTF.CSV'
 
 conn = sqlite3.connect(":memory:")
 
+# Open a file: file
+file = open('TrainDataUTF.CSV',mode='r')
+ 
+# read all lines at once
+all_of_it = file.read()
+ 
+# close the file
+file.close()
+
 # Open and Read the CSV file
 with open(file_path, 'r', encoding='UTF-8') as infile:
     reader = csv.reader(infile)
