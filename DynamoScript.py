@@ -118,15 +118,26 @@ for i , indexValue in enumerate(indexList):
 	cableSizeEarthingconductor.append('')
 	activeConductormaterial.append(inActiveConductormaterial[i])
 	ofPhases.append('RWB')
-	if(inCableType[i]=='4C+E')
+	if(inCableType[i] == "4C+E"): #Convert to PowerCAD values
 		cableType.append('Multi')
-	elif(inCableType[i]=='4x1C+E')
+	elif(inCableType[i] == "4x1C+E"):
 		cableType.append('SDI')
-	elif(inCableType[i]=='BUS DUCT')
+	elif(inCableType[i] == "BUS DUCT"):
 		cableType.append('BD')
 	else:
 		cableType.append(inCableType[i])
-	cableInsulation.append(inCableInsulation[i])
+	
+#	installationMethod.append(inInstallationMethod[i])
+
+#	if 'PERFORATED TRAY' in inInstallationMethod[i]: #Convert to PowerCAD values
+#		installationMethod.append('PT')
+#	elif 'LADDER' in inInstallationMethod[i]:
+#		installationMethod.append('L')
+#	elif'UNDERGROUND' in inInstallationMethod[i]:
+#		installationMethod.append('C')
+#	else:
+#		cableType.append(inCableType[i])
+
 	installationMethod.append(inInstallationMethod[i])
 	cableAdditionalDerating.append('')
 	switchgearTripUnitType.append('Electronic')
