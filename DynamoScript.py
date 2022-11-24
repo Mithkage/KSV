@@ -104,6 +104,8 @@ protectiveDeviceTripSetting.append('Protective Device Trip Setting (A)')
 
 
 #Populate list with values 
+
+#Populate list with values 
 for i , indexValue in enumerate(indexList):
 	cableReference.append(inCableReference[i])
 	swbFrom.append(inSwbFrom[i])
@@ -126,19 +128,17 @@ for i , indexValue in enumerate(indexList):
 		cableType.append('BD')
 	else:
 		cableType.append(inCableType[i])
-	
+	cableInsulation.append(inCableInsulation[i])
+
 #	installationMethod.append(inInstallationMethod[i])
-
-#	if 'PERFORATED TRAY' in inInstallationMethod[i]: #Convert to PowerCAD values
-#		installationMethod.append('PT')
-#	elif 'LADDER' in inInstallationMethod[i]:
-#		installationMethod.append('L')
-#	elif'UNDERGROUND' in inInstallationMethod[i]:
-#		installationMethod.append('C')
-#	else:
-#		cableType.append(inCableType[i])
-
-	installationMethod.append(inInstallationMethod[i])
+	if(inInstallationMethod[i] == "LADDER, SPACED"): #Convert to PowerCAD values
+		installationMethod.append('L')
+	elif(inInstallationMethod[i] == "PERFORATED TRAY, TOUCHING"):
+		installationMethod.append('PT')
+	elif(inInstallationMethod[i] == "IN UNDERGROUND WIRING ENCLOSURE"):
+		installationMethod.append('C')
+	else:
+		installationMethod.append(inInstallationMethod[i])
 	cableAdditionalDerating.append('')
 	switchgearTripUnitType.append('Electronic')
 	switchgearManufacturer.append(inSwitchgearManufacturer)
@@ -153,9 +153,10 @@ for i , indexValue in enumerate(indexList):
 	protectiveDeviceModel.append('')
 	protectiveDeviceOCRTripUnit.append('')
 	protectiveDeviceTripSetting.append('')
-
-
+	
 #combine lists into master list
 
 OUT = zip(cableReference, swbFrom, swbTo, swbType, swbLoad, swbLoadScope, swbPF, cableLength, cableSizeActiveconductors, cableSizeNeutralconductors, cableSizeEarthingconductor, activeConductormaterial, ofPhases, cableType, cableInsulation, installationMethod, cableAdditionalDerating, switchgearTripUnitType, switchgearManufacturer, busType, busChassisRating, upstreamDiversity, isolatorType, isolatorRating, protectiveDeviceRating, protectiveDeviceManufacturer, protectiveDeviceType, protectiveDeviceModel, protectiveDeviceOCRTripUnit, protectiveDeviceTripSetting)
+
+
 
