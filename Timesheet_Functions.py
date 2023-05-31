@@ -2,6 +2,12 @@ import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
 
+# Create a Tkinter window to browse for the CSV file
+root = tk.Tk()
+root.withdraw()  # Hide the root window
+# Ask the user to select the CSV file
+file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
+
 def clean_data(file_path):
     # Load the CSV file as a dataframe
     df = pd.read_csv(file_path)
@@ -31,9 +37,5 @@ def export_data(df, csv_file_name, xlsx_file_name):
     print(f"Data exported to {csv_file_name} and {xlsx_file_name} successfully.")
 
 
-    # Create a Tkinter window to browse for the CSV file
-root = tk.Tk()
-root.withdraw()  # Hide the root window
 
-# Ask the user to select the CSV file
-file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
+

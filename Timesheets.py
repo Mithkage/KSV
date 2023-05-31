@@ -9,8 +9,8 @@ root = tk.Tk()
 root.withdraw()  # Hide the root window
 
 # Ask the user to select the CSV file
-# file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
-file_path = 'wsp-march.csv'
+#file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
+file_path = 'Timesheet.csv'
 
 # cleaned_df = pd.DataFrame()
 cleaned_df = TF.clean_data(file_path)
