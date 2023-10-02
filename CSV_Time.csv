@@ -1,21 +1,27 @@
 Contact,Project Name,Tasks,Date,Day of Week,Duration (hours),Description
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-07-03,Monday,2.0,Architect IDR attendance
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-04,Tuesday,8.0,"Structural IDR, Cable tray sizing, Started circuiting of heaters."
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-05,Wednesday,8.0,IDR present and prepare.
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-06,Thursday,8.0,"Structural IDR, Cable tray sizing/weights/design in TMF. "
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-07,Friday,8.0,Finalized TMF Cable tray. Revizto mini workshop. Mech circuiting design for panel heaters.
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-11,Tuesday,9.0,"TWF cable tray update, Gate House circuiting, followed up lightning, weekly meeting. "
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-12,Wednesday,9.0,"Constructability review x 2, fire model update and review."
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-13,Thursday,9.0,"Highbay and catwalk lighting circuiting, TWF cable tray update, Lightning markup re-issue, Site visit prep."
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-14,Friday,9.0,Kananook Site visit. Logging of photos on system. Additional admin when back in office. 
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-17,Monday,5.0,"Enquired on Arch equipment power, followed up lightning, circuiting of power TMF ground."
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-18,Tuesday,8.0,TMF Ground floor power circuiting and DB schedules. Received lightning designs.
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-19,Wednesday,8.0,"TMF Lv1 Power Circuit, Server Room Schematic. Mech coordination. "
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-20,Thursday,8.0,"Server room circuit, updated DB schedules, Added Section and 3D of TMF."
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-21,Friday,8.0,"Updated Emergency lighting (circuiting, locations, family editing), Revised Gate House Lighting."
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-22,Saturday,3.0,Delegated work to Engineer. Emails. 3D details added.
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-25,Tuesday,10.0,Answered some CRS comments on OCS. Created and delegated tasks to draughters plus support. Prep for G2 issue. 
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-26,Wednesday,12.0,"More CRS comments (OCS related - big task), more circuiting, model tidying for presentation."
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-27,Thursday,9.0,"Circuited all outlets, Updated all DB Schedules, created additional 3D views with commentary."
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-07-28,Friday,9.0,TMWF Package Release. Update Outlet schedule details. Responded to some of Rowan's comments.
-WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-07-31,Monday,8.0,Added rising conduits into OCS TWF. Fixed outlet schedule. Rowan Comments response.
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-01,Tuesday,8.0,Started CRS comments. Checked on RIW status. Informal meetings Hyd and Ethan.
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-02,Wednesday,8.0,Weekly resource meeting. CRS comments address. 
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-03,Thursday,8.0,OHW coordination. CRS comments (VT and some MTM).
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-04,Friday,8.0,MTM CRS comments
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-08,Tuesday,8.0,Fixed up the OCS Reticulation plan. Re-coordinated OCS. Weekly Meeting.
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-09,Wednesday,8.0,"CRS meeting with MTM, and MTM CRS responding. "
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-10,Thursday,8.0,"Updated yard with MTM meeting comments, investigated JWebb comment, resolved some clashes. Moved building mounted lights to TMWF."
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-11,Friday,8.0,"Reduced lights on existing buildings, handed over JWebb comment, organised verification set."
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-15,Tuesday,8.0,"CRS comments (VT) and meeting, including document update. Lighting in BBQ area."
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-16,Wednesday,5.0,"Engineering Review comments, CRS support."
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-08-16,Wednesday,3.0,Coordination meeting with some action items.
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-17,Thursday,4.0,Followed up outstanding items with Package Manager. Investigated Shed lighting. Added Fire detection pathway.
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-08-17,Thursday,4.0,"Updated cable tray size in TMF, queried fixing details. Email tasks and outstanding items."
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-08-18,Friday,2.0,Meetings and discussions around TMF cable tray clearance for forklift.
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-18,Friday,6.0,Coordination with OCS and Civil (still). Checking of yard quantity schedules.
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-08-21,Monday,2.0,"SOW for construction, emails and delegation of design check."
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-08-23,Wednesday,2.0,Coordination meeting and solar design discussion.
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-23,Wednesday,6.0,"CRS comment response, construction demarcation workshop."
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-24,Thursday,4.0,Investigated the existing iso transformer and existing lights to be retained. 
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-08-24,Thursday,4.0,"Informal architect coordination, Mech ducts coordination."
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-25,Friday,1.0,Followed up on yard. Got access to Propeller.
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-08-25,Friday,7.0,Coordinated fire extinguishers and checked coverage (both buildings).  Coordinated cable tray solution in TMF with structures.
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8303,,2023-08-29,Tuesday,2.0,"Switch IDR meeting, OCS PA length assistance."
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-08-29,Tuesday,6.0,"Weekly Meeting. Reschedule cable tray workshop, "
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-08-30,Wednesday,8.0,"Cable tray coordinate, Arc TV coordinate, Weekly meeting, GIS training, "
+WSP AUSTRALIA PTY LIMITED,DPK-32-BSG8301,,2023-08-31,Thursday,8.0,"Metering drawing TMF update, TWF create. Precast panel penetartions review."
