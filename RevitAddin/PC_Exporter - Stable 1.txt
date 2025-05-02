@@ -1,0 +1,730 @@
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using Excel = Microsoft.Office.Interop.Excel;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.IO;
+using System.Globalization; // Added for robust number parsing
+
+namespace PC_Exporter
+{
+    [Transaction(TransactionMode.Manual)]
+    public class PowerCAD_ExportSLD : IExternalCommand
+    {
+        // Helper class to store data for each relevant detail item
+        private class DetailItemData
+        {
+            public string OriginalCableReference { get; set; } // Raw value from Revit parameter
+            public string FinalCableReference { get; set; }    // The definitive reference used for the group
+            public string SWBFrom { get; set; }
+            public string SWBTo { get; set; }
+            public string SWBType { get; set; } // 'S' for Bus, 'T' for TOB, potentially others
+            public string SWBLoad { get; set; }
+            public string SWBLoadScope { get; set; }
+            public string SWBPF { get; set; }
+            public string CableLength { get; set; } // ** Potentially nulled if SWBType = 'S' **
+            public string CableSizeActive { get; set; } // ** Potentially nulled if SWBType = 'S' **
+            public string CableSizeNeutral { get; set; } // ** Potentially nulled if SWBType = 'S' **
+            public string CableSizeEarthing { get; set; } // ** Potentially nulled if SWBType = 'S' **
+            public string ActiveConductorMaterial { get; set; } // ** Potentially nulled if SWBType = 'S' **
+            public string NumPhases { get; set; } // ** UPDATED based on Type Name containing "1-Phase", Potentially nulled if SWBType = 'S' **
+            public string CableType { get; set; } // ** Set based on TOB, Length/Rating, or nulled if SWBType = 'S' **
+            public string CableInsulation { get; set; } // ** UPDATED based on PC_From containing "SAFETY", Potentially nulled if SWBType = 'S' **
+            public string InstallationMethod { get; set; } // ** UPDATED to always be "PT", Potentially nulled if SWBType = 'S' **
+            public string CableAdditionalDerating { get; set; } // ** Potentially nulled if SWBType = 'S' **
+            public string SwitchgearTripUnitType { get; set; } // ** UPDATED based on Type Name containing "1-Phase", Potentially nulled if SWBType = 'S' **
+            public string SwitchgearManufacturer { get; set; } // ** UPDATED to always be "NAW Controls - LS Susol" **
+            public string BusType { get; set; } // Set to "Bus Bar"
+            public string BusChassisRating { get; set; }
+            public string UpstreamDiversity { get; set; } // ** UPDATED to always be "STD" **
+            public string IsolatorType { get; set; }
+            public string IsolatorRating { get; set; }
+            public string ProtectiveDeviceRating { get; set; } // Used for Cable Type logic
+            public string ProtectiveDeviceManufacturer { get; set; }
+            public string ProtectiveDeviceType { get; set; }
+            public string ProtectiveDeviceModel { get; set; }
+            public string ProtectiveDeviceOCRTripUnit { get; set; }
+            public string ProtectiveDeviceTripSetting { get; set; }
+        }
+
+        // Helper function to escape characters for CSV format
+        private string EscapeCsvField(string field)
+        {
+            if (field == null) return "";
+            // Check if the field contains characters that require quoting in CSV
+            if (field.Contains(",") || field.Contains("\"") || field.Contains("\n") || field.Contains("\r"))
+            {
+                // Escape double quotes by doubling them
+                string escapedField = field.Replace("\"", "\"\"");
+                // Enclose the entire field in double quotes
+                return $"\"{escapedField}\"";
+            }
+            else
+            {
+                // No special characters, return the field as is
+                return field;
+            }
+        }
+
+        // --- Member variables for Pre-order Traversal ---
+        private List<DetailItemData> _preOrderSortedData;
+        private HashSet<string> _visitedNodesDuringTraversal;
+        private Dictionary<string, List<DetailItemData>> _itemsOriginatingFrom;
+
+
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            UIApplication uiApp = commandData.Application;
+            Document doc = uiApp.ActiveUIDocument.Document;
+
+            // Filter for Detail Items in the active document
+            FilteredElementCollector collector = new FilteredElementCollector(doc);
+            List<Element> detailItems = collector.OfCategory(BuiltInCategory.OST_DetailComponents)
+                                                 .WhereElementIsNotElementType() // Get instances, not types
+                                                 .ToList();
+
+            // Check if any detail items were found
+            if (detailItems.Count == 0)
+            {
+                TaskDialog.Show("Info", "No Detail Items found in the current view/document.");
+                return Result.Succeeded; // Nothing to process
+            }
+
+            // --- Step 1: Data Collection & Pre-processing ---
+            var groupedData = new Dictionary<string, List<DetailItemData>>(); // Group items by their 'SWB To' value
+            var allNodes = new HashSet<string>(); // Keep track of all unique 'SWB To' and 'SWB From' values
+
+            foreach (Element detailItem in detailItems)
+            {
+                // Get relevant parameters from the detail item
+                Parameter pcPowerCADParam = detailItem.LookupParameter("PC_PowerCAD");
+                Parameter pcSWBToParam = detailItem.LookupParameter("PC_SWB To");
+                Parameter pcSWBFromParam = detailItem.LookupParameter("PC_From");
+                Parameter pcCableLengthParam = detailItem.LookupParameter("PC_Cable Length"); // Get Cable Length parameter
+                Parameter pcProtectiveDeviceRatingParam = detailItem.LookupParameter("PC_Protective Device Trip Setting (A)"); // Get Rating parameter
+
+
+                // Process only if PC_PowerCAD is 1 (true) and PC_SWB To has a value
+                if (pcPowerCADParam != null && pcPowerCADParam.AsInteger() == 1 &&
+                    pcSWBToParam != null && !string.IsNullOrWhiteSpace(pcSWBToParam.AsString()))
+                {
+                    string swbToValue = pcSWBToParam.AsString();
+                    string swbFromValue = pcSWBFromParam?.AsString() ?? ""; // Use null-conditional and coalesce for safety
+                    // Default 'SWB From' to "SOURCE" if it's empty
+                    if (string.IsNullOrWhiteSpace(swbFromValue))
+                    {
+                        swbFromValue = "SOURCE";
+                    }
+
+                    Parameter pcCableReferenceParam = detailItem.LookupParameter("PC_Cable Reference");
+                    string cableReferenceValue = pcCableReferenceParam?.AsString() ?? "";
+
+                    // Add the 'From' and 'To' nodes to the set for graph building
+                    allNodes.Add(swbToValue);
+                    allNodes.Add(swbFromValue);
+
+                    // Initialize variables to store type-based information
+                    string swbTypeValue = "";
+                    string cableTypeValue = ""; // Will be potentially overwritten later
+                    string cableInsulationValue = "";
+                    string numPhasesValue = ""; // Initialize NumPhases
+                    string switchgearTripUnitTypeValue = ""; // Initialize SwitchgearTripUnitType
+                    string cableLengthValue = pcCableLengthParam?.AsString() ?? ""; // Store cable length
+                    string protectiveDeviceRatingValue = pcProtectiveDeviceRatingParam?.AsString() ?? ""; // Store rating
+
+                    // Get the Element Type of the detail item
+                    ElementId elementTypeId = detailItem.GetTypeId();
+                    if (elementTypeId != null && elementTypeId != ElementId.InvalidElementId)
+                    {
+                        ElementType elementType = doc.GetElement(elementTypeId) as ElementType;
+                        if (elementType != null)
+                        {
+                            string typeName = elementType.Name;
+                            if (!string.IsNullOrEmpty(typeName))
+                            {
+                                // Determine SWB Type based on Type Name
+                                if (typeName.IndexOf("BUS", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    swbTypeValue = "S"; // Switchboard/Bus
+                                }
+                                else if (typeName.IndexOf("TOB", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    swbTypeValue = "T"; // Tap-Off Box
+                                    // Don't set cableTypeValue here yet, let the later logic handle it
+                                }
+
+                                // Check if Type Name contains "1-Phase"
+                                if (typeName.IndexOf("1-Phase", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    numPhasesValue = "R"; // Set # of Phases
+                                    switchgearTripUnitTypeValue = "Thermal Magnetic"; // Set Switchgear Trip Unit Type
+                                }
+                            }
+                        }
+                    }
+
+                    // Check PC_From for "SAFETY" to set Cable Insulation
+                    if (swbFromValue.IndexOf("SAFETY", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        cableInsulationValue = "X-HF-110";
+                    }
+
+                    // Create a data object for the current detail item
+                    var data = new DetailItemData
+                    {
+                        OriginalCableReference = cableReferenceValue,
+                        SWBFrom = swbFromValue,
+                        SWBTo = swbToValue,
+                        SWBType = swbTypeValue,
+                        SWBLoad = protectiveDeviceRatingValue, // Use the stored rating value
+                        SWBLoadScope = "Local", // Hardcoded as per previous logic
+                        SWBPF = "1", // Hardcoded as per previous logic
+                        CableLength = cableLengthValue, // Store raw cable length value
+                        CableSizeActive = "", // Initialize empty
+                        CableSizeNeutral = "",
+                        CableSizeEarthing = "",
+                        ActiveConductorMaterial = "",
+                        NumPhases = numPhasesValue, // Set based on 1-Phase check
+                        CableType = cableTypeValue, // Initialize empty, will be set later
+                        CableInsulation = cableInsulationValue, // Set based on "SAFETY" check
+                        InstallationMethod = "PT", // Hardcoded default
+                        CableAdditionalDerating = "",
+                        SwitchgearTripUnitType = switchgearTripUnitTypeValue, // Set based on 1-Phase check
+                        SwitchgearManufacturer = "NAW Controls - LS Susol", // Hardcoded
+                        BusType = "Bus Bar", // Hardcoded default
+                        BusChassisRating = detailItem.LookupParameter("PC_Bus/Chassis Rating (A)")?.AsString() ?? "",
+                        UpstreamDiversity = "STD", // Hardcoded
+                        IsolatorType = "",
+                        IsolatorRating = "",
+                        ProtectiveDeviceRating = protectiveDeviceRatingValue, // Store raw rating value
+                        ProtectiveDeviceManufacturer = "",
+                        ProtectiveDeviceType = "",
+                        ProtectiveDeviceModel = "",
+                        ProtectiveDeviceOCRTripUnit = "",
+                        ProtectiveDeviceTripSetting = protectiveDeviceRatingValue // Assume Trip Setting is same as Rating for now
+                    };
+
+                    // Add the data object to the dictionary, grouped by SWB To value
+                    if (!groupedData.ContainsKey(swbToValue))
+                    {
+                        groupedData[swbToValue] = new List<DetailItemData>();
+                    }
+                    groupedData[swbToValue].Add(data);
+                }
+            }
+
+            // Check if any valid items were found for export
+            if (groupedData.Count == 0)
+            {
+                TaskDialog.Show("Info", "No Detail Items marked for export (PC_PowerCAD = 1) or with valid 'PC_SWB To' values were found.");
+                return Result.Succeeded;
+            }
+
+            // --- Step 2: Determine Definitive Cable Reference & Create Flat List ---
+            var definitiveCableReferencePerGroup = new Dictionary<string, string>(); // Store the chosen cable reference for each SWB To group
+            var allProcessedData = new List<DetailItemData>(); // Flat list of all data items
+
+            // Iterate through each group (items sharing the same SWB To)
+            foreach (var kvp in groupedData)
+            {
+                string swbTo = kvp.Key;
+                List<DetailItemData> itemsInGroup = kvp.Value;
+                string foundReference = ""; // The cable reference to use for this group
+
+                // Find the first non-empty OriginalCableReference in the group
+                foreach (var itemData_ref in itemsInGroup)
+                {
+                    if (!string.IsNullOrWhiteSpace(itemData_ref.OriginalCableReference))
+                    {
+                        foundReference = itemData_ref.OriginalCableReference;
+                        break; // Found one, no need to check further in this group
+                    }
+                }
+                definitiveCableReferencePerGroup[swbTo] = foundReference; // Store it
+
+                // Assign the found reference to all items in the group and add to the flat list
+                foreach (var itemData_ref in itemsInGroup)
+                {
+                    itemData_ref.FinalCableReference = foundReference;
+                    allProcessedData.Add(itemData_ref);
+                }
+            }
+
+            // --- Step 2b: Initial Sort by Cable Reference (helps group related items for traversal) ---
+            allProcessedData = allProcessedData
+                .OrderBy(d => d.FinalCableReference ?? string.Empty) // Sort primarily by the final cable reference
+                .ToList();
+
+            // --- Step 3: Build Dependency Graph (for sorting) ---
+            // Calculate the in-degree (number of incoming connections) for each node
+            var inDegree = new Dictionary<string, int>();
+            foreach(string node in allNodes)
+            {
+                if (!inDegree.ContainsKey(node)) inDegree[node] = 0; // Initialize all nodes with 0 in-degree
+            }
+
+            // Store items originating from each node for easy traversal
+            _itemsOriginatingFrom = allProcessedData
+                .GroupBy(d => d.SWBFrom)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Calculate the actual in-degrees based on the connections
+            foreach (var item in allProcessedData)
+            {
+                string v = item.SWBTo; // The destination node
+                if (inDegree.ContainsKey(v))
+                {
+                    // Increment in-degree unless it's an edge from the virtual "SOURCE" node
+                    // AND the "SOURCE" node itself isn't explicitly defined elsewhere (edge case)
+                    if(item.SWBFrom != "SOURCE" || allNodes.Contains("SOURCE"))
+                    {
+                           inDegree[v]++;
+                    }
+                }
+            }
+
+            // --- Step 4: Perform Pre-order Traversal Sort ---
+            _preOrderSortedData = new List<DetailItemData>(); // List to store the sorted results
+            _visitedNodesDuringTraversal = new HashSet<string>(); // Keep track of visited nodes during recursion
+
+            // Find starting nodes (those with an in-degree of 0)
+            var startingNodes = inDegree.Where(kvp => kvp.Value == 0).Select(kvp => kvp.Key).ToList();
+
+            // Ensure "SOURCE" is included as a starting node if it exists and has no incoming edges
+             if (allNodes.Contains("SOURCE") && !startingNodes.Contains("SOURCE"))
+             {
+                 // Check if any item actually points TO "SOURCE"
+                 bool sourceHasIncoming = allProcessedData.Any(d => d.SWBTo == "SOURCE");
+                 if(!sourceHasIncoming) startingNodes.Add("SOURCE");
+             }
+
+            // Sort starting nodes alphabetically for consistent output order
+            startingNodes.Sort();
+
+            // Start the traversal from each starting node
+            foreach (string startNode in startingNodes)
+            {
+                PreOrderVisit(startNode);
+            }
+
+             // --- Step 5: Merge Data for Unique SWB To ---
+             // After traversal, multiple entries might exist for the same SWB To (if multiple paths lead there).
+             // Merge these into a single entry, prioritizing non-empty values.
+            var mergedUniqueDataList = new List<DetailItemData>(); // Final list with unique SWB To entries
+            var lookupMap = new Dictionary<string, DetailItemData>(); // Helper map for quick lookup of existing items
+
+            foreach(var newItemData in _preOrderSortedData) // Iterate through the traversal-sorted list
+            {
+                string currentSwbTo = newItemData.SWBTo;
+                // Check if an entry for this SWB To already exists in our final list
+                if (lookupMap.TryGetValue(currentSwbTo, out DetailItemData existingItemData))
+                {
+                    // If yes, merge the new data into the existing entry
+                    MergeDetailItemData(existingItemData, newItemData);
+                }
+                else
+                {
+                    // If no, add this new item to the final list and the lookup map
+                    mergedUniqueDataList.Add(newItemData);
+                    lookupMap.Add(currentSwbTo, newItemData);
+                }
+            }
+
+            // --- Step 5b: Apply Final Logic Rules ---
+            // Iterate through the merged list and apply the SWB Type and Cable Type logic
+            foreach (var itemData in mergedUniqueDataList)
+            {
+                if (itemData.SWBType == "S")
+                {
+                    // If SWB Type is "S", nullify specific cable-related parameters
+                    itemData.CableLength = ""; // Use empty string instead of null
+                    itemData.CableSizeActive = "";
+                    itemData.CableSizeNeutral = "";
+                    itemData.CableSizeEarthing = "";
+                    itemData.ActiveConductorMaterial = "";
+                    itemData.NumPhases = "";
+                    itemData.CableType = "";
+                    itemData.CableInsulation = "";
+                    itemData.InstallationMethod = "";
+                    itemData.CableAdditionalDerating = "";
+                    itemData.SwitchgearTripUnitType = "";
+                }
+                else // Apply Cable Type logic only if SWB Type is not "S"
+                {
+                    // Check if the original Type Name contained "TOB" first
+                    // We need to re-fetch the element type name here, as it wasn't stored directly in DetailItemData
+                    // This is inefficient but necessary without changing DetailItemData class
+                    // A better approach would be to store the original type name or a flag in DetailItemData
+                    bool isTobType = false;
+                    // Find the original element(s) that contributed to this merged item
+                    // This assumes SWBTo is unique enough to find the original element(s)
+                    // This part might need refinement based on how merging actually works and if SWBTo is truly unique per element instance
+                    var originalElements = detailItems.Where(e => e.LookupParameter("PC_SWB To")?.AsString() == itemData.SWBTo).ToList();
+                    if (originalElements.Any())
+                    {
+                        // Check the type name of the first found original element (assuming they are consistent for the merged item)
+                        ElementId elementTypeId = originalElements.First().GetTypeId();
+                        if (elementTypeId != null && elementTypeId != ElementId.InvalidElementId)
+                        {
+                             ElementType elementType = doc.GetElement(elementTypeId) as ElementType;
+                             if (elementType != null && !string.IsNullOrEmpty(elementType.Name) &&
+                                 elementType.Name.IndexOf("TOB", StringComparison.OrdinalIgnoreCase) >= 0)
+                             {
+                                 isTobType = true;
+                             }
+                        }
+                    }
+
+
+                    if (isTobType) // If original type was TOB
+                    {
+                        itemData.CableType = "SDI";
+                    }
+                    else // If not TOB, apply length/rating logic
+                    {
+                        // Try parsing Cable Length and Protective Device Rating
+                        bool lengthParsed = double.TryParse(itemData.CableLength, NumberStyles.Any, CultureInfo.InvariantCulture, out double cableLength);
+                        bool ratingParsed = double.TryParse(itemData.ProtectiveDeviceRating, NumberStyles.Any, CultureInfo.InvariantCulture, out double deviceRating);
+
+                        if (lengthParsed && ratingParsed && cableLength >= 100.0 && deviceRating >= 160.0)
+                        {
+                            itemData.CableType = "SDI";
+                        }
+                        else
+                        {
+                            // Default to "Multi" if conditions not met or parsing failed
+                            itemData.CableType = "Multi";
+                        }
+                    }
+                }
+            }
+
+
+            // --- Step 6: Write Output Files ---
+            string baseFileName = "PowerCAD_Export_SLD_Data"; // Base name for output files
+            string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop); // Get user's desktop path
+            string csvFilePath = Path.Combine(desktopPath, baseFileName + ".csv");
+            string xlsxFilePath = Path.Combine(desktopPath, baseFileName + ".xlsx");
+
+            bool csvSuccess = false;
+            bool xlsxSuccess = false;
+            string csvError = null;
+            string xlsxError = null;
+
+            // Define the headers for the output files
+            string[] headers = {
+                "Cable Reference", "SWB From", "SWB To", "SWB Type", "SWB Load",
+                "SWB Load Scope", "SWB PF", "Cable Length", "Cable Size - Active conductors",
+                "Cable Size - Neutral conductors", "Cable Size - Earthing conductor",
+                "Active Conductor material", "# of Phases", "Cable Type", "Cable Insulation",
+                "Installation Method", "Cable Additional De-rating", "Switchgear Trip Unit Type",
+                "Switchgear Manufacturer", "Bus Type", "Bus/Chassis Rating (A)", "Upstream Diversity",
+                "Isolator Type", "Isolator Rating (A)", "Protective Device Rating (A)",
+                "Protective Device Manufacturer", "Protective Device Type", "Protective Device Model",
+                "Protective Device OCR/Trip Unit", "Protective Device Trip Setting (A)"
+            };
+
+            // --- Write CSV File ---
+            try
+            {
+                StringBuilder csvContent = new StringBuilder();
+                // Add header row, escaping fields just in case headers contain commas etc.
+                csvContent.AppendLine(string.Join(",", headers.Select(h => EscapeCsvField(h))));
+
+                // Add data rows
+                foreach (var itemData in mergedUniqueDataList) // Use the final processed list
+                {
+                    // Display empty string instead of "SOURCE" for SWB From in output
+                    string displaySwbFrom = (itemData.SWBFrom == "SOURCE") ? "" : itemData.SWBFrom;
+
+                    // Create a list of fields for the current row, escaping each one
+                    var fields = new List<string> {
+                        EscapeCsvField(itemData.FinalCableReference),
+                        EscapeCsvField(displaySwbFrom),
+                        EscapeCsvField(itemData.SWBTo),
+                        EscapeCsvField(itemData.SWBType),
+                        EscapeCsvField(itemData.SWBLoad),
+                        EscapeCsvField(itemData.SWBLoadScope),
+                        EscapeCsvField(itemData.SWBPF),
+                        EscapeCsvField(itemData.CableLength), // Value potentially modified
+                        EscapeCsvField(itemData.CableSizeActive), // Value potentially modified
+                        EscapeCsvField(itemData.CableSizeNeutral), // Value potentially modified
+                        EscapeCsvField(itemData.CableSizeEarthing), // Value potentially modified
+                        EscapeCsvField(itemData.ActiveConductorMaterial), // Value potentially modified
+                        EscapeCsvField(itemData.NumPhases), // Value potentially modified
+                        EscapeCsvField(itemData.CableType), // Value potentially modified
+                        EscapeCsvField(itemData.CableInsulation), // Value potentially modified
+                        EscapeCsvField(itemData.InstallationMethod), // Value potentially modified
+                        EscapeCsvField(itemData.CableAdditionalDerating), // Value potentially modified
+                        EscapeCsvField(itemData.SwitchgearTripUnitType), // Value potentially modified
+                        EscapeCsvField(itemData.SwitchgearManufacturer),
+                        EscapeCsvField(itemData.BusType),
+                        EscapeCsvField(itemData.BusChassisRating),
+                        EscapeCsvField(itemData.UpstreamDiversity),
+                        EscapeCsvField(itemData.IsolatorType),
+                        EscapeCsvField(itemData.IsolatorRating),
+                        EscapeCsvField(itemData.ProtectiveDeviceRating),
+                        EscapeCsvField(itemData.ProtectiveDeviceManufacturer),
+                        EscapeCsvField(itemData.ProtectiveDeviceType),
+                        EscapeCsvField(itemData.ProtectiveDeviceModel),
+                        EscapeCsvField(itemData.ProtectiveDeviceOCRTripUnit),
+                        EscapeCsvField(itemData.ProtectiveDeviceTripSetting)
+                    };
+                    // Join the fields with commas and add the line to the CSV content
+                    csvContent.AppendLine(string.Join(",", fields));
+                }
+                // Write the complete CSV content to the file (use UTF8 without BOM)
+                File.WriteAllText(csvFilePath, csvContent.ToString(), new UTF8Encoding(false));
+                csvSuccess = true;
+            }
+            catch (Exception ex)
+            {
+                // Store error message if CSV writing fails
+                csvError = $"Failed to write CSV file: {ex.GetType().Name} - {ex.Message}";
+                // Consider logging the full exception details (ex.ToString()) for debugging
+            }
+
+            // --- Write XLSX File ---
+            Excel.Application excelApp = null;
+            Excel.Workbook workbook = null;
+            Excel.Worksheet worksheet = null;
+            try
+            {
+                // Create a new Excel application instance (invisible)
+                excelApp = new Excel.Application { Visible = false, DisplayAlerts = false };
+                workbook = excelApp.Workbooks.Add(); // Add a new workbook
+                worksheet = (Excel.Worksheet)workbook.Sheets[1]; // Get the first worksheet
+
+                // Write headers to the first row
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    worksheet.Cells[1, i + 1] = headers[i];
+                }
+
+                // Format the 'Cable Reference' column (column 1) as Text to prevent Excel auto-formatting issues
+                Excel.Range cableRefColumn = (Excel.Range)worksheet.Columns[1];
+                cableRefColumn.NumberFormat = "@";
+                // Format Cable Length and Rating columns as Text or General if needed, but often Auto works ok
+                // Excel.Range cableLengthColumn = (Excel.Range)worksheet.Columns[8];
+                // cableLengthColumn.NumberFormat = "@"; // Or "General"
+                // Excel.Range ratingColumn = (Excel.Range)worksheet.Columns[25];
+                // ratingColumn.NumberFormat = "@"; // Or "General"
+
+
+                // Write data rows starting from row 2
+                int row = 2;
+                foreach (var itemData in mergedUniqueDataList) // Use the final processed list
+                {
+                    // Display empty string instead of "SOURCE" for SWB From
+                    string displaySwbFrom = (itemData.SWBFrom == "SOURCE") ? "" : itemData.SWBFrom;
+
+                    // Write data to cells (Excel uses 1-based indexing)
+                    worksheet.Cells[row, 1] = itemData.FinalCableReference;
+                    worksheet.Cells[row, 2] = displaySwbFrom;
+                    worksheet.Cells[row, 3] = itemData.SWBTo;
+                    worksheet.Cells[row, 4] = itemData.SWBType;
+                    worksheet.Cells[row, 5] = itemData.SWBLoad;
+                    worksheet.Cells[row, 6] = itemData.SWBLoadScope;
+                    worksheet.Cells[row, 7] = itemData.SWBPF;
+                    worksheet.Cells[row, 8] = itemData.CableLength; // Value potentially modified
+                    worksheet.Cells[row, 9] = itemData.CableSizeActive; // Value potentially modified
+                    worksheet.Cells[row, 10] = itemData.CableSizeNeutral; // Value potentially modified
+                    worksheet.Cells[row, 11] = itemData.CableSizeEarthing; // Value potentially modified
+                    worksheet.Cells[row, 12] = itemData.ActiveConductorMaterial; // Value potentially modified
+                    worksheet.Cells[row, 13] = itemData.NumPhases; // Value potentially modified
+                    worksheet.Cells[row, 14] = itemData.CableType; // Value potentially modified
+                    worksheet.Cells[row, 15] = itemData.CableInsulation; // Value potentially modified
+                    worksheet.Cells[row, 16] = itemData.InstallationMethod; // Value potentially modified
+                    worksheet.Cells[row, 17] = itemData.CableAdditionalDerating; // Value potentially modified
+                    worksheet.Cells[row, 18] = itemData.SwitchgearTripUnitType; // Value potentially modified
+                    worksheet.Cells[row, 19] = itemData.SwitchgearManufacturer;
+                    worksheet.Cells[row, 20] = itemData.BusType;
+                    worksheet.Cells[row, 21] = itemData.BusChassisRating;
+                    worksheet.Cells[row, 22] = itemData.UpstreamDiversity;
+                    worksheet.Cells[row, 23] = itemData.IsolatorType;
+                    worksheet.Cells[row, 24] = itemData.IsolatorRating;
+                    worksheet.Cells[row, 25] = itemData.ProtectiveDeviceRating;
+                    worksheet.Cells[row, 26] = itemData.ProtectiveDeviceManufacturer;
+                    worksheet.Cells[row, 27] = itemData.ProtectiveDeviceType;
+                    worksheet.Cells[row, 28] = itemData.ProtectiveDeviceModel;
+                    worksheet.Cells[row, 29] = itemData.ProtectiveDeviceOCRTripUnit;
+                    worksheet.Cells[row, 30] = itemData.ProtectiveDeviceTripSetting;
+
+                    row++; // Move to the next row
+                }
+
+                // Auto-fit columns for better readability
+                worksheet.Columns.AutoFit();
+                // Save the workbook to the specified path
+                workbook.SaveAs(xlsxFilePath);
+                xlsxSuccess = true;
+            }
+            catch (Exception ex)
+            {
+                // Store error message if XLSX writing fails
+                 xlsxError = $"Failed to write XLSX file: {ex.GetType().Name} - {ex.Message}";
+                 // Consider logging the full exception details (ex.ToString()) for debugging
+            }
+            finally
+            {
+                // --- Clean up Excel COM objects ---
+                // Release COM objects in reverse order of creation to avoid issues
+                if (worksheet != null) Marshal.ReleaseComObject(worksheet);
+                if (workbook != null)
+                {
+                    workbook.Close(false); // Close workbook without saving changes (already saved)
+                    Marshal.ReleaseComObject(workbook);
+                }
+                if (excelApp != null)
+                {
+                    excelApp.Quit(); // Quit the Excel application
+                    Marshal.ReleaseComObject(excelApp);
+                }
+                // Force garbage collection to release memory held by COM objects
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+
+            // --- Final Reporting ---
+            // Build a summary message for the user
+            StringBuilder finalMessage = new StringBuilder();
+            finalMessage.AppendLine("Export Process Completed.");
+            finalMessage.AppendLine("---");
+
+            // Report CSV status
+            if (csvSuccess)
+            {
+                finalMessage.AppendLine($"CSV export successful:\n{csvFilePath}");
+            }
+            else
+            {
+                finalMessage.AppendLine($"CSV export FAILED: {csvError ?? "Unknown error"}");
+            }
+            finalMessage.AppendLine("---");
+            // Report XLSX status
+            if (xlsxSuccess)
+            {
+                finalMessage.AppendLine($"XLSX export successful:\n{xlsxFilePath}");
+            }
+            else
+            {
+                finalMessage.AppendLine($"XLSX export FAILED: {xlsxError ?? "Unknown error"}");
+            }
+
+            // Show the summary message in a Task Dialog
+            TaskDialog.Show("Export Results", finalMessage.ToString());
+
+            // Return the appropriate Result status based on export success
+            if (csvSuccess && xlsxSuccess)
+            {
+                return Result.Succeeded; // Both succeeded
+            }
+            else if (csvSuccess || xlsxSuccess)
+            {
+                // Return Succeeded even if only one format worked, as some output was generated.
+                // The user is informed about the failure via the TaskDialog.
+                return Result.Succeeded;
+            }
+            else
+            {
+                message = "Both CSV and XLSX exports failed."; // Set the error message for Revit
+                return Result.Failed; // Both failed
+            }
+        }
+
+        // --- Recursive Pre-order Traversal Method ---
+        // Performs a depth-first traversal starting from a given node.
+        private void PreOrderVisit(string nodeName)
+        {
+            // Use a HashSet to detect cycles and avoid infinite loops.
+            // If Add returns false, the node is already in the set (currently being visited in this path).
+            if (!_visitedNodesDuringTraversal.Add(nodeName))
+            {
+                 // Cycle detected or node already fully processed in another branch - stop this path.
+                 // Log warning potentially? TaskDialog.Show("Warning", $"Cycle detected or node '{nodeName}' revisited unexpectedly.");
+                return;
+            }
+
+            // Check if there are any items originating from the current node
+            if (_itemsOriginatingFrom.TryGetValue(nodeName, out var outgoingItems))
+            {
+                // Process each child item originating from this node.
+                // The `outgoingItems` list is already sorted by FinalCableReference from Step 2b.
+                foreach (var childItem in outgoingItems)
+                {
+                    // Add the child item itself to the sorted list *before* visiting its children.
+                    _preOrderSortedData.Add(childItem);
+                    // Recursively visit the destination node of the child item.
+                    PreOrderVisit(childItem.SWBTo);
+                }
+            }
+
+            // Backtrack: Remove the node from the currently visited set *after* processing all its children.
+            // This allows the node to be visited again if reached via a different path in the graph.
+             _visitedNodesDuringTraversal.Remove(nodeName);
+        }
+
+
+        // --- Helper method to merge data ---
+        // Merges data from `newItem` into `existing` item, prioritizing non-empty values in `existing`.
+        // This is used when multiple paths lead to the same 'SWB To' node during traversal.
+        private void MergeDetailItemData(DetailItemData existing, DetailItemData newItem)
+        {
+            // Only update existing fields if they are currently empty/null/whitespace
+            // AND the new item has a non-empty/null/whitespace value.
+            // This prevents overwriting specifically set values (like those based on Type Name or "SAFETY") with blanks.
+
+            // Cable Reference (Should ideally be the same due to Step 2, but merge defensively)
+            if (string.IsNullOrWhiteSpace(existing.FinalCableReference) && !string.IsNullOrWhiteSpace(newItem.FinalCableReference)) existing.FinalCableReference = newItem.FinalCableReference;
+
+            // Connection Info (Should also be consistent for a given 'To' node, but merge defensively)
+            if (string.IsNullOrWhiteSpace(existing.SWBFrom) && !string.IsNullOrWhiteSpace(newItem.SWBFrom)) existing.SWBFrom = newItem.SWBFrom;
+            if (string.IsNullOrWhiteSpace(existing.SWBType) && !string.IsNullOrWhiteSpace(newItem.SWBType)) existing.SWBType = newItem.SWBType;
+
+            // Load/Rating Info (Take the first non-empty value encountered)
+            if (string.IsNullOrWhiteSpace(existing.SWBLoad) && !string.IsNullOrWhiteSpace(newItem.SWBLoad)) existing.SWBLoad = newItem.SWBLoad;
+            if (string.IsNullOrWhiteSpace(existing.SWBLoadScope) && !string.IsNullOrWhiteSpace(newItem.SWBLoadScope)) existing.SWBLoadScope = newItem.SWBLoadScope; // Always "Local"?
+            if (string.IsNullOrWhiteSpace(existing.SWBPF) && !string.IsNullOrWhiteSpace(newItem.SWBPF)) existing.SWBPF = newItem.SWBPF; // Always "1"?
+            if (string.IsNullOrWhiteSpace(existing.BusChassisRating) && !string.IsNullOrWhiteSpace(newItem.BusChassisRating)) existing.BusChassisRating = newItem.BusChassisRating;
+            if (string.IsNullOrWhiteSpace(existing.IsolatorType) && !string.IsNullOrWhiteSpace(newItem.IsolatorType)) existing.IsolatorType = newItem.IsolatorType;
+            if (string.IsNullOrWhiteSpace(existing.IsolatorRating) && !string.IsNullOrWhiteSpace(newItem.IsolatorRating)) existing.IsolatorRating = newItem.IsolatorRating;
+            // Prioritize existing ProtectiveDeviceRating if newItem's is blank
+            if (string.IsNullOrWhiteSpace(existing.ProtectiveDeviceRating) && !string.IsNullOrWhiteSpace(newItem.ProtectiveDeviceRating)) existing.ProtectiveDeviceRating = newItem.ProtectiveDeviceRating;
+
+            // Cable Info
+            // Prioritize existing CableLength if newItem's is blank
+            if (string.IsNullOrWhiteSpace(existing.CableLength) && !string.IsNullOrWhiteSpace(newItem.CableLength)) existing.CableLength = newItem.CableLength;
+            if (string.IsNullOrWhiteSpace(existing.CableSizeActive) && !string.IsNullOrWhiteSpace(newItem.CableSizeActive)) existing.CableSizeActive = newItem.CableSizeActive;
+            if (string.IsNullOrWhiteSpace(existing.CableSizeNeutral) && !string.IsNullOrWhiteSpace(newItem.CableSizeNeutral)) existing.CableSizeNeutral = newItem.CableSizeNeutral;
+            if (string.IsNullOrWhiteSpace(existing.CableSizeEarthing) && !string.IsNullOrWhiteSpace(newItem.CableSizeEarthing)) existing.CableSizeEarthing = newItem.CableSizeEarthing;
+            if (string.IsNullOrWhiteSpace(existing.ActiveConductorMaterial) && !string.IsNullOrWhiteSpace(newItem.ActiveConductorMaterial)) existing.ActiveConductorMaterial = newItem.ActiveConductorMaterial;
+            if (string.IsNullOrWhiteSpace(existing.CableAdditionalDerating) && !string.IsNullOrWhiteSpace(newItem.CableAdditionalDerating)) existing.CableAdditionalDerating = newItem.CableAdditionalDerating;
+
+            // Properties potentially set based on Type Name or other conditions - prioritize existing non-blank value
+            if (string.IsNullOrWhiteSpace(existing.NumPhases) && !string.IsNullOrWhiteSpace(newItem.NumPhases)) existing.NumPhases = newItem.NumPhases; // Handles "R"
+            // CableType is handled by the final logic step, so don't merge it here necessarily unless required
+            // if (string.IsNullOrWhiteSpace(existing.CableType) && !string.IsNullOrWhiteSpace(newItem.CableType)) existing.CableType = newItem.CableType;
+            if (string.IsNullOrWhiteSpace(existing.CableInsulation) && !string.IsNullOrWhiteSpace(newItem.CableInsulation)) existing.CableInsulation = newItem.CableInsulation; // Handles "X-HF-110"
+            if (string.IsNullOrWhiteSpace(existing.SwitchgearTripUnitType) && !string.IsNullOrWhiteSpace(newItem.SwitchgearTripUnitType)) existing.SwitchgearTripUnitType = newItem.SwitchgearTripUnitType; // Handles "Thermal Magnetic"
+
+            // Properties with hardcoded defaults - ensure they are set if blank
+            if (string.IsNullOrWhiteSpace(existing.InstallationMethod)) existing.InstallationMethod = "PT"; // Ensure "PT" is set
+            if (string.IsNullOrWhiteSpace(existing.SwitchgearManufacturer)) existing.SwitchgearManufacturer = "NAW Controls - LS Susol"; // Ensure Manufacturer is set
+            if (string.IsNullOrWhiteSpace(existing.BusType)) existing.BusType = "Bus Bar"; // Ensure Bus Type is set
+             if (string.IsNullOrWhiteSpace(existing.UpstreamDiversity)) existing.UpstreamDiversity = "STD"; // Ensure Diversity is set
+
+            // Protective Device Details (Take first non-empty value)
+            if (string.IsNullOrWhiteSpace(existing.ProtectiveDeviceManufacturer) && !string.IsNullOrWhiteSpace(newItem.ProtectiveDeviceManufacturer)) existing.ProtectiveDeviceManufacturer = newItem.ProtectiveDeviceManufacturer;
+            if (string.IsNullOrWhiteSpace(existing.ProtectiveDeviceType) && !string.IsNullOrWhiteSpace(newItem.ProtectiveDeviceType)) existing.ProtectiveDeviceType = newItem.ProtectiveDeviceType;
+            if (string.IsNullOrWhiteSpace(existing.ProtectiveDeviceModel) && !string.IsNullOrWhiteSpace(newItem.ProtectiveDeviceModel)) existing.ProtectiveDeviceModel = newItem.ProtectiveDeviceModel;
+            if (string.IsNullOrWhiteSpace(existing.ProtectiveDeviceOCRTripUnit) && !string.IsNullOrWhiteSpace(newItem.ProtectiveDeviceOCRTripUnit)) existing.ProtectiveDeviceOCRTripUnit = newItem.ProtectiveDeviceOCRTripUnit;
+            // Prioritize existing ProtectiveDeviceTripSetting if newItem's is blank
+            if (string.IsNullOrWhiteSpace(existing.ProtectiveDeviceTripSetting) && !string.IsNullOrWhiteSpace(newItem.ProtectiveDeviceTripSetting)) existing.ProtectiveDeviceTripSetting = newItem.ProtectiveDeviceTripSetting;
+        }
+
+    } // End class PowerCAD_ExportSLD
+} // End namespace PC_Exporter

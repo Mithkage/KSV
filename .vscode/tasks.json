@@ -1,0 +1,26 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/RevitAddin/KSV.csproj",
+                "/p:Configuration=Debug",
+                "/p:Platform=AnyCPU"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$msCompile"
+        }
+    ]
+}
+
+//I might need these
+//using Autodesk.Revit.Attributes;
+//using Autodesk.Revit.DB;
+//using Autodesk.Revit.UI;
+//using System;

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "GlFxkzUSAWktyU9bTWMLp6sLlUKEru3RZ9EtfdKTu+25v7lAG1SROyjiJ+v0LrSQvwXaZuybKMtZuabxtw7QCQ==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\KSV.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\kyles\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net48\\1.0.3\\microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\microsoft.office.interop.excel\\15.0.4795.1001\\microsoft.office.interop.excel.15.0.4795.1001.nupkg.sha512"
+  ],
+  "logs": []
+}

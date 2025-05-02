@@ -1,0 +1,206 @@
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using Excel = Microsoft.Office.Interop.Excel;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.IO;
+
+namespace PC_Exporter
+{
+    [Transaction(TransactionMode.Manual)]
+    public class PowerCAD_ExportSLD : IExternalCommand
+    {
+        // Helper class (remains the same)
+        private class DetailItemData { /* ... fields ... */
+            public string OriginalCableReference { get; set; }
+            public string FinalCableReference { get; set; }
+            public string SWBFrom { get; set; }
+            public string SWBTo { get; set; }
+            public string SWBType { get; set; }
+            public string SWBLoad { get; set; }
+            public string SWBLoadScope { get; set; }
+            public string SWBPF { get; set; }
+            public string CableLength { get; set; }
+            public string CableSizeActive { get; set; }
+            public string CableSizeNeutral { get; set; }
+            public string CableSizeEarthing { get; set; }
+            public string ActiveConductorMaterial { get; set; }
+            public string NumPhases { get; set; }
+            public string CableType { get; set; }
+            public string CableInsulation { get; set; }
+            public string InstallationMethod { get; set; }
+            public string CableAdditionalDerating { get; set; }
+            public string SwitchgearTripUnitType { get; set; }
+            public string SwitchgearManufacturer { get; set; }
+            public string BusType { get; set; }
+            public string BusChassisRating { get; set; }
+            public string UpstreamDiversity { get; set; }
+            public string IsolatorType { get; set; }
+            public string IsolatorRating { get; set; }
+            public string ProtectiveDeviceRating { get; set; }
+            public string ProtectiveDeviceManufacturer { get; set; }
+            public string ProtectiveDeviceType { get; set; }
+            public string ProtectiveDeviceModel { get; set; }
+            public string ProtectiveDeviceOCRTripUnit { get; set; }
+            public string ProtectiveDeviceTripSetting { get; set; }
+         }
+
+        // Helper function for CSV escaping (remains the same)
+        private string EscapeCsvField(string field) { /* ... code ... */ if (field == null) return ""; if (field.Contains(",") || field.Contains("\"") || field.Contains("\n") || field.Contains("\r")) { string escapedField = field.Replace("\"", "\"\""); return $"\"{escapedField}\""; } else { return field; } }
+
+        // --- Member variables for Pre-order Traversal ---
+        private List<DetailItemData> _preOrderSortedData;
+        private HashSet<string> _visitedNodesDuringTraversal; // Tracks nodes visited *during recursion* to prevent cycles
+        private Dictionary<string, List<DetailItemData>> _itemsOriginatingFrom;
+
+
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            UIApplication uiApp = commandData.Application;
+            Document doc = uiApp.ActiveUIDocument.Document;
+
+            // Filter for Detail Items
+            FilteredElementCollector collector = new FilteredElementCollector(doc);
+            List<Element> detailItems = collector.OfCategory(BuiltInCategory.OST_DetailComponents)
+                                                 .WhereElementIsNotElementType()
+                                                 .ToList();
+            if (detailItems.Count == 0) { /* ... message ... */ return Result.Succeeded; }
+
+            // --- Step 1: Data Collection & Pre-processing ---
+            var groupedData = new Dictionary<string, List<DetailItemData>>(); // Grouped by SWB To
+            var allNodes = new HashSet<string>(); // All unique SWB names
+            foreach (Element detailItem in detailItems) { /* ... collect data, populate groupedData, allNodes ... */ Parameter pcPowerCADParam = detailItem.LookupParameter("PC_PowerCAD"); Parameter pcSWBToParam = detailItem.LookupParameter("PC_SWB To"); Parameter pcSWBFromParam = detailItem.LookupParameter("PC_From"); if (pcPowerCADParam != null && pcPowerCADParam.AsInteger() == 1 && pcSWBToParam != null && !string.IsNullOrWhiteSpace(pcSWBToParam.AsString())) { string swbToValue = pcSWBToParam.AsString(); string swbFromValue = pcSWBFromParam?.AsString() ?? ""; if (string.IsNullOrWhiteSpace(swbFromValue)) swbFromValue = "SOURCE"; Parameter pcCableReferenceParam = detailItem.LookupParameter("PC_Cable Reference"); string cableReferenceValue = pcCableReferenceParam?.AsString() ?? ""; allNodes.Add(swbToValue); allNodes.Add(swbFromValue); var data = new DetailItemData { /* ... populate fields ... */ OriginalCableReference = cableReferenceValue, SWBFrom = swbFromValue, SWBTo = swbToValue, SWBType = "", SWBLoad = detailItem.LookupParameter("PC_Protective Device Rating (A)")?.AsString() ?? "", SWBLoadScope = "Local", SWBPF = "1", CableLength = "", CableSizeActive = "", CableSizeNeutral = "", CableSizeEarthing = "", ActiveConductorMaterial = "", NumPhases = "", CableType = "", CableInsulation = "", InstallationMethod = "", CableAdditionalDerating = "", SwitchgearTripUnitType = "", SwitchgearManufacturer = "", BusType = "", BusChassisRating = detailItem.LookupParameter("PC_Bus/Chassis Rating (A)")?.AsString() ?? "", UpstreamDiversity = "", IsolatorType = "", IsolatorRating = "", ProtectiveDeviceRating = detailItem.LookupParameter("PC_Protective Device Rating (A)")?.AsString() ?? "", ProtectiveDeviceManufacturer = "", ProtectiveDeviceType = "", ProtectiveDeviceModel = "", ProtectiveDeviceOCRTripUnit = "", ProtectiveDeviceTripSetting = "" }; if (!groupedData.ContainsKey(swbToValue)) groupedData[swbToValue] = new List<DetailItemData>(); groupedData[swbToValue].Add(data); } }
+            if (groupedData.Count == 0) { /* ... message ... */ return Result.Succeeded; }
+
+            // --- Step 2: Determine Definitive Cable Reference & Create Flat List ---
+            // Note: FinalCableReference is determined but NOT used for sorting in this version
+            var definitiveCableReferencePerGroup = new Dictionary<string, string>();
+            var allProcessedData = new List<DetailItemData>(); // Flat list
+            foreach (var kvp in groupedData) { /* ... calculate definitive ref, assign FinalCableReference, add to allProcessedData ... */ string swbTo = kvp.Key; List<DetailItemData> itemsInGroup = kvp.Value; string foundReference = ""; foreach (var itemData in itemsInGroup) { if (!string.IsNullOrWhiteSpace(itemData.OriginalCableReference)) { foundReference = itemData.OriginalCableReference; break; } } definitiveCableReferencePerGroup[swbTo] = foundReference; foreach (var itemData in itemsInGroup) { itemData.FinalCableReference = foundReference; allProcessedData.Add(itemData); } }
+
+            // --- Step 3: Build Dependency Graph (In-degree needed for starting points) ---
+             var inDegree = new Dictionary<string, int>();
+             foreach(string node in allNodes) { if (!inDegree.ContainsKey(node)) inDegree[node] = 0; }
+             _itemsOriginatingFrom = allProcessedData.GroupBy(d => d.SWBFrom).ToDictionary(g => g.Key, g => g.ToList());
+             foreach (var item in allProcessedData) { string v = item.SWBTo; if (inDegree.ContainsKey(v)) { if(item.SWBFrom != "SOURCE" || allNodes.Contains("SOURCE")) inDegree[v]++; } }
+
+            // --- Step 4: Perform Pre-order Traversal Sort (Add Edge -> Recurse Child, Sort children by SWB To) ---
+            _preOrderSortedData = new List<DetailItemData>(); // Intermediate list populated by traversal
+            _visitedNodesDuringTraversal = new HashSet<string>();
+            var startingNodes = inDegree.Where(kvp => kvp.Value == 0).Select(kvp => kvp.Key).ToList();
+            if (allNodes.Contains("SOURCE") && !startingNodes.Contains("SOURCE")) { bool sourceHasIncoming = allProcessedData.Any(d => d.SWBTo == "SOURCE"); if(!sourceHasIncoming) startingNodes.Add("SOURCE"); }
+            startingNodes.Sort(); // Sort roots alphabetically
+            foreach (string startNode in startingNodes)
+            {
+                // Initiate traversal for roots - we don't add the root node itself,
+                // the traversal adds the *edges* coming *from* it.
+                PreOrderVisit(startNode);
+            }
+            // Optional: Handle disconnected graphs if necessary
+            // foreach(string node in allNodes) { if(!_visitedNodesDuringTraversal.Contains(node)) PreOrderVisit(node); }
+
+
+            // --- Step 5: Filter for Unique SWB To (Re-introduced as requested) ---
+            var uniqueSwbToExcelData = new List<DetailItemData>(); // Final list for export
+            var addedSwbToValues = new HashSet<string>();
+            // Iterate through the pre-order sorted list (_preOrderSortedData)
+            foreach(var itemData in _preOrderSortedData)
+            {
+                // TryAdd returns true if the value was added (i.e., it wasn't already present)
+                // Keep only the FIRST row encountered for each unique SWB To in the sorted list
+                if (addedSwbToValues.Add(itemData.SWBTo))
+                {
+                    uniqueSwbToExcelData.Add(itemData);
+                }
+            }
+
+
+            // --- Step 6: Write Output Files ---
+            // Use uniqueSwbToExcelData for writing
+            string baseFileName = "DetailItems_PreOrderAddEdge_BySWBTo_UniqueSWBTo"; // Updated filename
+            string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            string csvFilePath = Path.Combine(desktopPath, baseFileName + ".csv");
+            string xlsxFilePath = Path.Combine(desktopPath, baseFileName + ".xlsx");
+            bool csvSuccess = false; bool xlsxSuccess = false; string csvError = null; string xlsxError = null;
+            string[] headers = { /* ... headers ... */ "Cable Reference", "SWB From", "SWB To", "SWB Type", "SWB Load", "SWB Load Scope", "SWB PF", "Cable Length", "Cable Size - Active conductors", "Cable Size - Neutral conductors", "Cable Size - Earthing conductor", "Active Conductor material", "# of Phases", "Cable Type", "Cable Insulation", "Installation Method", "Cable Additional De-rating", "Switchgear Trip Unit Type", "Switchgear Manufacturer", "Bus Type", "Bus/Chassis Rating (A)", "Upstream Diversity", "Isolator Type", "Isolator Rating (A)", "Protective Device Rating (A)", "Protective Device Manufacturer", "Protective Device Type", "Protective Device Model", "Protective Device OCR/Trip Unit", "Protective Device Trip Setting (A)" };
+
+            // --- Write CSV File ---
+            try
+            {
+                StringBuilder csvContent = new StringBuilder();
+                // Add Header Row
+                csvContent.AppendLine(string.Join(",", headers));
+
+                // Add Data Rows
+                foreach (var itemData in uniqueSwbToExcelData) // Ensure using the final filtered list
+                {
+                    string displaySwbFrom = (itemData.SWBFrom == "SOURCE") ? "" : itemData.SWBFrom;
+                    // Create list of fields in the correct order, applying escaping
+                    var fields = new List<string>
+                    {
+                        EscapeCsvField(itemData.FinalCableReference), EscapeCsvField(displaySwbFrom), // ... other fields ...
+                        EscapeCsvField(itemData.SWBTo), EscapeCsvField(itemData.SWBType), EscapeCsvField(itemData.SWBLoad), EscapeCsvField(itemData.SWBLoadScope), EscapeCsvField(itemData.SWBPF), EscapeCsvField(itemData.CableLength), EscapeCsvField(itemData.CableSizeActive), EscapeCsvField(itemData.CableSizeNeutral), EscapeCsvField(itemData.CableSizeEarthing), EscapeCsvField(itemData.ActiveConductorMaterial), EscapeCsvField(itemData.NumPhases), EscapeCsvField(itemData.CableType), EscapeCsvField(itemData.CableInsulation), EscapeCsvField(itemData.InstallationMethod), EscapeCsvField(itemData.CableAdditionalDerating), EscapeCsvField(itemData.SwitchgearTripUnitType), EscapeCsvField(itemData.SwitchgearManufacturer), EscapeCsvField(itemData.BusType), EscapeCsvField(itemData.BusChassisRating), EscapeCsvField(itemData.UpstreamDiversity), EscapeCsvField(itemData.IsolatorType), EscapeCsvField(itemData.IsolatorRating), EscapeCsvField(itemData.ProtectiveDeviceRating), EscapeCsvField(itemData.ProtectiveDeviceManufacturer), EscapeCsvField(itemData.ProtectiveDeviceType), EscapeCsvField(itemData.ProtectiveDeviceModel), EscapeCsvField(itemData.ProtectiveDeviceOCRTripUnit), EscapeCsvField(itemData.ProtectiveDeviceTripSetting)
+                    };
+                    csvContent.AppendLine(string.Join(",", fields));
+                }
+
+                // Write to file using UTF8Encoding constructor to disable BOM
+                // new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+                File.WriteAllText(csvFilePath, csvContent.ToString(), new UTF8Encoding(false)); // CHANGE HERE
+                csvSuccess = true;
+            }
+            catch (Exception ex)
+            {
+                csvError = $"Failed to write CSV file: {ex.Message}";
+            }
+            // --- Write XLSX File ---
+            Excel.Application excelApp = null; Excel.Workbook workbook = null; Excel.Worksheet worksheet = null;
+            try { /* ... XLSX writing logic using uniqueSwbToExcelData ... */ excelApp = new Excel.Application { Visible = false, DisplayAlerts = false }; workbook = excelApp.Workbooks.Add(); worksheet = (Excel.Worksheet)workbook.Sheets[1]; for (int i = 0; i < headers.Length; i++) { worksheet.Cells[1, i + 1] = headers[i]; } int row = 2; foreach (var itemData in uniqueSwbToExcelData) { string displaySwbFrom = (itemData.SWBFrom == "SOURCE") ? "" : itemData.SWBFrom; worksheet.Cells[row, 1] = itemData.FinalCableReference; worksheet.Cells[row, 2] = displaySwbFrom; worksheet.Cells[row, 3] = itemData.SWBTo; /* ... write other fields ... */ worksheet.Cells[row, 4] = itemData.SWBType; worksheet.Cells[row, 5] = itemData.SWBLoad; worksheet.Cells[row, 6] = itemData.SWBLoadScope; worksheet.Cells[row, 7] = itemData.SWBPF; worksheet.Cells[row, 8] = itemData.CableLength; worksheet.Cells[row, 9] = itemData.CableSizeActive; worksheet.Cells[row, 10] = itemData.CableSizeNeutral; worksheet.Cells[row, 11] = itemData.CableSizeEarthing; worksheet.Cells[row, 12] = itemData.ActiveConductorMaterial; worksheet.Cells[row, 13] = itemData.NumPhases; worksheet.Cells[row, 14] = itemData.CableType; worksheet.Cells[row, 15] = itemData.CableInsulation; worksheet.Cells[row, 16] = itemData.InstallationMethod; worksheet.Cells[row, 17] = itemData.CableAdditionalDerating; worksheet.Cells[row, 18] = itemData.SwitchgearTripUnitType; worksheet.Cells[row, 19] = itemData.SwitchgearManufacturer; worksheet.Cells[row, 20] = itemData.BusType; worksheet.Cells[row, 21] = itemData.BusChassisRating; worksheet.Cells[row, 22] = itemData.UpstreamDiversity; worksheet.Cells[row, 23] = itemData.IsolatorType; worksheet.Cells[row, 24] = itemData.IsolatorRating; worksheet.Cells[row, 25] = itemData.ProtectiveDeviceRating; worksheet.Cells[row, 26] = itemData.ProtectiveDeviceManufacturer; worksheet.Cells[row, 27] = itemData.ProtectiveDeviceType; worksheet.Cells[row, 28] = itemData.ProtectiveDeviceModel; worksheet.Cells[row, 29] = itemData.ProtectiveDeviceOCRTripUnit; worksheet.Cells[row, 30] = itemData.ProtectiveDeviceTripSetting; row++; } worksheet.Columns.AutoFit(); workbook.SaveAs(xlsxFilePath); xlsxSuccess = true; } catch (Exception ex) { xlsxError = $"Failed to write XLSX file: {ex.Message}"; }
+            finally { /* ... Release COM objects ... */ if (worksheet != null) Marshal.ReleaseComObject(worksheet); if (workbook != null) { workbook.Close(false); Marshal.ReleaseComObject(workbook); } if (excelApp != null) { excelApp.Quit(); Marshal.ReleaseComObject(excelApp); } GC.Collect(); GC.WaitForPendingFinalizers(); }
+
+            // --- Final Reporting ---
+            StringBuilder finalMessage = new StringBuilder(); /* ... construct message ... */ if (csvSuccess) { finalMessage.AppendLine($"CSV export successful:\n{csvFilePath}"); } else { finalMessage.AppendLine($"CSV export FAILED: {csvError}"); } if (xlsxSuccess) { finalMessage.AppendLine($"XLSX export successful:\n{xlsxFilePath}"); } else { finalMessage.AppendLine($"XLSX export FAILED: {xlsxError}"); }
+            TaskDialog.Show("Export Results", finalMessage.ToString());
+            if (csvSuccess && xlsxSuccess) { return Result.Succeeded; } else if (csvSuccess || xlsxSuccess) { return Result.Succeeded; } else { return Result.Failed; }
+        }
+
+        // --- Recursive Pre-order Traversal Method (Add Edge -> Recurse Child, Sort children by SWB To) ---
+        private void PreOrderVisit(string nodeName) // nodeName here is the *Source* (SWB From)
+        {
+            // Prevent infinite loops in case of cycles - track source nodes visited in this path
+            if (!_visitedNodesDuringTraversal.Add(nodeName))
+            {
+                // Optional: Log cycle detection or handle differently
+                return; // Already visited this source node in the current traversal path
+            }
+
+            // Find connections originating from the current source node
+            if (_itemsOriginatingFrom.TryGetValue(nodeName, out var outgoingItems))
+            {
+                // Sort the outgoing items/edges alphabetically by Destination (SWB To)
+                var sortedOutgoingItems = outgoingItems.OrderBy(d => d.SWBTo).ToList();
+
+                // Iterate through sorted children (edges)
+                foreach (var childItem in sortedOutgoingItems)
+                {
+                    // 1. Add the edge row to the list FIRST
+                    _preOrderSortedData.Add(childItem);
+
+                    // 2. THEN, recursively visit the destination node of this edge
+                    PreOrderVisit(childItem.SWBTo);
+                }
+            }
+            // Else: This node is a leaf node (no outgoing connections in the dataset)
+
+            // --- IMPORTANT: Remove node from visited set when backtracking ---
+            // This allows nodes to be visited again if reached via a different path,
+            // which is necessary if the graph isn't strictly a tree.
+            // The final unique SWB To filter handles duplicates in the output.
+            _visitedNodesDuringTraversal.Remove(nodeName);
+        }
+    }
+}

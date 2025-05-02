@@ -1,0 +1,11 @@
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\KSV.csproj.AssemblyReference.cache
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\KSV.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\KSV.AssemblyInfoInputs.cache
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\KSV.AssemblyInfo.cs
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\KSV.csproj.CoreCompileInputs.cache
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\KSV.dll
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\KSV.pdb
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\KSV.dll
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\KSV.pdb
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\Microsoft.Office.Interop.Excel.dll
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\KSV.csproj.CopyComplete
