@@ -1,15 +1,15 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\KSV.csproj": {}
+    "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj": {}
   },
   "projects": {
-    "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\KSV.csproj": {
+    "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\KSV.csproj",
-        "projectName": "KSV",
-        "projectPath": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\KSV.csproj",
+        "projectUniqueName": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj",
+        "projectName": "RTS",
+        "projectPath": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj",
         "packagesPath": "C:\\Users\\kyles\\.nuget\\packages\\",
         "outputPath": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\obj\\",
         "projectStyle": "PackageReference",
@@ -43,10 +43,6 @@
               "target": "Package",
               "version": "[1.0.3, )",
               "autoReferenced": true
-            },
-            "Microsoft.Office.Interop.Excel": {
-              "target": "Package",
-              "version": "[15.0.4795.1001, )"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.202\\RuntimeIdentifierGraph.json"

@@ -13,15 +13,6 @@
         "build": {
           "build/Microsoft.NETFramework.ReferenceAssemblies.net48.targets": {}
         }
-      },
-      "Microsoft.Office.Interop.Excel/15.0.4795.1001": {
-        "type": "package",
-        "compile": {
-          "lib/net20/Microsoft.Office.Interop.Excel.dll": {}
-        },
-        "runtime": {
-          "lib/net20/Microsoft.Office.Interop.Excel.dll": {}
-        }
       }
     }
   },
@@ -416,25 +407,11 @@
         "microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512",
         "microsoft.netframework.referenceassemblies.net48.nuspec"
       ]
-    },
-    "Microsoft.Office.Interop.Excel/15.0.4795.1001": {
-      "sha512": "cuvqi/U5MYSM0gvR2l90q0m/urRgmg69EiwP5VWp1RcaJ0YT5G26Va5LaOZ3KJFc22FNihS5CUjeePUp2YpGQA==",
-      "type": "package",
-      "path": "microsoft.office.interop.excel/15.0.4795.1001",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "lib/net20/Microsoft.Office.Interop.Excel.dll",
-        "lib/netstandard2.0/Microsoft.Office.Interop.Excel.dll",
-        "microsoft.office.interop.excel.15.0.4795.1001.nupkg.sha512",
-        "microsoft.office.interop.excel.nuspec"
-      ]
     }
   },
   "projectFileDependencyGroups": {
     ".NETFramework,Version=v4.8": [
-      "Microsoft.NETFramework.ReferenceAssemblies >= 1.0.3",
-      "Microsoft.Office.Interop.Excel >= 15.0.4795.1001"
+      "Microsoft.NETFramework.ReferenceAssemblies >= 1.0.3"
     ]
   },
   "packageFolders": {
@@ -443,9 +420,9 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\KSV.csproj",
-      "projectName": "KSV",
-      "projectPath": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\KSV.csproj",
+      "projectUniqueName": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj",
+      "projectName": "RTS",
+      "projectPath": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj",
       "packagesPath": "C:\\Users\\kyles\\.nuget\\packages\\",
       "outputPath": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\obj\\",
       "projectStyle": "PackageReference",
@@ -479,10 +456,6 @@
             "target": "Package",
             "version": "[1.0.3, )",
             "autoReferenced": true
-          },
-          "Microsoft.Office.Interop.Excel": {
-            "target": "Package",
-            "version": "[15.0.4795.1001, )"
           }
         },
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.202\\RuntimeIdentifierGraph.json"

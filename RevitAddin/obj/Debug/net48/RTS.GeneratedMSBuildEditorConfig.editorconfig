@@ -5,5 +5,5 @@ build_property.ApplicationDefaultFont =
 build_property.ApplicationHighDpiMode = 
 build_property.ApplicationUseCompatibleTextRendering = 
 build_property.ApplicationVisualStyles = 
-build_property.RootNamespace = KSV
+build_property.RootNamespace = RTS
 build_property.ProjectDir = C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\

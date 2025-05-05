@@ -1,0 +1,315 @@
+// src/PC_Importer.cs
+
+using Autodesk.Revit.ApplicationServices;
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Windows.Forms; // Needed for OpenFileDialog, causes ambiguity with Application if not handled
+using Microsoft.VisualBasic.FileIO;
+
+// Revit API type alias (Optional, but can help avoid ambiguity)
+// using RevitApplication = Autodesk.Revit.ApplicationServices.Application;
+
+namespace PCImporterAddin
+{
+    [Transaction(TransactionMode.Manual)]
+    [Regeneration(RegenerationOption.Manual)]
+    public class PC_Importer : IExternalCommand
+    {
+        public Result Execute(
+          ExternalCommandData commandData,
+          ref string message,
+          ElementSet elements)
+        {
+            UIApplication uiapp = commandData.Application;
+            UIDocument uidoc = uiapp.ActiveUIDocument;
+            // *** FIX 1: Use 'var' to resolve ambiguity ***
+            var app = uiapp.Application; // Was: Application app = uiapp.Application;
+            Document doc = uidoc.Document;
+
+            // --- 1. Get CSV File Path from User ---
+            string csvFilePath = GetCsvFilePath();
+            if (string.IsNullOrEmpty(csvFilePath))
+            {
+                message = "Operation cancelled by user.";
+                return Result.Cancelled;
+            }
+
+            // --- 2. Define Parameter Mapping ---
+            Dictionary<string, string> parameterMapping = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                {"Cable Reference", "PC_Cable Reference"},
+                {"SWB From", "PC_SWB From"},
+                {"SWB To", "PC_SWB To"},
+                {"SWB Type", "PC_SWB Type"},
+                {"SWB Load", "PC_SWB Load"},
+                {"SWB Load Scope", "PC_SWB Load Scope"},
+                {"SWB PF", "PC_SWB PF"},
+                {"Cable Length", "PC_Cable Length"},
+                {"Cable Size - Active conductors", "PC_Cable Size - Active conductors"},
+                {"Cable Size - Neutral conductors", "PC_Cable Size - Neutral conductors"},
+                {"Cable Size - Earthing conductor", "PC_Cable Size - Earthing conductor"},
+                {"Active Conductor material", "PC_Active Conductor material"},
+                {"# of Phases", "PC_# of Phases"},
+                {"Cable Type", "PC_Cable Type"},
+                {"Cable Insulation", "PC_Cable Insulation"},
+                {"Installation Method", "PC_Installation Method"},
+                {"Cable Additional De-rating", "PC_Cable Additional De-rating"},
+                {"Switchgear Trip Unit Type", "PC_Switchgear Trip Unit Type"},
+                {"Switchgear Manufacturer", "PC_Switchgear Manufacturer"},
+                {"Bus Type", "PC_Bus Type"},
+                {"Bus/Chassis Rating (A)", "PC_Bus/Chassis Rating (A)"},
+                {"Upstream Diversity", "PC_Upstream Diversity"},
+                {"Isolator Type", "PC_Isolator Type"},
+                {"Isolator Rating (A)", "PC_Isolator Rating (A)"},
+                {"Protective Device Rating (A)", "PC_Protective Device Rating (A)"},
+                {"Protective Device Manufacturer", "PC_Protective Device Manufacturer"},
+                {"Protective Device Type", "PC_Protective Device Type"},
+                {"Protective Device Model", "PC_Protective Device Model"},
+                {"Protective Device OCR/Trip Unit", "PC_Protective Device OCR/Trip Unit"},
+                {"Protective Device Trip Setting (A)", "PC_Protective Device Trip Setting (A)"}
+            };
+
+            // --- 3. Read and Parse CSV Data ---
+            List<Dictionary<string, string>> csvData = new List<Dictionary<string, string>>();
+            string[] headers = null;
+            int swbToCsvIndex = -1;
+            Dictionary<string, Dictionary<string, string>> csvLookup = null;
+
+            try
+            {
+                using (TextFieldParser parser = new TextFieldParser(csvFilePath))
+                {
+                    parser.TextFieldType = FieldType.Delimited;
+                    parser.SetDelimiters(",");
+                    parser.HasFieldsEnclosedInQuotes = true;
+
+                    if (!parser.EndOfData) {
+                        headers = parser.ReadFields()?.Select(h => h.Trim()).ToArray();
+                        if (headers == null || headers.Length == 0) { message = "CSV header row missing."; TaskDialog.Show("CSV Error", message); return Result.Failed; } // Added feedback
+                        swbToCsvIndex = Array.FindIndex(headers, h => h.Equals("SWB To", StringComparison.OrdinalIgnoreCase));
+                        if (swbToCsvIndex < 0) { message = "CSV must contain 'SWB To' column."; TaskDialog.Show("CSV Error", message); return Result.Failed; } // Added feedback
+                    } else {
+                        message = "CSV file appears empty."; TaskDialog.Show("CSV Error", message); return Result.Failed; // Added feedback for empty file
+                    }
+                    while (!parser.EndOfData) {
+                        string[] fields = parser.ReadFields();
+                        if (fields != null && headers != null && fields.Length == headers.Length) {
+                            var rowData = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                            for (int i = 0; i < headers.Length; i++) {
+                                if (!string.IsNullOrWhiteSpace(headers[i]) && (parameterMapping.ContainsKey(headers[i]) || i == swbToCsvIndex)) {
+                                    rowData[headers[i]] = fields[i]?.Trim() ?? string.Empty;
+                                }
+                            }
+                            if (rowData.ContainsKey("SWB To") && !string.IsNullOrWhiteSpace(rowData["SWB To"])) {
+                                csvData.Add(rowData);
+                            }
+                        } // Add logging for mismatched columns if desired
+                    }
+                }
+                 if (!csvData.Any()) {
+                     message = "No valid data rows found in CSV (check 'SWB To' values).";
+                     TaskDialog.Show("CSV Warning", message); // Changed to Warning as it might not be an error
+                     return Result.Succeeded; // Or Failed depending on desired behavior
+                 }
+                 csvLookup = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+                 foreach(var row in csvData) { csvLookup[row["SWB To"]] = row; } // Overwrite duplicates
+            }
+            catch (Exception ex) {
+                message = $"Error reading/parsing CSV: {ex.Message}";
+                 TaskDialog.Show("CSV Error", message); return Result.Failed;
+            }
+
+
+            // --- 4. Find and Filter Detail Items ---
+             FilteredElementCollector collector = new FilteredElementCollector(doc);
+             List<Element> detailItemsToUpdate;
+             try
+             {
+                  detailItemsToUpdate = collector
+                    .OfCategory(BuiltInCategory.OST_DetailComponents)
+                    .OfClass(typeof(FamilyInstance))
+                    .WhereElementIsNotElementType()
+                    .ToList()
+                    .Where(el => {
+                         try {
+                            Parameter powerCadParam = el.LookupParameter("PC_PowerCAD");
+                            bool powerCadIsTrue = (powerCadParam?.StorageType == StorageType.Integer && powerCadParam.AsInteger() == 1) ||
+                                                (powerCadParam?.StorageType == StorageType.ElementId && powerCadParam.AsValueString()?.Equals("Yes", StringComparison.OrdinalIgnoreCase) == true);
+                            if (!powerCadIsTrue) return false;
+                            Parameter swbToParam = el.LookupParameter("PC_SWB To");
+                            return swbToParam != null && swbToParam.HasValue && !string.IsNullOrEmpty(swbToParam.AsValueString());
+                         } catch { return false;}
+                    })
+                    .ToList();
+             } catch (Exception ex) {
+                  message = $"Error filtering elements: {ex.Message}"; TaskDialog.Show("Revit Element Error", message); return Result.Failed;
+             }
+              if (!detailItemsToUpdate.Any()) { TaskDialog.Show("Info", "No Detail Items found matching criteria."); return Result.Succeeded; }
+
+
+            // --- 5. Update Parameters within a Transaction ---
+            int updatedCount = 0;
+            int skippedCount = 0;
+            List<string> errors = new List<string>();
+            using (Transaction tx = new Transaction(doc)) {
+                 try {
+                      tx.Start("Import PowerCAD CSV Data");
+                       foreach (Element detailItem in detailItemsToUpdate) {
+                            Parameter swbToParamRevit = detailItem.LookupParameter("PC_SWB To");
+                            string swbToValueRevit = swbToParamRevit?.AsString();
+                            if (string.IsNullOrEmpty(swbToValueRevit)) { skippedCount++; continue; }
+
+                             if (csvLookup != null && csvLookup.TryGetValue(swbToValueRevit, out var matchingCsvRow)) {
+                                  bool itemUpdated = false;
+                                  foreach (var kvp in parameterMapping) {
+                                       string csvHeader = kvp.Key; string revitParamName = kvp.Value;
+                                       if (matchingCsvRow.TryGetValue(csvHeader, out string csvValue)) {
+                                            Parameter targetParam = detailItem.LookupParameter(revitParamName);
+                                            if (targetParam != null && !targetParam.IsReadOnly) {
+                                                 try {
+                                                      string currentValueStr = GetParameterValueAsString(targetParam);
+                                                      if (currentValueStr != csvValue) {
+                                                          bool success = SetParameterValueFromString(targetParam, csvValue);
+                                                          if(success) itemUpdated = true;
+                                                          else errors.Add($"Could not set '{csvValue}' for '{revitParamName}' (Type: {targetParam.StorageType}) on Elem ID {detailItem.Id}.");
+                                                      }
+                                                 } catch (Exception ex) { errors.Add($"Error setting '{revitParamName}' on Elem ID {detailItem.Id}: {ex.Message}"); }
+                                            }
+                                       }
+                                  }
+                                   if (itemUpdated) updatedCount++;
+                                   else skippedCount++;
+                             } else { skippedCount++; }
+                       }
+
+                        if (updatedCount > 0 || errors.Any()) tx.Commit();
+                        else { tx.RollBack(); message = "No parameter changes were necessary."; }
+
+                 } catch (Exception ex) {
+                      tx.RollBack(); message = $"Transaction error: {ex.Message}"; TaskDialog.Show("Transaction Error", message); return Result.Failed;
+                 }
+            }
+
+
+            // --- 6. Report Results ---
+            string summary = $"Import complete.\n\n" +
+                             $"Detail Items processed matching criteria: {detailItemsToUpdate.Count}\n" +
+                             $"Detail Items with parameters updated: {updatedCount}\n" +
+                             $"Detail Items skipped (No match / No change / Empty 'PC_SWB To'): {skippedCount}\n";
+             if (!string.IsNullOrEmpty(message) && updatedCount == 0 && !errors.Any()) summary += $"\nNote: {message}\n";
+             if (errors.Any()) {
+                 summary += $"\nEncountered {errors.Count} errors/warnings:\n";
+                 summary += string.Join("\n", errors.Take(15)); if (errors.Count > 15) summary += "\n...";
+                 TaskDialog.Show("Import Report with Errors/Warnings", summary);
+             } else { TaskDialog.Show("Import Report", summary); }
+
+            return Result.Succeeded;
+        }
+
+        // --- Helper Methods ---
+
+        private string GetCsvFilePath()
+        {
+             string filePath = null;
+             System.Threading.Thread t = new System.Threading.Thread(() => {
+                 using (OpenFileDialog openFileDialog = new OpenFileDialog()) {
+                     openFileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                     openFileDialog.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
+                     openFileDialog.FilterIndex = 1; openFileDialog.RestoreDirectory = true; openFileDialog.Title = "Select PowerCAD Data CSV File";
+                     if (openFileDialog.ShowDialog() == DialogResult.OK) filePath = openFileDialog.FileName;
+                 }
+             });
+             t.SetApartmentState(System.Threading.ApartmentState.STA); t.Start(); t.Join();
+             return filePath;
+        }
+
+        private bool SetParameterValueFromString(Parameter param, string value)
+        {
+             if (param == null || param.IsReadOnly) return false;
+             try {
+                 switch (param.StorageType) {
+                     case StorageType.Double:
+                         if (double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double doubleVal)) { param.Set(doubleVal); return true; } break;
+                     case StorageType.Integer:
+                         if (int.TryParse(value, out int intVal)) { param.Set(intVal); return true; }
+                         else if (value.Equals("Yes", StringComparison.OrdinalIgnoreCase)) { param.Set(1); return true;}
+                         else if (value.Equals("No", StringComparison.OrdinalIgnoreCase)) { param.Set(0); return true;} break;
+                     case StorageType.String: param.Set(value); return true;
+                     case StorageType.ElementId:
+                        // Use specific ElementId values for Yes/No only if Definition indicates YesNo type
+                        Definition def = param.Definition;
+                        ForgeTypeId specTypeId = def.GetDataType(); // Use modern API
+                        if (specTypeId == SpecTypeId.Boolean.YesNo) // Check if it's specifically a Yes/No parameter
+                        {
+                             if (value.Equals("Yes", StringComparison.OrdinalIgnoreCase)) { param.Set(ElementIdExtension.GetElementId(1)); return true;}
+                             else if (value.Equals("No", StringComparison.OrdinalIgnoreCase)) { param.Set(ElementIdExtension.GetElementId(0)); return true;}
+                        }
+                        // Add specific ElementId lookup logic here if needed based on CSV data for other types (Materials, etc.)
+                        break; // Fail if not Yes/No and no specific lookup implemented
+                     default: try { param.Set(value); return true; } catch { return false; }
+                 }
+             } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Error setting param {param.Definition.Name}: {ex.Message}"); return false; }
+             return false;
+        }
+
+        private string GetParameterValueAsString(Parameter param)
+        {
+            if (param == null || !param.HasValue) return string.Empty;
+            switch (param.StorageType) {
+                case StorageType.Double: return param.AsDouble().ToString(System.Globalization.CultureInfo.InvariantCulture);
+                case StorageType.Integer:
+                    Definition def = param.Definition;
+                    // *** FIX 2: Remove conditional compilation and use only modern API for Revit 2024 ***
+                    ForgeTypeId specTypeId = def.GetDataType(); // Modern API
+                    if (specTypeId == SpecTypeId.Boolean.YesNo) // Check if it's a Yes/No type
+                    {
+                        return param.AsInteger() == 1 ? "Yes" : "No";
+                    }
+                    // Otherwise, return integer as string
+                    return param.AsInteger().ToString();
+                case StorageType.String: return param.AsString() ?? string.Empty;
+                case StorageType.ElementId:
+                    ElementId id = param.AsElementId();
+                    Definition defId = param.Definition;
+                    // *** FIX 3: Remove conditional compilation and use only modern API for Revit 2024 ***
+                    ForgeTypeId specTypeIdId = defId.GetDataType(); // Modern API
+                    if (specTypeIdId == SpecTypeId.Boolean.YesNo)
+                    {
+                         // Check common integer values associated with Yes/No ElementIds
+                         return (id != null && id.IntegerValue != 0 && id.IntegerValue != -1) ? "Yes" : "No"; // Best guess common implementation
+                    }
+                    // If not Yes/No, return ElementId integer value as string or look up element name if needed
+                    return id?.IntegerValue.ToString() ?? string.Empty;
+                default: return param.AsValueString() ?? string.Empty; // Fallback
+            }
+        }
+
+    } // End class PC_Importer
+
+    // Helper Extension Method to get ElementId from integer (needed for Yes/No)
+    internal static class ElementIdExtension
+    {
+        // In Revit 2024, directly creating ElementId from common integers like 0 or 1 might be restricted for built-in IDs.
+        // A robust way to get Yes/No ElementIds isn't straightforward via API alone,
+        // often requires finding existing parameters of YesNo type and querying their IDs for Yes/No.
+        // This helper provides a basic attempt, but might fail if Revit prevents direct creation.
+        // Using Integer storage type parameters (1/0) for Yes/No is generally more reliable.
+        public static ElementId GetElementId(int value)
+        {
+            // Placeholder: Revit often uses specific internal negative IDs for Yes/No that are not directly constructible.
+            // Returning InvalidElementId is safer than potentially creating a wrong ID.
+            // The logic in SetParameterValueFromString should ideally handle YesNo parameters stored as Integers (1/0) instead.
+             if (value == 1) return new ElementId(1); // This might not work for actual Yes/No param type
+             if (value == 0) return new ElementId(0); // This might not work for actual Yes/No param type
+             return ElementId.InvalidElementId; // Safer fallback
+            // For a real solution, you might need to find a known Yes/No parameter in the project
+            // and get its ElementId values for 'Yes' and 'No' states.
+        }
+    }
+
+} // End namespace PCImporterAddin

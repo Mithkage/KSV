@@ -1,0 +1,9 @@
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\RTS.dll
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\RTS.pdb
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\RTS.csproj.AssemblyReference.cache
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\RTS.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\RTS.AssemblyInfoInputs.cache
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\RTS.AssemblyInfo.cs
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\RTS.csproj.CoreCompileInputs.cache
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\RTS.dll
+C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\obj\Debug\net48\RTS.pdb

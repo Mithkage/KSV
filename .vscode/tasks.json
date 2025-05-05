@@ -6,7 +6,7 @@
             "command": "dotnet",
             "args": [
                 "build",
-                "${workspaceFolder}/RevitAddin/KSV.csproj",
+                "${workspaceFolder}/RevitAddin/RTS.csproj",
                 "/p:Configuration=Debug",
                 "/p:Platform=AnyCPU"
             ],
@@ -18,9 +18,3 @@
         }
     ]
 }
-
-//I might need these
-//using Autodesk.Revit.Attributes;
-//using Autodesk.Revit.DB;
-//using Autodesk.Revit.UI;
-//using System;

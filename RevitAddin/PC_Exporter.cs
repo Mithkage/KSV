@@ -1,11 +1,11 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using Excel = Microsoft.Office.Interop.Excel;
+// using Excel = Microsoft.Office.Interop.Excel; // Removed
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
+// using System.Runtime.InteropServices; // Removed (Only needed for Excel COM Interop)
 using System.Text;
 using System.IO;
 using System.Globalization; // Added for robust number parsing
@@ -18,37 +18,37 @@ namespace PC_Exporter
         // Helper class to store data for each relevant detail item
         private class DetailItemData
         {
-            public string OriginalCableReference { get; set; } // Raw value from Revit parameter
-            public string FinalCableReference { get; set; }    // The definitive reference used for the group
+            public string OriginalCableReference { get; set; }
+            public string FinalCableReference { get; set; }
             public string SWBFrom { get; set; }
             public string SWBTo { get; set; }
-            public string SWBType { get; set; } // 'S' for Bus, 'T' for TOB, potentially others
+            public string SWBType { get; set; }
             public string SWBLoad { get; set; }
             public string SWBLoadScope { get; set; }
             public string SWBPF { get; set; }
-            public string CableLength { get; set; } // ** Potentially nulled if SWBType = 'S' **
-            public string CableSizeActive { get; set; } // ** Potentially nulled if SWBType = 'S' **
-            public string CableSizeNeutral { get; set; } // ** Potentially nulled if SWBType = 'S' **
-            public string CableSizeEarthing { get; set; } // ** Potentially nulled if SWBType = 'S' **
-            public string ActiveConductorMaterial { get; set; } // ** Potentially nulled if SWBType = 'S' **
-            public string NumPhases { get; set; } // ** Populated based on Type Name containing "1-Phase", Potentially nulled if SWBType = 'S' **
-            public string CableType { get; set; } // ** FINAL VALUE SET IN STEP 5b based on SWBType, Length/Rating **
-            public string CableInsulation { get; set; } // ** UPDATED based on PC_From containing "SAFETY", Potentially nulled if SWBType = 'S' **
-            public string InstallationMethod { get; set; } // ** UPDATED to always be "PT", Potentially nulled if SWBType = 'S' **
-            public string CableAdditionalDerating { get; set; } // ** Potentially nulled if SWBType = 'S' **
-            public string SwitchgearTripUnitType { get; set; } // ** FINAL VALUE SET IN STEP 5b based on NumPhases and SWBType **
-            public string SwitchgearManufacturer { get; set; } // ** UPDATED to always be "NAW Controls - LS Susol" **
-            public string BusType { get; set; } // Set to "Bus Bar"
+            public string CableLength { get; set; }
+            public string CableSizeActive { get; set; }
+            public string CableSizeNeutral { get; set; }
+            public string CableSizeEarthing { get; set; }
+            public string ActiveConductorMaterial { get; set; }
+            public string NumPhases { get; set; }
+            public string CableType { get; set; }
+            public string CableInsulation { get; set; }
+            public string InstallationMethod { get; set; }
+            public string CableAdditionalDerating { get; set; }
+            public string SwitchgearTripUnitType { get; set; }
+            public string SwitchgearManufacturer { get; set; }
+            public string BusType { get; set; }
             public string BusChassisRating { get; set; }
-            public string UpstreamDiversity { get; set; } // ** UPDATED to always be "STD" **
-            public string IsolatorType { get; set; } // ** UPDATED based on Family/Type Name and final check **
-            public string IsolatorRating { get; set; } // ** UPDATED based on Family Name and final check **
-            public string ProtectiveDeviceRating { get; set; } // Used for Cable Type logic and Isolator logic
+            public string UpstreamDiversity { get; set; }
+            public string IsolatorType { get; set; }
+            public string IsolatorRating { get; set; }
+            public string ProtectiveDeviceRating { get; set; }
             public string ProtectiveDeviceManufacturer { get; set; }
             public string ProtectiveDeviceType { get; set; }
             public string ProtectiveDeviceModel { get; set; }
             public string ProtectiveDeviceOCRTripUnit { get; set; }
-            public string ProtectiveDeviceTripSetting { get; set; } // Used for Isolator logic
+            public string ProtectiveDeviceTripSetting { get; set; }
         }
 
         // Helper function to escape characters for CSV format
@@ -354,7 +354,6 @@ namespace PC_Exporter
                         bool lengthParsed = double.TryParse(itemData.CableLength, NumberStyles.Any, CultureInfo.InvariantCulture, out double cableLength);
                         bool ratingParsed = double.TryParse(itemData.ProtectiveDeviceTripSetting, NumberStyles.Any, CultureInfo.InvariantCulture, out double deviceRating);
 
-                        // *** UPDATED LOGIC BLOCK START ***
                         // Set to SDI if (Length >= 100 AND Rating >= 160) OR (Rating >= 229)
                         if ((lengthParsed && ratingParsed && cableLength >= 100.0 && deviceRating >= 160.0) ||
                             (ratingParsed && deviceRating >= 229.0))
@@ -365,7 +364,6 @@ namespace PC_Exporter
                         {
                             itemData.CableType = "Multi"; // Default
                         }
-                        // *** UPDATED LOGIC BLOCK END ***
                     }
                     // NumPhases retains its value ("R" or "") set during Step 1/Merging for non-'S' types
                 }
@@ -388,7 +386,7 @@ namespace PC_Exporter
                 // --- End Switchgear Trip Unit Type Logic ---
 
 
-                // --- *** NEW: Final Isolator Check/Default Logic *** ---
+                // --- Final Isolator Check/Default Logic ---
                 if (string.IsNullOrWhiteSpace(itemData.IsolatorType))
                 {
                     if (itemData.SWBType == "S")
@@ -422,27 +420,23 @@ namespace PC_Exporter
                         else
                         {
                             // If parsing fails, perhaps leave blank or set a default?
-                            // Leaving blank for now as the original state was blank.
                              itemData.IsolatorType = ""; // Explicitly keep blank if rating is unparseable
                              itemData.IsolatorRating = "";
                         }
                     }
                 }
-                // --- *** END Final Isolator Check *** ---
+                // --- END Final Isolator Check ---
 
             } // End foreach loop for final logic
 
 
-            // --- Step 6: Write Output Files ---
-            string baseFileName = "PowerCAD_Export_SLD_Data"; // Base name for output files
-            string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop); // Get user's desktop path
+            // --- Step 6: Write Output File (CSV Only) ---
+            string baseFileName = "PowerCAD_Export_SLD_Data";
+            string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
             string csvFilePath = Path.Combine(desktopPath, baseFileName + ".csv");
-            string xlsxFilePath = Path.Combine(desktopPath, baseFileName + ".xlsx");
 
             bool csvSuccess = false;
-            bool xlsxSuccess = false;
             string csvError = null;
-            string xlsxError = null;
 
             // Define the headers for the output files
             string[] headers = {
@@ -452,9 +446,9 @@ namespace PC_Exporter
                 "Active Conductor material", "# of Phases", "Cable Type", "Cable Insulation",
                 "Installation Method", "Cable Additional De-rating", "Switchgear Trip Unit Type",
                 "Switchgear Manufacturer", "Bus Type", "Bus/Chassis Rating (A)", "Upstream Diversity",
-                "Isolator Type", "Isolator Rating (A)", "Protective Device Rating (A)", // Note: This column still exists but might be redundant if Trip Setting is always used
+                "Isolator Type", "Isolator Rating (A)", "Protective Device Rating (A)",
                 "Protective Device Manufacturer", "Protective Device Type", "Protective Device Model",
-                "Protective Device OCR/Trip Unit", "Protective Device Trip Setting (A)" // This is the key value used for logic now
+                "Protective Device OCR/Trip Unit", "Protective Device Trip Setting (A)"
             };
 
             // --- Write CSV File ---
@@ -481,7 +475,7 @@ namespace PC_Exporter
                         EscapeCsvField(displaySwbFrom),
                         EscapeCsvField(itemData.SWBTo),
                         EscapeCsvField(itemData.SWBType),
-                        EscapeCsvField(itemData.SWBLoad), // SWB Load (originally from Trip Setting)
+                        EscapeCsvField(itemData.SWBLoad),
                         EscapeCsvField(itemData.SWBLoadScope),
                         EscapeCsvField(itemData.SWBPF),
                         EscapeCsvField(itemData.CableLength),
@@ -490,7 +484,7 @@ namespace PC_Exporter
                         EscapeCsvField(itemData.CableSizeEarthing),
                         EscapeCsvField(itemData.ActiveConductorMaterial),
                         EscapeCsvField(itemData.NumPhases),
-                        EscapeCsvField(itemData.CableType), // Includes updated logic
+                        EscapeCsvField(itemData.CableType),
                         EscapeCsvField(itemData.CableInsulation),
                         EscapeCsvField(itemData.InstallationMethod),
                         EscapeCsvField(itemData.CableAdditionalDerating),
@@ -499,14 +493,14 @@ namespace PC_Exporter
                         EscapeCsvField(itemData.BusType),
                         EscapeCsvField(itemData.BusChassisRating),
                         EscapeCsvField(itemData.UpstreamDiversity),
-                        EscapeCsvField(itemData.IsolatorType), // Includes value from final check logic
-                        EscapeCsvField(itemData.IsolatorRating), // Includes value from final check logic
-                        EscapeCsvField(itemData.ProtectiveDeviceRating), // Outputting this column as defined
+                        EscapeCsvField(itemData.IsolatorType),
+                        EscapeCsvField(itemData.IsolatorRating),
+                        EscapeCsvField(itemData.ProtectiveDeviceRating),
                         EscapeCsvField(itemData.ProtectiveDeviceManufacturer),
                         EscapeCsvField(itemData.ProtectiveDeviceType),
                         EscapeCsvField(itemData.ProtectiveDeviceModel),
                         EscapeCsvField(itemData.ProtectiveDeviceOCRTripUnit),
-                        EscapeCsvField(itemData.ProtectiveDeviceTripSetting) // Outputting the trip setting
+                        EscapeCsvField(itemData.ProtectiveDeviceTripSetting)
                     };
                     // Join the fields with commas and add the line to the CSV content
                     csvContent.AppendLine(string.Join(",", fields));
@@ -520,92 +514,8 @@ namespace PC_Exporter
                 csvError = $"Failed to write CSV file: {ex.GetType().Name} - {ex.Message}";
             }
 
-            // --- Write XLSX File ---
-            Excel.Application excelApp = null;
-            Excel.Workbook workbook = null;
-            Excel.Worksheet worksheet = null;
-            try
-            {
-                excelApp = new Excel.Application { Visible = false, DisplayAlerts = false };
-                workbook = excelApp.Workbooks.Add();
-                worksheet = (Excel.Worksheet)workbook.Sheets[1];
+            // --- XLSX File Writing Section Removed ---
 
-                // Write Headers
-                for (int i = 0; i < headers.Length; i++)
-                {
-                    worksheet.Cells[1, i + 1] = headers[i];
-                }
-
-                // Format Cable Reference column as Text
-                Excel.Range cableRefColumn = (Excel.Range)worksheet.Columns[1];
-                cableRefColumn.NumberFormat = "@";
-
-                // Write Data Rows
-                int row = 2;
-                foreach (var itemData in mergedUniqueDataList)
-                {
-                    string displaySwbFrom = (itemData.SWBFrom == "SOURCE") ? "" : itemData.SWBFrom;
-
-                    worksheet.Cells[row, 1] = itemData.FinalCableReference;
-                    worksheet.Cells[row, 2] = displaySwbFrom;
-                    worksheet.Cells[row, 3] = itemData.SWBTo;
-                    worksheet.Cells[row, 4] = itemData.SWBType;
-                    worksheet.Cells[row, 5] = itemData.SWBLoad;
-                    worksheet.Cells[row, 6] = itemData.SWBLoadScope;
-                    worksheet.Cells[row, 7] = itemData.SWBPF;
-                    worksheet.Cells[row, 8] = itemData.CableLength;
-                    worksheet.Cells[row, 9] = itemData.CableSizeActive;
-                    worksheet.Cells[row, 10] = itemData.CableSizeNeutral;
-                    worksheet.Cells[row, 11] = itemData.CableSizeEarthing;
-                    worksheet.Cells[row, 12] = itemData.ActiveConductorMaterial;
-                    worksheet.Cells[row, 13] = itemData.NumPhases;
-                    worksheet.Cells[row, 14] = itemData.CableType; // Includes updated logic
-                    worksheet.Cells[row, 15] = itemData.CableInsulation;
-                    worksheet.Cells[row, 16] = itemData.InstallationMethod;
-                    worksheet.Cells[row, 17] = itemData.CableAdditionalDerating;
-                    worksheet.Cells[row, 18] = itemData.SwitchgearTripUnitType;
-                    worksheet.Cells[row, 19] = itemData.SwitchgearManufacturer;
-                    worksheet.Cells[row, 20] = itemData.BusType;
-                    worksheet.Cells[row, 21] = itemData.BusChassisRating;
-                    worksheet.Cells[row, 22] = itemData.UpstreamDiversity;
-                    worksheet.Cells[row, 23] = itemData.IsolatorType; // Includes final check logic
-                    worksheet.Cells[row, 24] = itemData.IsolatorRating; // Includes final check logic
-                    worksheet.Cells[row, 25] = itemData.ProtectiveDeviceRating;
-                    worksheet.Cells[row, 26] = itemData.ProtectiveDeviceManufacturer;
-                    worksheet.Cells[row, 27] = itemData.ProtectiveDeviceType;
-                    worksheet.Cells[row, 28] = itemData.ProtectiveDeviceModel;
-                    worksheet.Cells[row, 29] = itemData.ProtectiveDeviceOCRTripUnit;
-                    worksheet.Cells[row, 30] = itemData.ProtectiveDeviceTripSetting;
-
-                    row++;
-                }
-
-                worksheet.Columns.AutoFit();
-                workbook.SaveAs(xlsxFilePath);
-                xlsxSuccess = true;
-            }
-            catch (Exception ex)
-            {
-                 xlsxError = $"Failed to write XLSX file: {ex.GetType().Name} - {ex.Message}";
-            }
-            finally
-            {
-                // Release COM objects
-                if (worksheet != null) Marshal.ReleaseComObject(worksheet);
-                if (workbook != null)
-                {
-                    workbook.Close(false); // Close without saving changes (already saved with SaveAs)
-                    Marshal.ReleaseComObject(workbook);
-                }
-                if (excelApp != null)
-                {
-                    excelApp.Quit();
-                    Marshal.ReleaseComObject(excelApp);
-                }
-                // Force garbage collection to release Excel process
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-            }
 
             // --- Final Reporting ---
             StringBuilder finalMessage = new StringBuilder();
@@ -613,16 +523,13 @@ namespace PC_Exporter
             finalMessage.AppendLine("---");
             if (csvSuccess) { finalMessage.AppendLine($"CSV export successful:\n{csvFilePath}"); }
             else { finalMessage.AppendLine($"CSV export FAILED: {csvError ?? "Unknown error"}"); }
-            finalMessage.AppendLine("---");
-            if (xlsxSuccess) { finalMessage.AppendLine($"XLSX export successful:\n{xlsxFilePath}"); }
-            else { finalMessage.AppendLine($"XLSX export FAILED: {xlsxError ?? "Unknown error"}"); }
+            // Removed XLSX reporting lines
 
             TaskDialog.Show("Export Results", finalMessage.ToString());
 
-            // Determine overall result based on export success
-            if (csvSuccess && xlsxSuccess) { return Result.Succeeded; }
-            else if (csvSuccess || xlsxSuccess) { return Result.Succeeded; } // Consider partial success as succeeded for Revit
-            else { message = "Both CSV and XLSX exports failed."; return Result.Failed; }
+            // Determine overall result based on CSV success only
+            if (csvSuccess) { return Result.Succeeded; }
+            else { message = "CSV export failed."; return Result.Failed; }
         }
 
         // --- Recursive Pre-order Traversal Method ---
