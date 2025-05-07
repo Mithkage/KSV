@@ -1,23 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RevitAddIns>
-  <AddIn Type="Command">
+  <AddIn Type="Application">
+    <Name>ReTick Solutions Tools</Name>
     <Assembly>C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\RTS.dll</Assembly>
-    <AddInId>919df6ed-06f1-4b59-bac1-8249a6df58be</AddInId>
-    <FullClassName>BB_Import.BB_CableLengthImport</FullClassName>
+    <AddInId>8c5a9f21-9b7d-4e0f-9a3c-6f8b2d1e0a45</AddInId> <FullClassName>RTS.App</FullClassName>
     <VendorId>ReTick_Solutions</VendorId>
-    <VendorDescription>Imports polylength measurments from Bluebeam CSV file</VendorDescription>
+    <VendorDescription>ReTick Solutions - Custom Revit Tools</VendorDescription>
   </AddIn>
-  <AddIn Type="Command">
-    <Assembly>C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\RTS.dll</Assembly>
-    <AddInId>9daeee4e-410a-49d7-bfa4-4bd25e633e93</AddInId>
-    <FullClassName>PC_Exporter.PowerCAD_ExportSLD</FullClassName>
-    <VendorId>ReTick_Solutions</VendorId>
-    <VendorDescription>PowerCAD Exporter Tool</VendorDescription>
-  </AddIn>  
-  <AddIn Type="Command">
-    <Assembly>C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\RTS.dll</Assembly>
-    <AddInId>a605f21e-6e48-4a00-b550-399668378326</AddInId>
-    <FullClassName>RTS_Project_Initiate.RTS_InitiateProject</FullClassName>
-    <VendorId>ReTick_Solutions</VendorId>
-    <VendorDescription>Iniates RTS Parameters and Schedules</VendorDescription>
 </RevitAddIns>

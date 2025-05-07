@@ -10,10 +10,10 @@ using System.Text;
 using System.IO;
 using System.Globalization; // Added for robust number parsing
 
-namespace PC_Exporter
+namespace PC_SWB_Exporter
 {
     [Transaction(TransactionMode.Manual)]
-    public class PowerCAD_ExportSLD : IExternalCommand
+    public class PC_SWB_ExporterClass : IExternalCommand
     {
         // Helper class to store data for each relevant detail item
         private class DetailItemData

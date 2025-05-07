@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Command">
+    <Assembly>C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\RTS.dll</Assembly>
+    <AddInId>27357cd2-f17f-4ece-a540-eb1f3e6bbb3c</AddInId>
+    <FullClassName>PC_SWB_Exporter.PC_SWB_ExporterClass</FullClassName>
+    <VendorId>ReTick_Solutions</VendorId>
+    <VendorDescription>ReTick Solutions - PowerCAD Exporter Tool</VendorDescription>
+    <Name>PC SWB Exporter</Name>
+    <Text>Export SWB Data</Text>
+    <Description>Exports data for PowerCAD SWB import.</Description>
+    <VisibilityMode>AlwaysVisible</VisibilityMode>
+    <Discipline>Electrical</Discipline>
+  </AddIn>
+
+  <AddIn Type="Command">
+    <Name>PC SWB Importer</Name>
+    <Assembly>C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\RTS.dll</Assembly>
+    <AddInId>a805016f-f76a-4644-8381-79fa7337836d</AddInId>
+    <FullClassName>PC_SWB_Importer.PC_SWB_ImporterClass</FullClassName>
+    <VendorId>ReTick_Solutions</VendorId>
+    <VendorDescription>ReTick Solutions - Imports Powercalc SWB CSV data to Detail Items</VendorDescription>
+    <Text>Import SWB Data</Text>
+    <Description>Imports cable data from a PowerCAD SWB CSV export file into filtered Detail Item parameters based on 'To' field matching.</Description>
+    <VisibilityMode>AlwaysVisible</VisibilityMode>
+    <Discipline>Electrical</Discipline>
+  </AddIn>
+
+  <AddIn Type="Command">
+    <Assembly>C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\RTS.dll</Assembly>
+    <AddInId>6bd10de7-97ed-4b54-893a-71607b86bdaa</AddInId>
+    <FullClassName>BB_Import.BB_CableLengthImport</FullClassName>
+    <VendorId>ReTick_Solutions</VendorId>
+    <VendorDescription>ReTick Solutions - Imports Bluebeam cable measurements to SLD</VendorDescription>
+    <Name>Import BB Cable Lengths</Name>
+    <Text>Import BB Lengths</Text>
+    <Description>Imports Bluebeam cable measurements into SLD components.</Description>
+    <VisibilityMode>AlwaysVisible</VisibilityMode>
+    <Discipline>Electrical</Discipline>
+  </AddIn>
+
+  <AddIn Type="Command">
+    <Assembly>C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\RTS.dll</Assembly>
+    <AddInId>F5B8A7C1-E9D0-4B6F-8E2A-9C4D1E7B0A36</AddInId>
+    <FullClassName>PC_Cable_Importer.PC_Cable_ImporterClass</FullClassName>
+    <VendorId>ReTick_Solutions</VendorId>
+    <VendorDescription>ReTick Solutions - Imports Cable Data to SLD</VendorDescription>
+    <Name>Import Cable Summary Data</Name>
+    <Text>Import Cable Summary</Text>
+    <Description>Imports CAble Summary data from PowerCAD into SLD.</Description>
+    <VisibilityMode>AlwaysVisible</VisibilityMode>
+    <Discipline>Electrical</Discipline>
+  </AddIn>
+  
+</RevitAddIns>
