@@ -1,11 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "1GG3Jb/V5jPq51hwS+Z2h2WedK+t0paC0vSZnnVeIRKfEVbRDKqDyDj4nbuEuFuDJaT4NeCpSCXpqBqKj5zBfw==",
+  "dgSpecHash": "4NZpYnZkD3NtWYmMyqj3cZRBsfYuqk1/E5Z2D6RPGBIlKgtr3jVsal4/jJeULp30x+MCxrIvqYXyCeY0VEUwIg==",
   "success": true,
-  "projectFilePath": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj",
-  "expectedPackageFiles": [
-    "C:\\Users\\kyles\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
-    "C:\\Users\\kyles\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net48\\1.0.3\\microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512"
-  ],
+  "projectFilePath": "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\RTS.csproj",
+  "expectedPackageFiles": [],
   "logs": []
 }

@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RevitAddIns>
-  <AddIn Type="Application">
-    <Name>ReTick Solutions Tools</Name>
-    <Assembly>C:\Users\kyles\OneDrive\Documents\GitHub\KSV\RevitAddin\bin\Debug\net48\RTS.dll</Assembly>
-    <AddInId>8c5a9f21-9b7d-4e0f-9a3c-6f8b2d1e0a45</AddInId> <FullClassName>RTS.App</FullClassName>
-    <VendorId>ReTick_Solutions</VendorId>
-    <VendorDescription>ReTick Solutions - Custom Revit Tools</VendorDescription>
-  </AddIn>
+	<AddIn Type="Application">
+		<Name>ReTick Solutions Tools</Name>
+		<Assembly>C:\ProgramData\Autodesk\Revit\Addins\2024\RTS.dll</Assembly>
+
+		<AddInId>A045050A-DAF0-44DC-92CF-04397059EC3D</AddInId>
+
+		<FullClassName>RTS.App</FullClassName>
+
+		<VendorId>ReTick_Solutions</VendorId>
+		<VendorDescription>ReTick Solutions - Custom Revit Tools</VendorDescription>
+	</AddIn>
 </RevitAddIns>

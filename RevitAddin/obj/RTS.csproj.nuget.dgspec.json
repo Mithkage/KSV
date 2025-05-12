@@ -1,21 +1,27 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj": {}
+    "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\RTS.csproj": {}
   },
   "projects": {
-    "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj": {
+    "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\RTS.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj",
+        "projectUniqueName": "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\RTS.csproj",
         "projectName": "RTS",
-        "projectPath": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\RTS.csproj",
+        "projectPath": "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\RTS.csproj",
         "packagesPath": "C:\\Users\\kyles\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\kyles\\OneDrive\\Documents\\GitHub\\KSV\\RevitAddin\\obj\\",
+        "outputPath": "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",
+          "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet\\"
+        ],
         "configFilePaths": [
           "C:\\Users\\kyles\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Xamarin.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net48"
@@ -39,15 +45,7 @@
       "frameworks": {
         "net48": {
           "targetAlias": "net48",
-          "dependencies": {
-            "Microsoft.NETFramework.ReferenceAssemblies": {
-              "suppressParent": "All",
-              "target": "Package",
-              "version": "[1.0.3, )",
-              "autoReferenced": true
-            }
-          },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.202\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\5.0.416\\RuntimeIdentifierGraph.json"
         }
       }
     }

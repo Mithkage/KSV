@@ -31,7 +31,6 @@ namespace PC_SWB_Importer
             Document doc = uidoc.Document;
 
             // --- 1. Get CSV File Path from User ---
-            // ... (same as before)
             string csvFilePath = GetCsvFilePath();
             if (string.IsNullOrEmpty(csvFilePath))
             {
@@ -40,7 +39,6 @@ namespace PC_SWB_Importer
             }
 
             // --- 2. Define Parameter Mapping ---
-            // ... (same as before)
             Dictionary<string, string> parameterMapping = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 {"Cable Reference", "PC_Cable Reference"},
@@ -75,7 +73,6 @@ namespace PC_SWB_Importer
             };
 
             // --- 3. Read and Parse CSV Data ---
-            // ... (same as before)
             List<Dictionary<string, string>> csvData = new List<Dictionary<string, string>>();
             string[] headers = null;
             int swbToCsvIndex = -1;
@@ -138,7 +135,6 @@ namespace PC_SWB_Importer
             catch (Exception ex) { long lineNumber = (ex is MalformedLineException mex) ? mex.LineNumber : -1; message = $"Error reading/parsing CSV" + (lineNumber > 0 ? $" near line {lineNumber}" : "") + $": {ex.Message}"; TaskDialog.Show("CSV Error", message); return Result.Failed; }
 
             // --- 4. Find and Filter Detail Items ---
-            // ... (same as before)
             FilteredElementCollector collector = new FilteredElementCollector(doc);
             List<Element> detailItemsToUpdate;
             try
@@ -220,7 +216,7 @@ namespace PC_SWB_Importer
                         }
 
                         if (csvLookup != null && csvLookup.TryGetValue(lookupKey, out var matchingCsvRow)) {
-                            bool itemUpdated = false;
+                            bool itemUpdatedThisLoop = false; // Renamed from itemUpdated to avoid scope conflict
 
                             foreach (var kvp in parameterMapping) {
                                 string csvHeader = kvp.Key; string revitParamName = kvp.Value;
@@ -239,7 +235,7 @@ namespace PC_SWB_Importer
                                             string currentValueStr = GetParameterValueAsString(targetParam);
                                             if (currentValueStr != valueToSet) {
                                                 bool success = SetParameterValueFromString(targetParam, valueToSet);
-                                                if(success) { itemUpdated = true; }
+                                                if(success) { itemUpdatedThisLoop = true; } // Use renamed variable
                                                 else { errors.Add($"Could not set '{valueToSet}' (processed from '{csvValue}') for '{revitParamName}' on Elem ID {detailItem.Id}. Target type: {targetParam.StorageType}"); }
                                             }
                                         } catch (Exception ex) { errors.Add($"Error setting '{revitParamName}' on Elem ID {detailItem.Id}: {ex.Message}"); }
@@ -252,11 +248,9 @@ namespace PC_SWB_Importer
                             string protectiveDeviceModelCsvKey = "Protective Device Model";
                             if (matchingCsvRow.TryGetValue(protectiveDeviceModelCsvKey, out string protectiveDeviceModelCsvValue) && !string.IsNullOrWhiteSpace(protectiveDeviceModelCsvValue))
                             {
-                                // Concatenate all digits found anywhere in the string.
-                                // e.g., "Model A12-Version B34C-5" will become "12345".
                                 string numericalValueStr = new string(protectiveDeviceModelCsvValue.Where(char.IsDigit).ToArray());
 
-                                if (!string.IsNullOrEmpty(numericalValueStr)) // Check if any digits were actually found
+                                if (!string.IsNullOrEmpty(numericalValueStr)) 
                                 {
                                     Parameter frameSizeParam = detailItem.LookupParameter(frameSizeRevitParamName);
 
@@ -268,7 +262,7 @@ namespace PC_SWB_Importer
                                             if (currentFrameSizeStr != numericalValueStr)
                                             {
                                                 bool success = SetParameterValueFromString(frameSizeParam, numericalValueStr);
-                                                if (success) { itemUpdated = true; }
+                                                if (success) { itemUpdatedThisLoop = true; } // Use renamed variable
                                                 else { errors.Add($"Could not set extracted frame size '{numericalValueStr}' for '{frameSizeRevitParamName}' (from CSV model '{protectiveDeviceModelCsvValue}') on Elem ID {detailItem.Id}. Target parameter type: {frameSizeParam.StorageType}."); }
                                             }
                                         }
@@ -279,14 +273,12 @@ namespace PC_SWB_Importer
                                 }
                                 else
                                 {
-                                    // No digits found in the 'Protective Device Model' CSV value.
                                     System.Diagnostics.Debug.WriteLine($"No numerical digits found in '{protectiveDeviceModelCsvKey}' value '{protectiveDeviceModelCsvValue}' for Elem ID {detailItem.Id} using char.IsDigit method.");
                                 }
                             }
                             // --- END FRAME SIZE LOGIC ---
 
-                            if (itemUpdated) { updatedCount++; }
-                            // No explicit else here for skippedCount as it's handled by the outer logic or if lookup fails
+                            if (itemUpdatedThisLoop) { updatedCount++; } // Increment updatedCount if itemUpdatedThisLoop is true
 
                         } else {
                             skippedCount++;
@@ -295,10 +287,11 @@ namespace PC_SWB_Importer
                         }
                     } // End foreach detailItem
 
-                    if (updatedCount > 0 || errors.Any()) {
+                    if (updatedCount > 0 || errors.Any()) { // Commit if any updates made OR if there were errors (to capture partial success with errors)
                         tx.Commit();
                         if (updatedCount == 0 && errors.Any()) { message = "Potential issues encountered. No elements were updated successfully. See error details."; }
                         else if (updatedCount > 0) { message = $"Successfully updated parameters for {updatedCount} elements."; }
+                        // If errors.Any() is true and updatedCount > 0, message will be the success message, errors reported separately.
                     } else {
                         tx.RollBack();
                         message = "No parameter changes were necessary based on the CSV data and existing element values.";
@@ -312,14 +305,13 @@ namespace PC_SWB_Importer
 
 
             // --- 6. Report Results ---
-            // ... (same as before)
             string summary = $"Import complete.\n\n" +
                              $"Detail Items processed (PC_PowerCAD=Yes, non-empty PC_SWB To): {detailItemsToUpdate.Count}\n" +
                              $"Detail Items with parameters updated: {updatedCount}\n" +
                              $"Detail Items skipped/no changes (No CSV match / No data change required / Error during item processing): {detailItemsToUpdate.Count - updatedCount}\n"; 
 
 
-            if (!string.IsNullOrEmpty(message) && !(updatedCount > 0 && !errors.Any()) ) {
+            if (!string.IsNullOrEmpty(message) && !(updatedCount > 0 && !errors.Any()) ) { // Append status message if it's not the pure success one or if there are errors
                  if (message != $"Successfully updated parameters for {updatedCount} elements.")
                  {
                     summary += $"\nStatus: {message}\n";
@@ -328,18 +320,17 @@ namespace PC_SWB_Importer
 
             if (errors.Any()) {
                 summary += $"\nEncountered {errors.Count} errors/warnings during parameter setting:\n";
-                summary += string.Join("\n", errors.Take(15));
+                summary += string.Join("\n", errors.Take(15)); // Show first 15 errors in the summary dialog
                 if (errors.Count > 15) summary += $"\n... ({errors.Count - 15} more)";
                 TaskDialog.Show("Import Report with Errors/Warnings", summary);
             } else { TaskDialog.Show("Import Report", summary); }
 
-            return (errors.Any() && updatedCount == 0) ? Result.Failed : Result.Succeeded;
+            // If there were errors and absolutely no items were updated, consider it a failure.
+            return (errors.Any() && updatedCount == 0 && detailItemsToUpdate.Any()) ? Result.Failed : Result.Succeeded;
         }
 
 
         // --- Helper Methods ---
-        // GetCsvFilePath(), SetParameterValueFromString(), GetParameterValueAsString()
-        // ... (same as before)
         private string GetCsvFilePath()
         {
             string filePath = null;
@@ -359,10 +350,8 @@ namespace PC_SWB_Importer
         {
             if (param == null || param.IsReadOnly) return false;
 
-            if (string.IsNullOrWhiteSpace(value) && param.StorageType != StorageType.String)
-            {
-                 // Handling blank values for non-string types
-            }
+            // Optional: Handle blank values for non-string types explicitly if needed
+            // if (string.IsNullOrWhiteSpace(value) && param.StorageType != StorageType.String) { /* set to default or clear */ }
 
             try {
                 switch (param.StorageType) {
@@ -375,11 +364,11 @@ namespace PC_SWB_Importer
                         break;
                     case StorageType.Integer:
                         Definition def = param.Definition;
-                        ForgeTypeId specTypeId = def.GetDataType(); // Use modern API
+                        ForgeTypeId specTypeId = def.GetDataType(); 
                         if (specTypeId == SpecTypeId.Boolean.YesNo) { 
                             int intValToSet = -1; 
-                            if (value.Equals("Yes", StringComparison.OrdinalIgnoreCase) || value == "1") { intValToSet = 1;}
-                            else if (value.Equals("No", StringComparison.OrdinalIgnoreCase) || value == "0") { intValToSet = 0;}
+                            if (value.Equals("Yes", StringComparison.OrdinalIgnoreCase) || value == "1" || value.ToLowerInvariant() == "true") { intValToSet = 1;}
+                            else if (value.Equals("No", StringComparison.OrdinalIgnoreCase) || value == "0" || value.ToLowerInvariant() == "false") { intValToSet = 0;}
                             
                             if (intValToSet != -1) {
                                 if (param.AsInteger() != intValToSet) param.Set(intValToSet);
@@ -398,7 +387,8 @@ namespace PC_SWB_Importer
                         }
                         break; 
                     case StorageType.String:
-                        if ((param.AsString() ?? string.Empty) != value) param.Set(value); 
+                        string valueToSet = value ?? string.Empty; // Ensure nulls are handled as empty strings if that's the intent
+                        if ((param.AsString() ?? string.Empty) != valueToSet) param.Set(valueToSet); 
                         return true;
                     case StorageType.ElementId:
                         System.Diagnostics.Debug.WriteLine($"Warning: Attempting to set ElementId parameter '{param.Definition.Name}' from string. This is usually not supported directly via SetParameterValueFromString.");
@@ -433,10 +423,11 @@ namespace PC_SWB_Importer
                 case StorageType.ElementId:
                     ElementId id = param.AsElementId();
                     if (id == null || id == ElementId.InvalidElementId) return string.Empty;
-                    return param.AsValueString() ?? id.IntegerValue.ToString(CultureInfo.InvariantCulture); 
+                    // UPDATED LINE: Use id.Value instead of id.IntegerValue
+                    return param.AsValueString() ?? id.Value.ToString(CultureInfo.InvariantCulture); 
                 default: return param.AsValueString() ?? string.Empty; 
             }
         }
 
-    } // End class PC_SWBImporter
+    } // End class PC_SWB_ImporterClass
 } // End namespace
