@@ -24,6 +24,16 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <None Remove="Resources\Icon_PC_Launcher.png" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Include="Resources\Icon_PC_Launcher.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
+
+	<ItemGroup>
 		<Reference Include="RevitAPI">
 			<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll</HintPath>
 			<Private>False</Private>

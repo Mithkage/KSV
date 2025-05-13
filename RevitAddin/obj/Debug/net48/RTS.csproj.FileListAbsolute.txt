@@ -4,3 +4,5 @@ C:\Users\kyles\Source\Repos\KSV\RevitAddin\obj\Debug\net48\RTS.GeneratedMSBuildE
 C:\Users\kyles\Source\Repos\KSV\RevitAddin\obj\Debug\net48\RTS.csproj.CoreCompileInputs.cache
 C:\Users\kyles\Source\Repos\KSV\RevitAddin\obj\Debug\net48\RTS.dll
 C:\Users\kyles\Source\Repos\KSV\RevitAddin\obj\Debug\net48\RTS.pdb
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\Resources\Icon_PC_Launcher.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.csproj.AssemblyReference.cache

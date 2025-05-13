@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\RTS.csproj": {}
+    "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj": {}
   },
   "projects": {
-    "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\RTS.csproj": {
+    "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\RTS.csproj",
+        "projectUniqueName": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj",
         "projectName": "RTS",
-        "projectPath": "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\RTS.csproj",
+        "projectPath": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj",
         "packagesPath": "C:\\Users\\kyles\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\obj\\",
+        "outputPath": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",

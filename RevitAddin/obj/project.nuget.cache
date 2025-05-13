@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "4NZpYnZkD3NtWYmMyqj3cZRBsfYuqk1/E5Z2D6RPGBIlKgtr3jVsal4/jJeULp30x+MCxrIvqYXyCeY0VEUwIg==",
+  "dgSpecHash": "bjHcufj2xwlt/FG56LSvnTwZGQsm7S4fazSi53Hg+kcgYTaBi7zCFYmDILJlbatU6wq/Tapev/IJuAcxnbVNkQ==",
   "success": true,
-  "projectFilePath": "C:\\Users\\kyles\\Source\\Repos\\KSV\\RevitAddin\\RTS.csproj",
+  "projectFilePath": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj",
   "expectedPackageFiles": [],
   "logs": []
 }
