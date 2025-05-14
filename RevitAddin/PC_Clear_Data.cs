@@ -96,7 +96,7 @@ namespace PC_Clear_Data
                     new ParameterInfo("dbd8ce49-4c2b-4ce5-a3ba-fca4c28e3d15", "TEXT"), // PC_Cable Size - Neutral conductors
                     new ParameterInfo("50b6ef99-8f5e-42e1-8645-cce97f6b94b6", "TEXT"), // PC_Cable Size - Earthing conductor
                     new ParameterInfo("91c8321f-1342-4efa-b648-7ba5e95c0085", "TEXT"), // PC_Cable Size - Active conductors
-                    new ParameterInfo("da8a3228-00aa-4f2d-a472-1ba675284cef", "TEXT"), // PC_Cable Reference
+                    // new ParameterInfo("da8a3228-00aa-4f2d-a472-1ba675284cef", "TEXT"), // PC_Cable Reference
                     new ParameterInfo("09007343-dd0a-44c3-b04d-145118778ac3", "TEXT"), // PC_Cable Length
                     new ParameterInfo("dc328944-dcda-4612-8a2e-ecaed994c876", "TEXT"), // PC_Cable Insulation
                     new ParameterInfo("33a25660-bed5-4c55-b0f1-cc2809b3879a", "TEXT"), // PC_Bus/Chassis Rating (A)

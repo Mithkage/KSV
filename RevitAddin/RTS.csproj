@@ -20,17 +20,21 @@
 		<Description>Revit Add-in for ReTick Solutions</Description>
 		<Copyright>Copyright © ReTick Solutions 2025</Copyright>
 		<Version>1.0.0.0</Version>
-		<CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <None Remove="Resources\Icon_PC_Launcher.png" />
+		<None Remove="Resources\Icon_PC_Launcher.png" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Content Include="Resources\Icon_PC_Launcher.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Content>
+		<Content Include="Resources\Icon_PC_Launcher.png">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="ClosedXML" Version="0.102.2" />
+		<PackageReference Include="DocumentFormat.OpenXml" Version="2.20.0" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -53,6 +57,18 @@
 
 		<Message Text="Copying Add-in DLL to $(RevitAddinsFolder)..." Importance="high" />
 		<Exec Command="copy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(RevitAddinsFolder)&quot; /Y" />
+
+		<Message Text="Copying ClosedXML.dll to $(RevitAddinsFolder)..." Importance="high" />
+		<Exec Command="copy &quot;$(TargetDir)ClosedXML.dll&quot; &quot;$(RevitAddinsFolder)&quot; /Y" />
+
+		<Message Text="Copying DocumentFormat.OpenXml.dll to $(RevitAddinsFolder)..." Importance="high" />
+		<Exec Command="copy &quot;$(TargetDir)DocumentFormat.OpenXml.dll&quot; &quot;$(RevitAddinsFolder)&quot; /Y" />
+
+		<Message Text="Copying System.IO.Packaging.dll if it exists in TargetDir..." Importance="high" />
+		<Exec Command="copy &quot;$(TargetDir)System.IO.Packaging.dll&quot; &quot;$(RevitAddinsFolder)&quot; /Y" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
+
+		<Message Text="Copying SixLabors.Fonts.dll if it exists in TargetDir..." Importance="high" />
+		<Exec Command="copy &quot;$(TargetDir)SixLabors.Fonts.dll&quot; &quot;$(RevitAddinsFolder)&quot; /Y" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
 
 		<Message Text="Copying .addin file from $(AddinFileSource) to $(RevitAddinsFolder)..." Importance="high" />
 		<Exec Command="copy &quot;$(AddinFileSource)&quot; &quot;$(RevitAddinsFolder)&quot; /Y" />

@@ -1,10 +1,10 @@
 // RTS.cs file
 using Autodesk.Revit.UI;
-using Autodesk.Revit.DB;        // Often needed, good to have
+using Autodesk.Revit.DB;         // Often needed, good to have
 using Autodesk.Revit.Attributes; // Required for TransactionMode, etc. if your commands use it
 using System;
-using System.Reflection;      // To get assembly path
-using System.IO;              // For Path operations
+using System.Reflection;         // To get assembly path
+using System.IO;                 // For Path operations
 using System.Windows.Media.Imaging; // For BitmapImage
 
 // Define a namespace for your application
@@ -42,63 +42,49 @@ namespace RTS
                 // This ensures icons are copied to a "Resources" subfolder alongside your RTS.dll.
 
                 // 1. PC SWB Exporter
-                // IMPORTANT: Verify the full class name "Namespace.ClassName" for your command.
                 PushButtonData pbdPcSwbExporter = new PushButtonData(
-                    "CmdPcSwbExporter",                          // Internal name, must be unique
-                    "Export\nSWB Data",                          // Text displayed on the button
-                    ExecutingAssemblyPath,                       // Assembly path
-                    "PC_SWB_Exporter.PC_SWB_ExporterClass"       // Full class name (e.g., Namespace.ClassName)
+                    "CmdPcSwbExporter",                      // Internal name, must be unique
+                    "Export\nSWB Data",                      // Text displayed on the button
+                    ExecutingAssemblyPath,                   // Assembly path
+                    "PC_SWB_Exporter.PC_SWB_ExporterClass"   // Full class name (e.g., Namespace.ClassName)
                 );
                 pbdPcSwbExporter.ToolTip = "Exports data for PowerCAD SWB import.";
-                // Uncomment and adjust if you have an icon (e.g., ExportIcon32.png):
                 string exportIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_PC_Launcher.png");
                 if (File.Exists(exportIconPath))
                 {
                     pbdPcSwbExporter.LargeImage = new BitmapImage(new Uri(exportIconPath));
                 }
-                // Optional: Tooltip image
-                // string exportTooltipImagePath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "ExportTooltip.png");
-                // if (File.Exists(exportTooltipImagePath))
-                // {
-                //     pbdPcSwbExporter.ToolTipImage = new BitmapImage(new Uri(exportTooltipImagePath));
-                // }
-
 
                 // 2. PC SWB Importer
-                // IMPORTANT: Verify the full class name "Namespace.ClassName" for your command.
-                // Based on your provided PC_SWB_Importer.cs, this class is in the "PC_SWB_Importer" namespace.
                 PushButtonData pbdPcSwbImporter = new PushButtonData(
                     "CmdPcSwbImporter",
                     "Import\nSWB Data",
                     ExecutingAssemblyPath,
-                    "PC_SWB_Importer.PC_SWB_ImporterClass"       // Full class name
+                    "PC_SWB_Importer.PC_SWB_ImporterClass"   // Full class name
                 );
                 pbdPcSwbImporter.ToolTip = "Imports cable data from a PowerCAD SWB CSV export file into filtered Detail Item parameters.";
-                // Uncomment and adjust if you have an icon (e.g., ImportIcon32.png):
-                // string importIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "ImportIcon32.png");
-                // if (File.Exists(importIconPath))
-                // {
-                //     pbdPcSwbImporter.LargeImage = new BitmapImage(new Uri(importIconPath));
-                // }
+                // Icon for Importer (assuming same as exporter for now, or create a new one)
+                if (File.Exists(exportIconPath)) // Re-using exportIconPath for example
+                {
+                    pbdPcSwbImporter.LargeImage = new BitmapImage(new Uri(exportIconPath));
+                }
+
 
                 // 3. Import BB Cable Lengths
-                // IMPORTANT: Verify the full class name "Namespace.ClassName" for your command.
                 PushButtonData pbdBbImport = new PushButtonData(
                     "CmdBbCableLengthImport",
                     "Import\n BB Lengths",
                     ExecutingAssemblyPath,
-                    "BB_Import.BB_CableLengthImport"             // Full class name (e.g., Namespace.ClassName)
+                    "BB_Import.BB_CableLengthImport"         // Full class name (e.g., Namespace.ClassName)
                 );
                 pbdBbImport.ToolTip = "Imports Bluebeam cable measurements into SLD components.";
-                // Uncomment and adjust if you have an icon (e.g., BbImportIcon32.png):
-                // string bbImportIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "BbImportIcon32.png");
-                // if (File.Exists(bbImportIconPath))
-                // {
-                //     pbdBbImport.LargeImage = new BitmapImage(new Uri(bbImportIconPath));
-                // }
+                // Icon for BB Import (assuming same as exporter for now, or create a new one)
+                if (File.Exists(exportIconPath)) // Re-using exportIconPath for example
+                {
+                    pbdBbImport.LargeImage = new BitmapImage(new Uri(exportIconPath));
+                }
 
                 // 4. Import Cable Summary Data
-                // IMPORTANT: Verify the full class name "Namespace.ClassName" for your command.
                 PushButtonData pbdPcCableImporter = new PushButtonData(
                     "CmdPcCableImporter",
                     "Import Cable\nSummary",
@@ -106,29 +92,43 @@ namespace RTS
                     "PC_Cable_Importer.PC_Cable_ImporterClass"   // Full class name (e.g., Namespace.ClassName)
                 );
                 pbdPcCableImporter.ToolTip = "Imports Cable Summary data from PowerCAD into SLD.";
-                // Uncomment and adjust if you have an icon (e.g., CableSummaryIcon32.png):
-                // string cableSummaryIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "CableSummaryIcon32.png");
-                // if (File.Exists(cableSummaryIconPath))
-                // {
-                //     pbdPcCableImporter.LargeImage = new BitmapImage(new Uri(cableSummaryIconPath));
-                // }
+                // Icon for Cable Importer (assuming same as exporter for now, or create a new one)
+                if (File.Exists(exportIconPath)) // Re-using exportIconPath for example
+                {
+                    pbdPcCableImporter.LargeImage = new BitmapImage(new Uri(exportIconPath));
+                }
+
 
                 // 5. PC Clear Data
-                // IMPORTANT: Verify the full class name "Namespace.ClassName" for your command.
-                // This class is in the "PC_Clear_Data" namespace and is named "PC_Clear_DataClass".
                 PushButtonData pbdPcClearData = new PushButtonData(
-                    "CmdPcClearData",                            // Internal name, must be unique
-                    "Clear PCAD\nData",                          // Text displayed on the button
-                    ExecutingAssemblyPath,                       // Assembly path
-                    "PC_Clear_Data.PC_Clear_DataClass"           // Full class name
+                    "CmdPcClearData",                        // Internal name, must be unique
+                    "Clear PCAD\nData",                      // Text displayed on the button
+                    ExecutingAssemblyPath,                   // Assembly path
+                    "PC_Clear_Data.PC_Clear_DataClass"       // Full class name
                 );
                 pbdPcClearData.ToolTip = "Clears specific PowerCAD-related parameters from Detail Items where PC_PowerCAD is 'Yes'.";
-                // Uncomment and adjust if you have an icon (e.g., ClearDataIcon32.png):
-                // string clearDataIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "ClearDataIcon32.png"); // Example icon name
-                // if (File.Exists(clearDataIconPath))
-                // {
-                //     pbdPcClearData.LargeImage = new BitmapImage(new Uri(clearDataIconPath));
-                // }
+                // Icon for Clear Data (assuming same as exporter for now, or create a new one)
+                if (File.Exists(exportIconPath)) // Re-using exportIconPath for example
+                {
+                    pbdPcClearData.LargeImage = new BitmapImage(new Uri(exportIconPath));
+                }
+
+                // 6. PC Generate MD Report (NEW BUTTON)
+                PushButtonData pbdPcGenerateMd = new PushButtonData(
+                    "CmdPcGenerateMd",                       // Internal name, must be unique
+                    "Generate\nMD Report",                   // Text displayed on the button
+                    ExecutingAssemblyPath,                   // Assembly path
+                    "PC_Generate_MD.PC_Generate_MDClass"     // Full class name from the immersive artifact
+                );
+                pbdPcGenerateMd.ToolTip = "Generates an Excel report with Cover Page, Authority, and Submains data.";
+                // Optional: Set an icon for this new button
+                string mdReportIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_MD_Report.png"); // Example icon name
+                if (File.Exists(mdReportIconPath))
+                {
+                    pbdPcGenerateMd.LargeImage = new BitmapImage(new Uri(mdReportIconPath));
+                }
+                // Optional: If you have a command availability class for this command
+                // pbdPcGenerateMd.AvailabilityClassName = "PC_Generate_MD.CommandAvailability"; // Example
 
 
                 // --- Add buttons to the panel ---
@@ -137,29 +137,8 @@ namespace RTS
                 rtsPanel.AddItem(pbdPcSwbImporter);
                 rtsPanel.AddItem(pbdBbImport);
                 rtsPanel.AddItem(pbdPcCableImporter);
-                rtsPanel.AddItem(pbdPcClearData); // Added the new button here
-
-                // Example: If you wanted to stack some of them using a PulldownButton or SplitButton
-                // Create a PulldownButtonData
-                // PulldownButtonData pdGroup = new PulldownButtonData("DataToolsGroup", "Data Tools");
-                // pdGroup.ToolTip = "Access various data import/export tools.";
-                // // Optional icon for the pulldown button itself
-                // // string groupIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "DataGroupIcon32.png");
-                // // if(File.Exists(groupIconPath)) { pdGroup.LargeImage = new BitmapImage(new Uri(groupIconPath)); }
-
-                // Add the PulldownButton to the panel
-                // PulldownButton pulldownButton = rtsPanel.AddItem(pdGroup) as PulldownButton;
-
-                // Add previously defined PushButtonData objects to the PulldownButton
-                // if (pulldownButton != null)
-                // {
-                //     pulldownButton.AddPushButton(pbdPcSwbExporter);
-                //     pulldownButton.AddPushButton(pbdPcSwbImporter);
-                // }
-                // rtsPanel.AddSeparator(); // Optional separator
-                // // Add other buttons individually
-                // rtsPanel.AddItem(pbdBbImport);
-                // rtsPanel.AddItem(pbdPcCableImporter);
+                rtsPanel.AddItem(pbdPcClearData);
+                rtsPanel.AddItem(pbdPcGenerateMd); // Added the new MD Report button here
 
                 return Result.Succeeded;
             }
