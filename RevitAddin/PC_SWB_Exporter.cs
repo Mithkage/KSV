@@ -1,3 +1,6 @@
+// File: PC_SWB_Exporter.cs
+// C# Revit 2024 Add-in for exporting PowerCAD SWB data to CSV
+// Includes Detail Items and Generic Annotations
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -15,15 +18,15 @@ namespace PC_SWB_Exporter
     [Transaction(TransactionMode.Manual)]
     public class PC_SWB_ExporterClass : IExternalCommand
     {
-        // Helper class to store data for each relevant detail item
-        private class DetailItemData
+        // Helper class to store data for each relevant element (Detail Item or Generic Annotation)
+        private class DetailItemData // Name kept for simplicity, but now represents data from multiple categories
         {
             public string OriginalCableReference { get; set; }
             public string FinalCableReference { get; set; }
             public string SWBFrom { get; set; }
             public string SWBTo { get; set; }
             public string SWBType { get; set; }
-            public string SWBLoad { get; set; }
+            public string SWBLoad { get; set; } // This will be populated by "PC_SWB Load" or fallback
             public string SWBLoadScope { get; set; }
             public string SWBPF { get; set; }
             public string CableLength { get; set; }
@@ -81,17 +84,30 @@ namespace PC_SWB_Exporter
             UIApplication uiApp = commandData.Application;
             Document doc = uiApp.ActiveUIDocument.Document;
 
+            // --- MODIFICATION: Collect both Detail Items and Generic Annotations ---
             // Filter for Detail Items in the active document
-            FilteredElementCollector collector = new FilteredElementCollector(doc);
-            // Store the detail items for potential later lookup
-            List<Element> detailItems = collector.OfCategory(BuiltInCategory.OST_DetailComponents)
-                                                 .WhereElementIsNotElementType() // Get instances, not types
-                                                 .ToList();
+            FilteredElementCollector detailItemCollector = new FilteredElementCollector(doc);
+            List<Element> detailItems = detailItemCollector.OfCategory(BuiltInCategory.OST_DetailComponents)
+                                                   .WhereElementIsNotElementType() // Get instances, not types
+                                                   .ToList();
 
-            // Check if any detail items were found
-            if (detailItems.Count == 0)
+            // Filter for Generic Annotations in the active document
+            FilteredElementCollector genericAnnotationCollector = new FilteredElementCollector(doc);
+            List<Element> genericAnnotations = genericAnnotationCollector.OfCategory(BuiltInCategory.OST_GenericAnnotation)
+                                                                .WhereElementIsNotElementType() // Get instances, not types
+                                                                .ToList();
+
+            // Combine both lists
+            List<Element> allRelevantElements = new List<Element>();
+            allRelevantElements.AddRange(detailItems);
+            allRelevantElements.AddRange(genericAnnotations);
+            // --- END MODIFICATION ---
+
+
+            // Check if any relevant elements were found
+            if (allRelevantElements.Count == 0)
             {
-                TaskDialog.Show("Info", "No Detail Items found in the current view/document.");
+                TaskDialog.Show("Info", "No Detail Items or Generic Annotations found in the current view/document.");
                 return Result.Succeeded; // Nothing to process
             }
 
@@ -99,15 +115,19 @@ namespace PC_SWB_Exporter
             var groupedData = new Dictionary<string, List<DetailItemData>>(); // Group items by their 'SWB To' value
             var allNodes = new HashSet<string>(); // Keep track of all unique 'SWB To' and 'SWB From' values
 
-            foreach (Element detailItem in detailItems)
+            // --- MODIFICATION: Iterate over allRelevantElements ---
+            foreach (Element element in allRelevantElements)
+            // --- END MODIFICATION ---
             {
-                // Get relevant parameters from the detail item
-                Parameter pcPowerCADParam = detailItem.LookupParameter("PC_PowerCAD");
-                Parameter pcSWBToParam = detailItem.LookupParameter("PC_SWB To");
-                Parameter pcSWBFromParam = detailItem.LookupParameter("PC_From");
-                Parameter pcCableLengthParam = detailItem.LookupParameter("PC_Cable Length");
-                // Use "PC_Protective Device Trip Setting (A)" for both rating fields initially
-                Parameter pcProtectiveDeviceTripSettingParam = detailItem.LookupParameter("PC_Protective Device Trip Setting (A)");
+                // Get relevant parameters from the element
+                Parameter pcPowerCADParam = element.LookupParameter("PC_PowerCAD");
+                Parameter pcSWBToParam = element.LookupParameter("PC_SWB To");
+                Parameter pcSWBFromParam = element.LookupParameter("PC_SWB From"); //was PC_From but updated to PC_SWB From for clarity
+                Parameter pcCableLengthParam = element.LookupParameter("PC_Cable Length");
+                // Use "PC_Protective Device Trip Setting (A)" for protective device fields
+                Parameter pcProtectiveDeviceTripSettingParam = element.LookupParameter("PC_Protective Device Trip Setting (A)");
+                // Get the "PC_SWB Load" parameter
+                Parameter pcSWBLoadParam = element.LookupParameter("PC_SWB Load");
 
 
                 // Process only if PC_PowerCAD is 1 (true) and PC_SWB To has a value
@@ -122,7 +142,7 @@ namespace PC_SWB_Exporter
                         swbFromValue = "SOURCE";
                     }
 
-                    Parameter pcCableReferenceParam = detailItem.LookupParameter("PC_Cable Reference");
+                    Parameter pcCableReferenceParam = element.LookupParameter("PC_Cable Reference");
                     string cableReferenceValue = pcCableReferenceParam?.AsString() ?? "";
 
                     // Add the 'From' and 'To' nodes to the set for graph building
@@ -136,15 +156,18 @@ namespace PC_SWB_Exporter
                     string numPhasesValue = "";
                     string switchgearTripUnitTypeValue = "";
                     string cableLengthValue = pcCableLengthParam?.AsString() ?? "";
-                    // Get the trip setting value
+
+                    // Get the protective device trip setting value (used as fallback and for other PD fields)
                     string protectiveDeviceTripSettingValue = pcProtectiveDeviceTripSettingParam?.AsString() ?? "";
+                    // Get the specific SWB Load value
+                    string swbLoadActualValue = pcSWBLoadParam?.AsString();
 
                     // Initialize Isolator specific variables
                     string isolatorTypeValue = "";
                     string isolatorRatingValue = "";
 
-                    // Get the Element Type of the detail item
-                    ElementId elementTypeId = detailItem.GetTypeId();
+                    // Get the Element Type of the element
+                    ElementId elementTypeId = element.GetTypeId();
                     if (elementTypeId != null && elementTypeId != ElementId.InvalidElementId)
                     {
                         ElementType elementType = doc.GetElement(elementTypeId) as ElementType;
@@ -175,10 +198,10 @@ namespace PC_SWB_Exporter
                                 if (!string.IsNullOrEmpty(familyName) && familyName.IndexOf("Isolator Type", StringComparison.OrdinalIgnoreCase) >= 0)
                                 {
                                     // Get Isolator Rating parameter
-                                    Parameter pcIsolatorRatingParam = detailItem.LookupParameter("PC_Isolator Rating (A)");
+                                    Parameter pcIsolatorRatingParam = element.LookupParameter("PC_Isolator Rating (A)");
                                     isolatorRatingValue = pcIsolatorRatingParam?.AsString() ?? "";
 
-                                    // Check Detail Item Type Name for specific keywords
+                                    // Check Element Type Name for specific keywords
                                     if (typeName.IndexOf("Off Load", StringComparison.OrdinalIgnoreCase) >= 0 ||
                                         typeName.IndexOf("CB (Non-Auto)", StringComparison.OrdinalIgnoreCase) >= 0)
                                     {
@@ -203,14 +226,14 @@ namespace PC_SWB_Exporter
                         cableInsulationValue = "X-HF-110";
                     }
 
-                    // Create a data object for the current detail item
+                    // Create a data object for the current element
                     var data = new DetailItemData
                     {
                         OriginalCableReference = cableReferenceValue,
                         SWBFrom = swbFromValue,
                         SWBTo = swbToValue,
                         SWBType = swbTypeValue,
-                        SWBLoad = protectiveDeviceTripSettingValue, // Use Trip Setting for SWB Load initially
+                        SWBLoad = !string.IsNullOrWhiteSpace(swbLoadActualValue) ? swbLoadActualValue : protectiveDeviceTripSettingValue,
                         SWBLoadScope = "Local",
                         SWBPF = "1",
                         CableLength = cableLengthValue,
@@ -226,16 +249,16 @@ namespace PC_SWB_Exporter
                         SwitchgearTripUnitType = switchgearTripUnitTypeValue,
                         SwitchgearManufacturer = "NAW Controls - LS Susol",
                         BusType = "Bus Bar",
-                        BusChassisRating = detailItem.LookupParameter("PC_Bus/Chassis Rating (A)")?.AsString() ?? "",
+                        BusChassisRating = element.LookupParameter("PC_Bus/Chassis Rating (A)")?.AsString() ?? "",
                         UpstreamDiversity = "STD",
                         IsolatorType = isolatorTypeValue,
                         IsolatorRating = isolatorRatingValue,
-                        ProtectiveDeviceRating = protectiveDeviceTripSettingValue, // Use Trip Setting here too
+                        ProtectiveDeviceRating = protectiveDeviceTripSettingValue,
                         ProtectiveDeviceManufacturer = "",
                         ProtectiveDeviceType = "",
                         ProtectiveDeviceModel = "",
                         ProtectiveDeviceOCRTripUnit = "",
-                        ProtectiveDeviceTripSetting = protectiveDeviceTripSettingValue // Explicitly store Trip Setting
+                        ProtectiveDeviceTripSetting = protectiveDeviceTripSettingValue
                     };
 
                     // Add the data object to the dictionary, grouped by SWB To value
@@ -250,7 +273,9 @@ namespace PC_SWB_Exporter
             // Check if any valid items were found for export
             if (groupedData.Count == 0)
             {
-                TaskDialog.Show("Info", "No Detail Items marked for export (PC_PowerCAD = 1) or with valid 'PC_SWB To' values were found.");
+                // --- MODIFICATION: Update message ---
+                TaskDialog.Show("Info", "No Detail Items or Generic Annotations marked for export (PC_PowerCAD = 1) or with valid 'PC_SWB To' values were found.");
+                // --- END MODIFICATION ---
                 return Result.Succeeded;
             }
 
@@ -277,7 +302,7 @@ namespace PC_SWB_Exporter
 
             // --- Step 3: Build Dependency Graph ---
             var inDegree = new Dictionary<string, int>();
-            foreach(string node in allNodes)
+            foreach (string node in allNodes)
             {
                 if (!inDegree.ContainsKey(node)) inDegree[node] = 0;
             }
@@ -309,7 +334,7 @@ namespace PC_SWB_Exporter
             // --- Step 5: Merge Data for Unique SWB To ---
             var mergedUniqueDataList = new List<DetailItemData>();
             var lookupMap = new Dictionary<string, DetailItemData>();
-            foreach(var newItemData in _preOrderSortedData)
+            foreach (var newItemData in _preOrderSortedData)
             {
                 if (lookupMap.TryGetValue(newItemData.SWBTo, out DetailItemData existingItemData))
                 {
@@ -420,8 +445,8 @@ namespace PC_SWB_Exporter
                         else
                         {
                             // If parsing fails, perhaps leave blank or set a default?
-                             itemData.IsolatorType = ""; // Explicitly keep blank if rating is unparseable
-                             itemData.IsolatorRating = "";
+                            itemData.IsolatorType = ""; // Explicitly keep blank if rating is unparseable
+                            itemData.IsolatorRating = "";
                         }
                     }
                 }
@@ -475,7 +500,7 @@ namespace PC_SWB_Exporter
                         EscapeCsvField(displaySwbFrom),
                         EscapeCsvField(itemData.SWBTo),
                         EscapeCsvField(itemData.SWBType),
-                        EscapeCsvField(itemData.SWBLoad),
+                        EscapeCsvField(itemData.SWBLoad), // This now reflects "PC_SWB Load" or its fallback
                         EscapeCsvField(itemData.SWBLoadScope),
                         EscapeCsvField(itemData.SWBPF),
                         EscapeCsvField(itemData.CableLength),
@@ -536,9 +561,10 @@ namespace PC_SWB_Exporter
         private void PreOrderVisit(string nodeName)
         {
             // Check if the node has already been fully processed in the current path to prevent infinite loops in cycles
-            if (!_visitedNodesDuringTraversal.Add(nodeName)) {
-                 // Cycle detected or node already visited in this path
-                 return;
+            if (!_visitedNodesDuringTraversal.Add(nodeName))
+            {
+                // Cycle detected or node already visited in this path
+                return;
             }
 
             // Find all items that originate from the current node
@@ -568,32 +594,43 @@ namespace PC_SWB_Exporter
             if (string.IsNullOrWhiteSpace(existing.FinalCableReference) && !string.IsNullOrWhiteSpace(newItem.FinalCableReference)) existing.FinalCableReference = newItem.FinalCableReference;
             if (string.IsNullOrWhiteSpace(existing.SWBFrom) && !string.IsNullOrWhiteSpace(newItem.SWBFrom)) existing.SWBFrom = newItem.SWBFrom;
             if (string.IsNullOrWhiteSpace(existing.SWBType) && !string.IsNullOrWhiteSpace(newItem.SWBType)) existing.SWBType = newItem.SWBType;
+
+            // SWBLoad merge logic: If existing is blank and new is not, take new.
+            // The initial population of SWBLoad already handles the "PC_SWB Load" vs "ProtectiveDeviceTripSetting" priority.
             if (string.IsNullOrWhiteSpace(existing.SWBLoad) && !string.IsNullOrWhiteSpace(newItem.SWBLoad)) existing.SWBLoad = newItem.SWBLoad;
-            if (string.IsNullOrWhiteSpace(existing.SWBLoadScope)) existing.SWBLoadScope = newItem.SWBLoadScope;
-            if (string.IsNullOrWhiteSpace(existing.SWBPF)) existing.SWBPF = newItem.SWBPF;
+
+            if (string.IsNullOrWhiteSpace(existing.SWBLoadScope)) existing.SWBLoadScope = newItem.SWBLoadScope; // Typically "Local"
+            if (string.IsNullOrWhiteSpace(existing.SWBPF)) existing.SWBPF = newItem.SWBPF; // Typically "1"
             if (string.IsNullOrWhiteSpace(existing.CableLength) && !string.IsNullOrWhiteSpace(newItem.CableLength)) existing.CableLength = newItem.CableLength;
             if (string.IsNullOrWhiteSpace(existing.CableSizeActive) && !string.IsNullOrWhiteSpace(newItem.CableSizeActive)) existing.CableSizeActive = newItem.CableSizeActive;
             if (string.IsNullOrWhiteSpace(existing.CableSizeNeutral) && !string.IsNullOrWhiteSpace(newItem.CableSizeNeutral)) existing.CableSizeNeutral = newItem.CableSizeNeutral;
             if (string.IsNullOrWhiteSpace(existing.CableSizeEarthing) && !string.IsNullOrWhiteSpace(newItem.CableSizeEarthing)) existing.CableSizeEarthing = newItem.CableSizeEarthing;
             if (string.IsNullOrWhiteSpace(existing.ActiveConductorMaterial) && !string.IsNullOrWhiteSpace(newItem.ActiveConductorMaterial)) existing.ActiveConductorMaterial = newItem.ActiveConductorMaterial;
             if (string.IsNullOrWhiteSpace(existing.NumPhases) && !string.IsNullOrWhiteSpace(newItem.NumPhases)) existing.NumPhases = newItem.NumPhases;
+            // CableType is determined in Step 5b, so no direct merge here.
             if (string.IsNullOrWhiteSpace(existing.CableInsulation) && !string.IsNullOrWhiteSpace(newItem.CableInsulation)) existing.CableInsulation = newItem.CableInsulation;
-            if (string.IsNullOrWhiteSpace(existing.InstallationMethod)) existing.InstallationMethod = "PT";
+            if (string.IsNullOrWhiteSpace(existing.InstallationMethod)) existing.InstallationMethod = "PT"; // Default
             if (string.IsNullOrWhiteSpace(existing.CableAdditionalDerating) && !string.IsNullOrWhiteSpace(newItem.CableAdditionalDerating)) existing.CableAdditionalDerating = newItem.CableAdditionalDerating;
-            if (string.IsNullOrWhiteSpace(existing.SwitchgearManufacturer)) existing.SwitchgearManufacturer = "NAW Controls - LS Susol";
-            if (string.IsNullOrWhiteSpace(existing.BusType)) existing.BusType = "Bus Bar";
+            // SwitchgearTripUnitType is determined in Step 5b.
+            if (string.IsNullOrWhiteSpace(existing.SwitchgearManufacturer)) existing.SwitchgearManufacturer = "NAW Controls - LS Susol"; // Default
+            if (string.IsNullOrWhiteSpace(existing.BusType)) existing.BusType = "Bus Bar"; // Default
             if (string.IsNullOrWhiteSpace(existing.BusChassisRating) && !string.IsNullOrWhiteSpace(newItem.BusChassisRating)) existing.BusChassisRating = newItem.BusChassisRating;
-            if (string.IsNullOrWhiteSpace(existing.UpstreamDiversity)) existing.UpstreamDiversity = "STD";
+            if (string.IsNullOrWhiteSpace(existing.UpstreamDiversity)) existing.UpstreamDiversity = "STD"; // Default
 
-            // Merge Isolator Type/Rating only if the existing one is blank (prioritize values set in Step 1)
+            // Merge Isolator Type/Rating only if the existing one is blank (prioritize values set in Step 1 or defaults from Step 5b)
             if (string.IsNullOrWhiteSpace(existing.IsolatorType) && !string.IsNullOrWhiteSpace(newItem.IsolatorType)) existing.IsolatorType = newItem.IsolatorType;
             if (string.IsNullOrWhiteSpace(existing.IsolatorRating) && !string.IsNullOrWhiteSpace(newItem.IsolatorRating)) existing.IsolatorRating = newItem.IsolatorRating;
 
-            // Merge Protective Device fields - prioritize Trip Setting
+            // Merge Protective Device fields - prioritize Trip Setting if existing is blank
             if (string.IsNullOrWhiteSpace(existing.ProtectiveDeviceTripSetting) && !string.IsNullOrWhiteSpace(newItem.ProtectiveDeviceTripSetting)) existing.ProtectiveDeviceTripSetting = newItem.ProtectiveDeviceTripSetting;
-            // Update related fields if they are blank and Trip Setting was merged
+
+            // If ProtectiveDeviceRating is blank, try to fill it from the (potentially newly merged) ProtectiveDeviceTripSetting
             if (string.IsNullOrWhiteSpace(existing.ProtectiveDeviceRating)) existing.ProtectiveDeviceRating = existing.ProtectiveDeviceTripSetting;
+
+            // If SWBLoad is still blank after its primary merge attempt, try to fill it from ProtectiveDeviceTripSetting as a final fallback.
+            // This is secondary to its initial population from "PC_SWB Load" or the fallback during item creation.
             if (string.IsNullOrWhiteSpace(existing.SWBLoad)) existing.SWBLoad = existing.ProtectiveDeviceTripSetting;
+
 
             // Merge other PD fields if blank
             if (string.IsNullOrWhiteSpace(existing.ProtectiveDeviceManufacturer) && !string.IsNullOrWhiteSpace(newItem.ProtectiveDeviceManufacturer)) existing.ProtectiveDeviceManufacturer = newItem.ProtectiveDeviceManufacturer;
@@ -602,5 +639,5 @@ namespace PC_SWB_Exporter
             if (string.IsNullOrWhiteSpace(existing.ProtectiveDeviceOCRTripUnit) && !string.IsNullOrWhiteSpace(newItem.ProtectiveDeviceOCRTripUnit)) existing.ProtectiveDeviceOCRTripUnit = newItem.ProtectiveDeviceOCRTripUnit;
         }
 
-    } // End class PowerCAD_ExportSLD
-} // End namespace PC_Exporter
+    } // End class PC_SWB_ExporterClass
+} // End namespace PC_SWB_Exporter

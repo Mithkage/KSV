@@ -1,0 +1,41 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\kyles\\source\\repos\\KSV\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\rt_trayconduits.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\rt_trayconduits.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "RT_TrayConduits.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RT_TrayConduits.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\RT_TrayConduits.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RT_TrayConduits.cs",
+              "RelativeToolTip": "RevitAddin\\RT_TrayConduits.cs",
+              "ViewState": "AgIAAHMAAAAAAAAAAAAAwI0AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-06-26T04:32:43.822Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

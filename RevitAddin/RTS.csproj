@@ -3,33 +3,62 @@
 	<PropertyGroup>
 		<TargetFramework>net48</TargetFramework>
 		<PlatformTarget>x64</PlatformTarget>
-
 		<ProjectGuid>24500748-F734-4C0E-BB02-9C6D8F8E5CC9</ProjectGuid>
 		<OutputType>Library</OutputType>
 		<RootNamespace>RTS</RootNamespace>
 		<AssemblyName>RTS</AssemblyName>
-
 		<LangVersion>9.0</LangVersion>
 		<UseWindowsForms>true</UseWindowsForms>
 		<UseWPF>true</UseWPF>
-
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-
 		<Company>ReTick Solutions</Company>
 		<Product>RTS Revit Add-in</Product>
 		<Description>Revit Add-in for ReTick Solutions</Description>
 		<Copyright>Copyright © ReTick Solutions 2025</Copyright>
 		<Version>1.0.0.0</Version>
+
+		<Revit2022AddinsFolder>C:\ProgramData\Autodesk\Revit\Addins\2022\</Revit2022AddinsFolder>
+		<Revit2024AddinsFolder>C:\ProgramData\Autodesk\Revit\Addins\2024\</Revit2024AddinsFolder>
+
+		<Configurations>Debug;Release;Debug2022;Release2022</Configurations>
+		<Platforms>x64</Platforms>
 	</PropertyGroup>
 
-	<ItemGroup>
-		<None Remove="Resources\Icon_PC_Launcher.png" />
-	</ItemGroup>
+	<PropertyGroup Condition=" '$(Configuration)'=='Debug' OR '$(Configuration)'=='Release' ">
+		<DefineConstants>$(DefineConstants);REVIT2024;TRACE</DefineConstants>
+		<DefineConstants Condition=" '$(Configuration)'=='Debug' ">$(DefineConstants);DEBUG</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' ">
+		<DefineConstants>$(DefineConstants);REVIT2022;TRACE</DefineConstants>
+		<DefineConstants Condition=" '$(Configuration)'=='Debug2022' ">$(DefineConstants);DEBUG</DefineConstants>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)'=='Release' OR '$(Configuration)'=='Release2022'">
+		<Optimize>true</Optimize>
+	</PropertyGroup>
+
 
 	<ItemGroup>
-		<Content Include="Resources\Icon_PC_Launcher.png">
+		<Content Include="RTS.addin">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</Content>
+		<Content Include="RTS_2022.addin">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Resources\**\*.*">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <Compile Include="Doc\RTS_Initiate .txt" />
+	  <Compile Include="RT_WireRouting.txt" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <None Include="RT_TrayOccupancy.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -37,42 +66,82 @@
 		<PackageReference Include="DocumentFormat.OpenXml" Version="2.20.0" />
 	</ItemGroup>
 
+	<Choose>
+		<When Condition=" '$(Configuration)'=='Debug' OR '$(Configuration)'=='Release' ">
+			<ItemGroup>
+				<Reference Include="RevitAPI">
+					<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll</HintPath>
+					<Private>False</Private>
+				</Reference>
+				<Reference Include="RevitAPIUI">
+					<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPIUI.dll</HintPath>
+					<Private>False</Private>
+				</Reference>
+			</ItemGroup>
+		</When>
+		<When Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' ">
+			<ItemGroup>
+				<Reference Include="RevitAPI">
+					<HintPath>C:\Program Files\Autodesk\Revit 2022\RevitAPI.dll</HintPath>
+					<Private>False</Private>
+				</Reference>
+				<Reference Include="RevitAPIUI">
+					<HintPath>C:\Program Files\Autodesk\Revit 2022\RevitAPIUI.dll</HintPath>
+					<Private>False</Private>
+				</Reference>
+			</ItemGroup>
+		</When>
+		<Otherwise>
+			<ItemGroup>
+				<Reference Include="RevitAPI">
+					<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll</HintPath>
+					<Private>False</Private>
+				</Reference>
+				<Reference Include="RevitAPIUI">
+					<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPIUI.dll</HintPath>
+					<Private>False</Private>
+				</Reference>
+			</ItemGroup>
+		</Otherwise>
+	</Choose>
+
 	<ItemGroup>
-		<Reference Include="RevitAPI">
-			<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="RevitAPIUI">
-			<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPIUI.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
 		<Reference Include="Microsoft.VisualBasic" />
 	</ItemGroup>
 
 	<Target Name="CopyAddinFilesAfterBuild" AfterTargets="Build">
 		<PropertyGroup>
-			<RevitAddinsFolder>C:\ProgramData\Autodesk\Revit\Addins\2024\</RevitAddinsFolder>
-			<AddinFileSource>$(ProjectDir)RTS.addin</AddinFileSource>
+			<AddinFileSource2024>$(ProjectDir)RTS.addin</AddinFileSource2024>
+			<AddinFileSource2022>$(ProjectDir)RTS_2022.addin</AddinFileSource2022>
+			<SourceResourcesDir>$(TargetDir)Resources\</SourceResourcesDir>
 		</PropertyGroup>
 
-		<Message Text="Copying Add-in DLL to $(RevitAddinsFolder)..." Importance="high" />
-		<Exec Command="copy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(RevitAddinsFolder)&quot; /Y" />
+		<MakeDir Directories="$(Revit2024AddinsFolder)Resources" Condition="Exists('$(SourceResourcesDir)') AND ('$(Configuration)'=='Debug' OR '$(Configuration)'=='Release')" />
+		<MakeDir Directories="$(Revit2022AddinsFolder)Resources" Condition="Exists('$(SourceResourcesDir)') AND ('$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022')" />
 
-		<Message Text="Copying ClosedXML.dll to $(RevitAddinsFolder)..." Importance="high" />
-		<Exec Command="copy &quot;$(TargetDir)ClosedXML.dll&quot; &quot;$(RevitAddinsFolder)&quot; /Y" />
+		<Message Text="Output Path: $(TargetDir)" Importance="high" />
 
-		<Message Text="Copying DocumentFormat.OpenXml.dll to $(RevitAddinsFolder)..." Importance="high" />
-		<Exec Command="copy &quot;$(TargetDir)DocumentFormat.OpenXml.dll&quot; &quot;$(RevitAddinsFolder)&quot; /Y" />
+		<ItemGroup Condition=" '$(Configuration)'=='Debug' OR '$(Configuration)'=='Release' ">
+			<FilesToCopy2024 Include="$(TargetDir)$(TargetName).dll" />
+			<FilesToCopy2024 Include="$(TargetDir)ClosedXML.dll" />
+			<FilesToCopy2024 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
+			<FilesToCopy2024 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
+			<FilesToCopy2024 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
+		</ItemGroup>
+		<Copy SourceFiles="@(FilesToCopy2024)" DestinationFolder="$(Revit2024AddinsFolder)" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Debug' OR '$(Configuration)'=='Release' " />
+		<Copy SourceFiles="$(AddinFileSource2024)" DestinationFiles="$(Revit2024AddinsFolder)$(TargetName).addin" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Debug' OR '$(Configuration)'=='Release' " />
+		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2024AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND ('$(Configuration)'=='Debug' OR '$(Configuration)'=='Release')" />
 
-		<Message Text="Copying System.IO.Packaging.dll if it exists in TargetDir..." Importance="high" />
-		<Exec Command="copy &quot;$(TargetDir)System.IO.Packaging.dll&quot; &quot;$(RevitAddinsFolder)&quot; /Y" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
-
-		<Message Text="Copying SixLabors.Fonts.dll if it exists in TargetDir..." Importance="high" />
-		<Exec Command="copy &quot;$(TargetDir)SixLabors.Fonts.dll&quot; &quot;$(RevitAddinsFolder)&quot; /Y" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
-
-		<Message Text="Copying .addin file from $(AddinFileSource) to $(RevitAddinsFolder)..." Importance="high" />
-		<Exec Command="copy &quot;$(AddinFileSource)&quot; &quot;$(RevitAddinsFolder)&quot; /Y" />
+		<ItemGroup Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' ">
+			<FilesToCopy2022 Include="$(TargetDir)$(TargetName).dll" />
+			<FilesToCopy2022 Include="$(TargetDir)ClosedXML.dll" />
+			<FilesToCopy2022 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
+			<FilesToCopy2022 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
+			<FilesToCopy2022 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
+		</ItemGroup>
+		<Copy SourceFiles="@(FilesToCopy2022)" DestinationFolder="$(Revit2022AddinsFolder)" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' " />
+		<Copy SourceFiles="$(AddinFileSource2022)" DestinationFiles="$(Revit2022AddinsFolder)$(TargetName).addin" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' " />
+		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2022AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND ('$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022')" />
 
 	</Target>
-
 </Project>

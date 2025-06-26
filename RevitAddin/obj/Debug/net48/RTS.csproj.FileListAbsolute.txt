@@ -1,3 +1,10 @@
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.csproj.AssemblyReference.cache
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.csproj.CoreCompileInputs.cache
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.sourcelink.json
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\Resources\Icon2.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\Resources\Icon3.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\Resources\Icon4.png
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\Resources\Icon_PC_Launcher.png
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\RTS.pdb
@@ -12,8 +19,6 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\System.Memory.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\System.Numerics.Vectors.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\System.Runtime.CompilerServices.Unsafe.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\Debug\net48\XLParser.dll
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.csproj.CoreCompileInputs.cache
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.csproj.CopyComplete
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.csproj.Up2Date
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\Debug\net48\RTS.pdb

@@ -1,0 +1,4 @@
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release\net48\RTS.csproj.AssemblyReference.cache
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release\net48\RTS.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release\net48\RTS.csproj.CoreCompileInputs.cache
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release\net48\RTS.sourcelink.json
