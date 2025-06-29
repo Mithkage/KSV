@@ -64,6 +64,7 @@
 	<ItemGroup>
 		<PackageReference Include="ClosedXML" Version="0.102.2" />
 		<PackageReference Include="DocumentFormat.OpenXml" Version="2.20.0" />
+		<PackageReference Include="System.Text.Json" Version="9.0.6" />
 	</ItemGroup>
 
 	<Choose>

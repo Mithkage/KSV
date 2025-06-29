@@ -26,3 +26,9 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\XLParser.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\RTS.csproj.Up2Date
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\RTS.pdb
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\Microsoft.Bcl.AsyncInterfaces.dll
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\System.IO.Pipelines.dll
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\System.Text.Encodings.Web.dll
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\System.Text.Json.dll
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\System.Threading.Tasks.Extensions.dll
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\System.ValueTuple.dll

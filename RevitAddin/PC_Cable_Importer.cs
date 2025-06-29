@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Windows.Forms; // Requires reference to System.Windows.Forms assembly
+using System.Windows.Forms;
 using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
@@ -34,27 +34,27 @@ namespace PC_Cable_Importer
         // Maps CSV Header Name to Revit Parameter Name
         private readonly Dictionary<string, string> _parameterMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) // Case-insensitive header matching
         {
-            // CSV Header                       Revit Parameter Name (or null/empty if not mapped)
-            { "Cable Reference",                "PC_Cable Reference" },
-            { "From",                           "PC_SWB From" },
-            { "To",                             SWB_TO_PARAM_NAME }, // Used for matching, but also mapped if needed
-            { "Cable Type",                     "PC_Cable Type" },
-            { "Cores",                          "PC_Cores" }, // Expecting Integer
-            { "Cable Size (mm²)",               "PC_Cable Size - Active conductors" }, // Expecting String
-            { "Conductor (Active)",             "PC_Active Conductor material" },
-            { "Insulation",                     "PC_Cable Insulation" },
-            { "Neutral Size (mm²)",             "PC_Cable Size - Neutral conductors" }, // Expecting String
-            { "Earth Size (mm²)",               "PC_Cable Size - Earthing conductor" }, // Expecting String
-            { "Conductor (Earth)",              "PC_Earth Conductor material" },
-            { "Separate Earth for Multicore",   "PC_Separate Earth for Multicore" }, // Expecting Yes/No (Integer 1/0)
-            { "Cable Length (m)",               "PC_Cable Length" }, // Expecting Double (Length)
-            { "Accum. Voltage Drop % (Incl. FSC)", "PC_Accum Volt Drop Incl FSC" }, // Expecting Double
+            // CSV Header                               Revit Parameter Name (or null/empty if not mapped)
+            { "Cable Reference",                        "PC_Cable Reference" },
+            { "From",                                   "PC_SWB From" },
+            { "To",                                     SWB_TO_PARAM_NAME }, // Used for matching, but also mapped if needed
+            { "Cable Type",                             "PC_Cable Type" },
+            { "Cores",                                  "PC_Cores" }, // Expecting Integer
+            { "Cable Size (mm²)",                       "PC_Cable Size - Active conductors" }, // Expecting String
+            { "Conductor (Active)",                     "PC_Active Conductor material" },
+            { "Insulation",                             "PC_Cable Insulation" },
+            { "Neutral Size (mm²)",                     "PC_Cable Size - Neutral conductors" }, // Expecting String
+            { "Earth Size (mm²)",                       "PC_Cable Size - Earthing conductor" }, // Expecting String
+            { "Conductor (Earth)",                      "PC_Earth Conductor material" },
+            { "Separate Earth for Multicore",           "PC_Separate Earth for Multicore" }, // Expecting Yes/No (Integer 1/0)
+            { "Cable Length (m)",                       "PC_Cable Length" }, // Expecting Double (Length)
+            { "Accum. Voltage Drop % (Incl. FSC)",      "PC_Accum Volt Drop Incl FSC" }, // Expecting Double
             { "Prospective Fault at End of Cable (kA)", "PC_Prospective Fault at End of Cable" }, // Expecting Double
-            { "Addition Cable Derating",        "PC_Cable Additional De-rating" }, // Expecting Double
-            { "No. of Conduits",                "PC_No. of Conduits" }, // Expecting Integer
-            { "Conduit Size (mm)",              "PC_Conduit Size" }, // Expecting String
-            { "Design Progress",                "PC_Design Progress" },
-            { "Nominal Overall Diameter (mm)",  "PC_Nominal Overall Diameter" } // Expecting Double (Length)
+            { "Addition Cable Derating",                "PC_Cable Additional De-rating" }, // Expecting Double
+            { "No. of Conduits",                        "PC_No. of Conduits" }, // Expecting Integer
+            { "Conduit Size (mm)",                      "PC_Conduit Size" }, // Expecting String
+            { "Design Progress",                        "PC_Design Progress" },
+            { "Nominal Overall Diameter (mm)",          "PC_Nominal Overall Diameter" } // Expecting Double (Length)
             // Add or remove mappings as needed based on the previous examples and your requirements
         };
 
@@ -81,7 +81,7 @@ namespace PC_Cable_Importer
             List<string> errors = new List<string>();
             try
             {
-                // Using Encoding.Default for ANSI. Adjust if needed (e.g., Encoding.GetEncoding(1252))
+                // Using Encoding.Default for ANSI. The ParseCsv method will now explicitly remove \ufeff characters.
                 csvData = ParseCsv(csvFilePath, Encoding.Default);
             }
             catch (IOException ex)
@@ -115,7 +115,7 @@ namespace PC_Cable_Importer
                     // Handle potential duplicate 'To' values in CSV - use the last one found or log a warning
                     if (csvLookup.ContainsKey(toValue))
                     {
-                         errors.Add($"Warning: Duplicate '{CSV_KEY_COLUMN_HEADER}' value '{toValue}' found in CSV. Using the last occurrence.");
+                        errors.Add($"Warning: Duplicate '{CSV_KEY_COLUMN_HEADER}' value '{toValue}' found in CSV. Using the last occurrence.");
                     }
                     csvLookup[toValue] = row; // Add or overwrite
                 }
@@ -198,21 +198,21 @@ namespace PC_Cable_Importer
                                                     errors.Add($"Error setting parameter '{revitParamName}' on element ID {elem.Id} (To='{revitToValue}') with CSV value '{csvValue}': {ex.Message}");
                                                 }
                                             }
-                                             // Optional: Log warnings for non-critical issues during update attempt
-                                             // else if (targetParam == null) { errors.Add($"Warning: Parameter '{revitParamName}' not found on element ID {elem.Id}."); }
-                                             // else if (targetParam.IsReadOnly) { errors.Add($"Warning: Parameter '{revitParamName}' is read-only on element ID {elem.Id}."); }
+                                            // Optional: Log warnings for non-critical issues during update attempt
+                                            // else if (targetParam == null) { errors.Add($"Warning: Parameter '{revitParamName}' not found on element ID {elem.Id}."); }
+                                            // else if (targetParam.IsReadOnly) { errors.Add($"Warning: Parameter '{revitParamName}' is read-only on element ID {elem.Id}."); }
                                         }
                                     }
                                     if (itemUpdated) updatedCount++;
                                 }
                                 else // CSV match not found for this eligible item
                                 {
-                                     errors.Add($"Info: Eligible Detail Item ID {elem.Id} (PC_PowerCAD=Yes) with '{SWB_TO_PARAM_NAME}' = '{revitToValue}' not found in CSV's '{CSV_KEY_COLUMN_HEADER}' column.");
+                                    errors.Add($"Info: Eligible Detail Item ID {elem.Id} (PC_PowerCAD=Yes) with '{SWB_TO_PARAM_NAME}' = '{revitToValue}' not found in CSV's '{CSV_KEY_COLUMN_HEADER}' column.");
                                 }
                             }
                             else // Eligible item missing the SWB_TO parameter or value
                             {
-                                 errors.Add($"Warning: Eligible Detail Item ID {elem.Id} (PC_PowerCAD=Yes) has missing or empty parameter '{SWB_TO_PARAM_NAME}'. Cannot match to CSV.");
+                                errors.Add($"Warning: Eligible Detail Item ID {elem.Id} (PC_PowerCAD=Yes) has missing or empty parameter '{SWB_TO_PARAM_NAME}'. Cannot match to CSV.");
                             }
                         }
                         // else: Item skipped because PC_PowerCAD is not 'Yes' or parameter missing. Do nothing.
@@ -282,10 +282,11 @@ namespace PC_Cable_Importer
             return null;
         }
 
-       /// <summary>
+        /// <summary>
         /// Parses a CSV file, handling quoted fields with commas.
         /// Assumes the first non-empty line containing the key header ("To") is the header.
         /// Identifies data rows as those following the header where the "To" column is not empty.
+        /// This method has been updated to remove all '\ufeff' (Byte Order Mark) characters from each line using a loop.
         /// </summary>
         /// <param name="filePath">Path to the CSV file.</param>
         /// <param name="encoding">File encoding (e.g., Encoding.Default for ANSI).</param>
@@ -297,13 +298,24 @@ namespace PC_Cable_Importer
             bool headerFound = false;
             int toColumnIndex = -1; // Index of the key column ("To") used to identify data rows
 
-            using (StreamReader reader = new StreamReader(filePath, encoding))
+            using (StreamReader reader = new StreamReader(filePath, encoding)) // Use provided encoding
             {
                 string line;
                 int lineNum = 0;
                 while ((line = reader.ReadLine()) != null)
                 {
                     lineNum++;
+                    // *** MODIFICATION: Manually remove all \ufeff characters from the line using a loop ***
+                    StringBuilder cleanedLineBuilder = new StringBuilder();
+                    foreach (char c in line)
+                    {
+                        if (c != '\uFEFF')
+                        {
+                            cleanedLineBuilder.Append(c);
+                        }
+                    }
+                    line = cleanedLineBuilder.ToString();
+
                     if (string.IsNullOrWhiteSpace(line)) continue; // Skip empty lines
 
                     var values = ParseCsvLine(line);
@@ -353,8 +365,8 @@ namespace PC_Cable_Importer
                 } // end while loop
             } // end using reader
 
-             if (!headerFound) throw new Exception($"CSV parsing error: Header row containing the key column '{CSV_KEY_COLUMN_HEADER}' not found.");
-             // No need to check toColumnIndex < 0 as headerFound implies it was set
+            if (!headerFound) throw new Exception($"CSV parsing error: Header row containing the key column '{CSV_KEY_COLUMN_HEADER}' not found.");
+            // No need to check toColumnIndex < 0 as headerFound implies it was set
 
             return data;
         }
@@ -420,16 +432,16 @@ namespace PC_Cable_Importer
             // Handle empty strings
             if (string.IsNullOrWhiteSpace(value))
             {
-                 if(param.StorageType == StorageType.String)
-                 {
+                if (param.StorageType == StorageType.String)
+                {
                     return param.Set(""); // Set empty string for Text parameters
-                 }
-                 else
-                 {
+                }
+                else
+                {
                     // Cannot set empty for non-string types typically. Log or ignore.
                     // errorLog?.Add($"Info: Skipped setting parameter '{param.Definition.Name}' on Element ID {elementIdStr} (To='{elementToStr}') due to empty CSV value.");
                     return false;
-                 }
+                }
             }
 
             try
@@ -444,24 +456,31 @@ namespace PC_Cable_Importer
                             if (UnitUtils.IsMeasurableSpec(specTypeId))
                             {
                                 // --- Unit Conversion Logic (Revit 2021+) ---
-                                if (specTypeId == SpecTypeId.Length) {
+                                if (specTypeId == SpecTypeId.Length)
+                                {
                                     // Assuming CSV "Cable Length (m)" and "Nominal Overall Diameter (mm)"
-                                    if (param.Definition.Name.Equals("PC_Cable Length", StringComparison.OrdinalIgnoreCase)) {
-                                         double internalValue = UnitUtils.ConvertToInternalUnits(dblValue, UnitTypeId.Meters);
-                                         return param.Set(internalValue);
-                                    } else if (param.Definition.Name.Equals("PC_Nominal Overall Diameter", StringComparison.OrdinalIgnoreCase)) {
-                                         double internalValue = UnitUtils.ConvertToInternalUnits(dblValue, UnitTypeId.Millimeters);
-                                         return param.Set(internalValue);
-                                    } else {
-                                         // Default for other lengths: Assume meters or needs specific handling
-                                         errorLog?.Add($"Warning: Unhandled Length parameter '{param.Definition.Name}' on Elem ID {elementIdStr}. Assuming meters for value '{dblValue}'.");
-                                         double internalValue = UnitUtils.ConvertToInternalUnits(dblValue, UnitTypeId.Meters);
-                                         return param.Set(internalValue);
+                                    if (param.Definition.Name.Equals("PC_Cable Length", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        double internalValue = UnitUtils.ConvertToInternalUnits(dblValue, UnitTypeId.Meters);
+                                        return param.Set(internalValue);
+                                    }
+                                    else if (param.Definition.Name.Equals("PC_Nominal Overall Diameter", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        double internalValue = UnitUtils.ConvertToInternalUnits(dblValue, UnitTypeId.Millimeters);
+                                        return param.Set(internalValue);
+                                    }
+                                    else
+                                    {
+                                        // Default for other lengths: Assume meters or needs specific handling
+                                        errorLog?.Add($"Warning: Unhandled Length parameter '{param.Definition.Name}' on Elem ID {elementIdStr}. Assuming meters for value '{dblValue}'.");
+                                        double internalValue = UnitUtils.ConvertToInternalUnits(dblValue, UnitTypeId.Meters);
+                                        return param.Set(internalValue);
                                     }
                                 }
                                 // Add other 'else if' blocks for Area, Volume, Angle etc. if needed
                                 // else if (specTypeId == SpecTypeId.Area) { ... }
-                                else {
+                                else
+                                {
                                     // Default for other measurable specs: Assume direct setting works (e.g., unitless number used for a spec) or needs specific handling
                                     // errorLog?.Add($"Info: Setting measurable spec '{param.Definition.Name}' ({specTypeId.ToUnitTypeId()}) directly with value {dblValue} on Elem ID {elementIdStr}. Verify units if needed.");
                                     return param.Set(dblValue);
@@ -472,9 +491,10 @@ namespace PC_Cable_Importer
                                 return param.Set(dblValue); // Set directly
                             }
                         }
-                        else {
-                             errorLog?.Add($"Error: Could not parse '{value}' as Double for parameter '{param.Definition.Name}' on Element ID {elementIdStr} (To='{elementToStr}').");
-                             return false; // Parsing failed
+                        else
+                        {
+                            errorLog?.Add($"Error: Could not parse '{value}' as Double for parameter '{param.Definition.Name}' on Element ID {elementIdStr} (To='{elementToStr}').");
+                            return false; // Parsing failed
                         }
 
                     case StorageType.Integer:
@@ -488,7 +508,8 @@ namespace PC_Cable_Importer
                                 return param.Set(1);
                             else if (trimmedValue == "no" || trimmedValue == "false" || trimmedValue == "0")
                                 return param.Set(0);
-                            else {
+                            else
+                            {
                                 errorLog?.Add($"Error: Could not parse '{value}' as Yes/No for parameter '{param.Definition.Name}' on Element ID {elementIdStr} (To='{elementToStr}').");
                                 return false; // Cannot interpret Yes/No value
                             }
@@ -497,7 +518,8 @@ namespace PC_Cable_Importer
                         {
                             return param.Set(intValue);
                         }
-                        else {
+                        else
+                        {
                             errorLog?.Add($"Error: Could not parse '{value}' as Integer for parameter '{param.Definition.Name}' on Element ID {elementIdStr} (To='{elementToStr}').");
                             return false; // Parsing failed for integer
                         }
@@ -511,20 +533,20 @@ namespace PC_Cable_Importer
                         return false;
 
                     default:
-                         errorLog?.Add($"Warning: Skipped setting parameter '{param.Definition.Name}' on Element ID {elementIdStr}. Unknown StorageType: {param.StorageType}.");
+                        errorLog?.Add($"Warning: Skipped setting parameter '{param.Definition.Name}' on Element ID {elementIdStr}. Unknown StorageType: {param.StorageType}.");
                         return false; // Unknown storage type
                 }
             }
             catch (Exception ex)
             {
-                 // Log the exception details for debugging
+                // Log the exception details for debugging
                 errorLog?.Add($"Exception setting parameter '{param.Definition.Name}' on Element ID {elementIdStr} (To='{elementToStr}') with value '{value}'. Exception: {ex.Message}");
                 Console.WriteLine($"Error setting parameter {param.Definition.Name}: {ex.Message}");
                 return false; // Indicate failure
             }
         }
 
-         /// <summary>
+        /// <summary>
         /// Displays a scrollable dialog with error/warning messages.
         /// </summary>
         private void ShowErrorsDialog(List<string> errors)

@@ -6,7 +6,7 @@
 //
 // Author: ReTick Solutions
 //
-// Date: June 20, 2024
+// Date: June 28, 2025 (Updated)
 //
 #region Namespaces
 using Autodesk.Revit.UI;
@@ -87,6 +87,24 @@ namespace RTS
                 string mdReportIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_MD_Report.png");
                 pbdPcGenerateMd.LargeImage = new BitmapImage(new Uri(File.Exists(mdReportIconPath) ? mdReportIconPath : genericIconPath));
 
+                // 6. PC_Extensible: Process & Save Cable Data
+                PushButtonData pbdPcExtensible = new PushButtonData(
+                    "CmdPcExtensible", "Process & Save\nCable Data", ExecutingAssemblyPath, "PC_Extensible.PC_ExtensibleClass")
+                {
+                    ToolTip = "Processes the Cleaned Cable Schedule and saves its data to project extensible storage."
+                };
+                string pcExtensibleIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_SaveData.png"); // Example custom icon path
+                pbdPcExtensible.LargeImage = new BitmapImage(new Uri(File.Exists(pcExtensibleIconPath) ? pcExtensibleIconPath : genericIconPath));
+
+                // 7. PC_WireData: Update Electrical Wires (Updated Name)
+                PushButtonData pbdPcWireData = new PushButtonData( // Renamed variable
+                    "CmdPcWireData", "Update Electrical\nWires", ExecutingAssemblyPath, "PC_WireData.PC_WireDataClass") // Updated namespace and class name
+                {
+                    ToolTip = "Reads cleaned cable data from extensible storage and updates electrical wires in the model."
+                };
+                string pcWireDataIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_WireRoute.png"); // Reusing suggested icon name for consistency
+                pbdPcWireData.LargeImage = new BitmapImage(new Uri(File.Exists(pcWireDataIconPath) ? pcWireDataIconPath : genericIconPath));
+
 
                 // --- Revit Tools Buttons ---
 
@@ -115,25 +133,32 @@ namespace RTS
                 };
                 if (File.Exists(genericIconPath)) pbdRtTrayOccupancy.LargeImage = new BitmapImage(new Uri(genericIconPath));
 
-                // 4. RT Tray ID - NEW BUTTON ADDED HERE
+                // 4. RT Tray ID
                 PushButtonData pbdRtTrayId = new PushButtonData(
-                    "CmdRtTrayId", "Update Tray\nIDs", ExecutingAssemblyPath, "RT_TrayID.RT_TrayIDClass") // Ensure this matches your RT_TrayID class namespace and name
+                    "CmdRtTrayId", "Update Tray\nIDs", ExecutingAssemblyPath, "RT_TrayID.RT_TrayIDClass")
                 {
                     ToolTip = "Generates and updates unique IDs for cable tray elements."
                 };
-                // You can specify a custom icon for RT_TrayID or reuse genericIconPath
-                string rtTrayIdIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_TrayID.png"); // Example custom icon path
+                string rtTrayIdIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_TrayID.png");
                 pbdRtTrayId.LargeImage = new BitmapImage(new Uri(File.Exists(rtTrayIdIconPath) ? rtTrayIdIconPath : genericIconPath));
 
-                // 5. RT Tray Conduits - NEW BUTTON ADDED HERE
+                // 5. RT Tray Conduits
                 PushButtonData pbdRtTrayConduits = new PushButtonData(
-                    "CmdRtTrayConduits", "Create Tray\nConduits", ExecutingAssemblyPath, "RT_TrayConduits.RT_TrayConduitsClass") // Match namespace and class name
+                    "CmdRtTrayConduits", "Create Tray\nConduits", ExecutingAssemblyPath, "RT_TrayConduits.RT_TrayConduitsClass")
                 {
                     ToolTip = "Models conduits along cable trays based on cable data."
                 };
-                // Example custom icon path, or reuse genericIconPath
-                string rtTrayConduitsIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_Conduit.png"); // Assuming you might have a conduit-related icon
+                string rtTrayConduitsIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_Conduit.png");
                 pbdRtTrayConduits.LargeImage = new BitmapImage(new Uri(File.Exists(rtTrayConduitsIconPath) ? rtTrayConduitsIconPath : genericIconPath));
+
+                // 6. RT Uppercase
+                PushButtonData pbdRtUppercase = new PushButtonData(
+                    "CmdRtUppercase", "Uppercase\nText", ExecutingAssemblyPath, "RT_UpperCase.RT_UpperCaseClass")
+                {
+                    ToolTip = "Converts view names, sheet names, sheet numbers, and specific sheet parameters to uppercase, with exceptions."
+                };
+                string rtUppercaseIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_Uppercase.png");
+                pbdRtUppercase.LargeImage = new BitmapImage(new Uri(File.Exists(rtUppercaseIconPath) ? rtUppercaseIconPath : genericIconPath));
 
 
                 // --- Misc Tools Buttons ---
@@ -182,7 +207,6 @@ namespace RTS
                 {
                     ToolTip = "Deletes and recreates a standard set of project schedules."
                 };
-                // Reusing the setup icon for consistency in the panel.
                 string rtsSchedulesIconPath = Path.Combine(ExecutingAssemblyDirectory, "Resources", "Icon_Setup.png");
                 pbdRtsGenerateSchedules.LargeImage = new BitmapImage(new Uri(File.Exists(rtsSchedulesIconPath) ? rtsSchedulesIconPath : genericIconPath));
 
@@ -193,19 +217,22 @@ namespace RTS
                 pcadPanel.AddItem(pbdPcCableImporter);
                 pcadPanel.AddItem(pbdPcClearData);
                 pcadPanel.AddItem(pbdPcGenerateMd);
+                pcadPanel.AddItem(pbdPcExtensible); // PC_Extensible button
+                pcadPanel.AddItem(pbdPcWireData); // Updated to PC_WireData button
 
                 revitToolsPanel.AddItem(pbdRtCableLengths);
                 revitToolsPanel.AddItem(pbdRtPanelConnect);
                 revitToolsPanel.AddItem(pbdRtTrayOccupancy);
-                revitToolsPanel.AddItem(pbdRtTrayId); // ADDED THE NEW BUTTON TO THE REVIT TOOLS PANEL
-                revitToolsPanel.AddItem(pbdRtTrayConduits); // ADDED THE NEW RT_TRAYCONDUITS BUTTON HERE
+                revitToolsPanel.AddItem(pbdRtTrayId);
+                revitToolsPanel.AddItem(pbdRtTrayConduits);
+                revitToolsPanel.AddItem(pbdRtUppercase);
 
                 miscPanel.AddItem(pbdBbImport);
                 miscPanel.AddItem(pbdMdImporter);
 
                 rtsSetupPanel.AddItem(pbdRtsInitiate);
                 rtsSetupPanel.AddItem(pbdRtsMapCables);
-                rtsSetupPanel.AddItem(pbdRtsGenerateSchedules); // Added the new button to the RTS panel.
+                rtsSetupPanel.AddItem(pbdRtsGenerateSchedules);
 
                 return Result.Succeeded;
             }

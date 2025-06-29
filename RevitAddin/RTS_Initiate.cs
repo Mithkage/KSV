@@ -5,11 +5,11 @@
 //
 // Class: RTS_InitiateClass
 //
-// Function: Initiates shared parameters in a Revit 2022 and 2024 project for Electrical Detail Items and Cable/Conduit elements.
+// Function: Initiates shared parameters in a Revit 2022 and 2024 project for Electrical Detail Items, Cable/Conduit elements, and various electrical/lighting/communication categories, including Wires.
 //
 // Author: Kyle Vorster
 //
-// Date: June 18, 2024 (Updated June 18, 2025)
+// Date: June 18, 2024 (Updated June 29, 2025)
 //
 
 using Autodesk.Revit.ApplicationServices;
@@ -77,7 +77,7 @@ namespace RTS_Initiate
                 BuiltInCategory.OST_CableTray,
                 BuiltInCategory.OST_CableTrayRun, // Note: Runs are system elements, direct parameter binding might behave differently.
                 BuiltInCategory.OST_ConduitFitting,
-                BuiltInCategory.OST_ConduitRun,   // Note: Runs are system elements, direct parameter binding might behave differently.
+                BuiltInCategory.OST_ConduitRun,    // Note: Runs are system elements, direct parameter binding might behave differently.
                 BuiltInCategory.OST_Conduit // Corrected from OST_Conduits
             };
             List<SharedParameterInfo> cableConduitParametersToAdd = new List<SharedParameterInfo>
@@ -119,11 +119,51 @@ namespace RTS_Initiate
                 new SharedParameterInfo("Branch Number", "3ea1a3bb-8416-45ed-b606-3f3a3f87d4be"),
                 new SharedParameterInfo("Cable Tray Tier", "cea7b3ba-f72c-403e-a6c0-0a414b793b9d"),
                 new SharedParameterInfo("String Supply", "a9613056-877e-42bd-ad74-73707c1ad24e"),
-                new SharedParameterInfo("RTS_ID", "3175a27e-d386-4567-bf10-2da1a9cbb73b"),
                 new SharedParameterInfo("RT_Tray Occupancy", "a6f087c7-cecc-4335-831b-249cb9398abc"),
                 new SharedParameterInfo("RT_Cables Weight", "51d670fa-0338-42e7-ac9e-f2c44a56ffcc"),
                 new SharedParameterInfo("RT_Tray Min Size", "5ed6b64c-af5c-4425-ab69-85a7fa5fdffe"),
                 new SharedParameterInfo("RTS_Comment", "f8a844ce-cb1a-4d95-bb11-d48d15a84a8e")
+            };
+
+            // --- Configuration for RTS_ID Parameter for various categories ---
+            List<BuiltInCategory> rtsIdTargetCategoriesEnum = new List<BuiltInCategory>
+            {
+                BuiltInCategory.OST_ElectricalEquipment,
+                BuiltInCategory.OST_ElectricalFixtures,
+                BuiltInCategory.OST_LightingDevices,
+                BuiltInCategory.OST_LightingFixtures,
+                BuiltInCategory.OST_ConduitFitting,
+                BuiltInCategory.OST_Conduit,
+                BuiltInCategory.OST_CommunicationDevices,
+                BuiltInCategory.OST_Wire // Added Wires category for RTS_ID
+            };
+
+            // RTS_ID parameter definition
+            List<SharedParameterInfo> rtsIdParametersToAdd = new List<SharedParameterInfo>
+            {
+                new SharedParameterInfo("RTS_ID", "3175a27e-d386-4567-bf10-2da1a9cbb73b")
+            };
+
+            // --- Configuration for PC_ Parameters for Wires category ---
+            BuiltInCategory wireTargetCategory = BuiltInCategory.OST_Wire;
+            List<SharedParameterInfo> wireParametersToAdd = new List<SharedParameterInfo>
+            {
+                new SharedParameterInfo("PC_Separate Earth for Multicore", "cbd9da23-c8eb-4233-af6b-6337c05c2f12"),
+                new SharedParameterInfo("PC_PowerCAD", "8f31d68f-60c9-4ec6-a7ff-78a6e3bdaab6"),
+                new SharedParameterInfo("PC_Nominal Overall Diameter", "98fa8f80-0219-4b99-bf3d-8da7c74f356d"),
+                new SharedParameterInfo("PC_Earth Conductor material", "ee5c5f1a-7e6e-480b-9591-c1391cf0990b"),
+                new SharedParameterInfo("PC_Design Progress", "5eb8da2d-a094-4f80-8626-9960fb6b4aa3"),
+                new SharedParameterInfo("PC_Cores", "f3c6038d-7300-46a5-8787-14560678f531"),
+                new SharedParameterInfo("PC_Cable Type", "5efc9508-f2e9-40ee-b353-d68429766a37"),
+                new SharedParameterInfo("PC_Cable Size - Neutral conductors", "dbd8ce49-4c2b-4ce5-a3ba-fca4c28e3d15"),
+                new SharedParameterInfo("PC_Cable Size - Earthing conductor", "50b6ef99-8f5e-42e1-8645-cce97f6b94b6"),
+                new SharedParameterInfo("PC_Cable Size - Active conductors", "91c8321f-1342-4efa-b648-7ba5e95c0085"),
+                new SharedParameterInfo("PC_Cable Reference", "da8a3228-00aa-4f2d-a472-1ba675284cef"),
+                new SharedParameterInfo("PC_Cable Length", "09007343-dd0a-44c3-b04d-145118778ac3"),
+                new SharedParameterInfo("PC_Cable Insulation", "dc328944-dcda-4612-8a2e-ecaed994c876"),
+                new SharedParameterInfo("PC_Active Conductor material", "62ba1846-99f5-4a7f-985a-9255d54c5b93"),
+                new SharedParameterInfo("PC_Accum Volt Drop Incl FSC", "c2631a30-511f-450a-92b6-b5c95274ae7b"),
+                new SharedParameterInfo("PC_# of Phases", "f5d583ec-f511-4653-828e-9b45281baa54")
             };
             // --- End Configuration ---
 
@@ -209,6 +249,52 @@ namespace RTS_Initiate
                     ProcessParameters(doc, app, sharedParamFile, cableConduitParametersToAdd, cableConduitCategoriesSet, parameterGroup, summaryMessage, "Cable/Conduit");
                 }
 
+                // 4. Process RTS_ID Parameter for Electrical Equipment, Electrical Fixtures, Lighting Devices, Lighting Fixtures, Conduit Fittings, Conduits, Communication Devices, and Wires
+                summaryMessage.AppendLine("\nStep 4: Processing RTS_ID Parameter for Electrical Equipment, Electrical Fixtures, Lighting Devices, Lighting Fixtures, Conduit Fittings, Conduits, Communication Devices, and Wires...");
+                CategorySet rtsIdCategoriesSet = app.Create.NewCategorySet();
+                bool allRTSIdCategoriesFound = true;
+                foreach (BuiltInCategory catEnum in rtsIdTargetCategoriesEnum)
+                {
+                    Category catObj = doc.Settings.Categories.get_Item(catEnum);
+                    if (catObj == null)
+                    {
+                        summaryMessage.AppendLine($"ERROR: Could not find the '{catEnum.ToString()}' category in the project.");
+                        allRTSIdCategoriesFound = false;
+                    }
+                    else
+                    {
+                        rtsIdCategoriesSet.Insert(catObj);
+                    }
+                }
+
+                if (rtsIdCategoriesSet.IsEmpty)
+                {
+                    summaryMessage.AppendLine("ERROR: No valid categories found or specified for RTS_ID parameters. Skipping this set.");
+                }
+                else
+                {
+                    if (!allRTSIdCategoriesFound)
+                    {
+                        summaryMessage.AppendLine("WARNING: Not all specified RTS_ID categories were found. Parameters will be applied to found categories only.");
+                    }
+                    ProcessParameters(doc, app, sharedParamFile, rtsIdParametersToAdd, rtsIdCategoriesSet, parameterGroup, summaryMessage, "RTS_ID Categories");
+                }
+
+                // 5. Process PC_ Parameters for Wires Category
+                summaryMessage.AppendLine("\nStep 5: Processing PC_ Parameters for Wires Category...");
+                CategorySet wireCategoriesSet = app.Create.NewCategorySet();
+                Category wireCatObj = doc.Settings.Categories.get_Item(wireTargetCategory);
+                if (wireCatObj == null)
+                {
+                    summaryMessage.AppendLine($"ERROR: Could not find the '{wireTargetCategory.ToString()}' category in the project.");
+                }
+                else
+                {
+                    wireCategoriesSet.Insert(wireCatObj);
+                    ProcessParameters(doc, app, sharedParamFile, wireParametersToAdd, wireCategoriesSet, parameterGroup, summaryMessage, "Wires PC_ Parameters");
+                }
+
+
                 TaskDialog.Show("RTS Initiate Parameters - Results", summaryMessage.ToString());
                 return Result.Succeeded;
             }
@@ -255,7 +341,7 @@ namespace RTS_Initiate
 
                     if (externalDefinition == null)
                     {
-                        summaryMessage.AppendLine($"  -> ERROR: Definition not found in shared parameter file.");
+                        summaryMessage.AppendLine($"  -> ERROR: Definition not found in shared parameter file for GUID: {paramInfo.GuidString}. Please ensure the shared parameter file is correct and contains this parameter.");
                         continue;
                     }
 
@@ -270,21 +356,27 @@ namespace RTS_Initiate
                     {
                         // A binding for this parameter already exists. Check and update it.
                         bool needsRebind = false;
+                        CategorySet categoriesToInsert = app.Create.NewCategorySet();
                         foreach (Category cat in targetCategories)
                         {
                             if (!existingBinding.Categories.Contains(cat))
                             {
-                                existingBinding.Categories.Insert(cat);
+                                categoriesToInsert.Insert(cat);
                                 needsRebind = true;
+                            }
+                            else
+                            {
+                                categoriesToInsert.Insert(cat); // Keep existing categories in the new set
                             }
                         }
 
                         if (needsRebind)
                         {
                             summaryMessage.AppendLine($"  -> INFO: Existing binding found. Updating categories...");
-                            if (bindingMap.ReInsert(externalDefinition, existingBinding, parameterGroup))
+                            // ReInsert implicitly updates the categories for an existing binding
+                            if (bindingMap.ReInsert(externalDefinition, app.Create.NewInstanceBinding(categoriesToInsert), parameterGroup))
                             {
-                                summaryMessage.AppendLine($"    -> SUCCESS: Updated binding.");
+                                summaryMessage.AppendLine($"    -> SUCCESS: Updated binding to include new categories.");
                                 bindingSuccess = true;
                             }
                             else

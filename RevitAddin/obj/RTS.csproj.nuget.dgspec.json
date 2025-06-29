@@ -59,6 +59,10 @@
             "DocumentFormat.OpenXml": {
               "target": "Package",
               "version": "[2.20.0, )"
+            },
+            "System.Text.Json": {
+              "target": "Package",
+              "version": "[9.0.6, )"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300\\RuntimeIdentifierGraph.json"
