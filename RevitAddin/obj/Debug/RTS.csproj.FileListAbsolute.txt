@@ -1,5 +1,0 @@
-C:\Users\kyles\Source\Repos\KSV\RevitAddin\bin\x64\Debug\RTS.dll
-C:\Users\kyles\Source\Repos\KSV\RevitAddin\bin\x64\Debug\RTS.pdb
-C:\Users\kyles\Source\Repos\KSV\RevitAddin\obj\Debug\RTS.csproj.CoreCompileInputs.cache
-C:\Users\kyles\Source\Repos\KSV\RevitAddin\obj\Debug\RTS.dll
-C:\Users\kyles\Source\Repos\KSV\RevitAddin\obj\Debug\RTS.pdb

@@ -5,18 +5,17 @@
 //
 // Class: RT_TrayOccupancyClass
 //
-// Function: This Revit external command prompts a user to select a specific CSV file
-// containing cable data. It parses this file, extracts and splits key columns,
-// cleans the data, and exports the processed data. It then scans the active Revit
-// model for Cable Trays with specific parameters, calculates total cable weight
-// and occupancy for each tray using conditional logic, reports on missing cables,
-// determines minimum tray size, and exports that data to a second CSV. Finally,
-// it calculates the total run length for each unique cable across all trays and
-// fittings, exports that to a third CSV, and writes the calculated data back to the Revit model.
+// Function: This Revit external command retrieves stored cable data from project extensible storage.
+//           It then scans the active Revit model for Cable Trays with specific parameters,
+//           calculates total cable weight and occupancy for each tray using conditional logic,
+//           reports on missing cables, determines minimum tray size, and exports that data
+//           to a CSV. Finally, it calculates the total run length for each unique cable
+//           across all trays and fittings, exports that to a second CSV, and writes the
+//           calculated data back to the Revit model.
 //
-// Author: Kyle Vorster
+// Author: Kyle Vorster (Modified by AI)
 //
-// Date: June 13, 2024 (Updated June 18, 2025)
+// Date: June 30, 2025 (Updated to use Extensible Storage)
 //
 #region Namespaces
 using System;
@@ -28,6 +27,9 @@ using System.Windows.Forms;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.DB.ExtensibleStorage; // Required for Extensible Storage
+using System.Text.Json; // Required for JSON deserialization
+using System.Diagnostics; // For Debug.WriteLine
 #endregion
 
 namespace RT_TrayOccupancy
@@ -40,6 +42,11 @@ namespace RT_TrayOccupancy
     [Regeneration(RegenerationOption.Manual)]
     public class RT_TrayOccupancyClass : IExternalCommand
     {
+        // Define a unique GUID for your Schema. This GUID must be truly unique for your application.
+        // It should match the one in PC_Extensible.cs
+        private static readonly Guid SchemaGuid = new Guid("A3F6D2AF-6702-4B9C-9DEF-336EBAA87336");
+        private const string FieldName = "PC_DataJson"; // Field to store the JSON string (must match PC_Extensible)
+
         /// <summary>
         /// The main entry point for the external command. Revit calls this method when the user clicks the button.
         /// </summary>
@@ -48,45 +55,29 @@ namespace RT_TrayOccupancy
             UIDocument uidoc = commandData.Application.ActiveUIDocument;
             Document doc = uidoc.Document;
 
-            // --- 1. PROMPT USER FOR INPUT CSV FILE ---
-            string sourceCsvPath = GetSourceCsvFilePath();
-            if (string.IsNullOrEmpty(sourceCsvPath))
-            {
-                return Result.Cancelled;
-            }
-
             try
             {
-                // --- 2. DEFINE THE COLUMNS TO EXTRACT ---
-                var columnsToRead = new List<string>
-                {
-                    "Cable Reference", "From", "To", "Cable Type", "Cable Code", "Cable Configuration",
-                    "Cores", "Cable Size (mm\u00B2)", "Conductor (Active)", "Insulation", "Neutral Size (mm\u00B2)",
-                    "Earth Size (mm\u00B2)", "Conductor (Earth)", "Separate Earth for Multicore", "Cable Length (m)",
-                    "Total Cable Run Weight (Incl. N & E) (kg)", "Nominal Overall Diameter (mm)", "AS/NSZ 3008 Cable Derating Factor"
-                };
+                // --- 1. RECALL CLEANED DATA FROM EXTENSIBLE STORAGE ---
+                List<CableData> cleanedData = RecallCableDataFromExtensibleStorage(doc);
 
-                // --- 3. READ, PARSE, AND CLEAN THE CSV DATA ---
-                List<CableData> cleanedData = ParseAndProcessCsvData(sourceCsvPath, columnsToRead);
-
-                if (cleanedData.Count == 0)
+                if (cleanedData == null || cleanedData.Count == 0)
                 {
-                    TaskDialog.Show("No Data", "No valid cable data was found in the selected file. The process will now exit.");
+                    TaskDialog.Show("No Stored Data", "No valid cable data was found in the project's extensible storage. Please run the 'Process & Save Cable Data' command first to import data.");
                     return Result.Succeeded;
                 }
 
-                // --- 4. PROMPT USER FOR OUTPUT FOLDER ---
+                // --- 2. PROMPT USER FOR OUTPUT FOLDER ---
                 string outputFolderPath = GetOutputFolderPath();
                 if (string.IsNullOrEmpty(outputFolderPath))
                 {
                     return Result.Cancelled;
                 }
 
-                // --- 5. EXPORT THE CLEANED DATA TO A NEW CSV ---
+                // --- 3. EXPORT THE RECALLED DATA TO A NEW CSV (Optional, but good for verification) ---
                 string cleanedScheduleFilePath = Path.Combine(outputFolderPath, "Cleaned_Cable_Schedule.csv");
                 ExportDataToCsv(cleanedData, cleanedScheduleFilePath);
 
-                // --- 6. PROCESS AND EXPORT CABLE TRAY DATA FROM REVIT MODEL ---
+                // --- 4. PROCESS AND EXPORT CABLE TRAY DATA FROM REVIT MODEL ---
                 List<TrayCableData> trayData = CollectTrayData(doc, cleanedData);
                 if (trayData.Any())
                 {
@@ -97,7 +88,7 @@ namespace RT_TrayOccupancy
                     UpdateRevitParameters(doc, trayData);
                 }
 
-                // --- 7. PROCESS AND EXPORT CABLE LENGTH DATA ---
+                // --- 5. PROCESS AND EXPORT CABLE LENGTH DATA ---
                 List<CableLengthData> cableLengths = CollectCableLengthsData(doc, cleanedData);
                 if (cableLengths.Any())
                 {
@@ -105,8 +96,8 @@ namespace RT_TrayOccupancy
                     ExportCableLengthsToCsv(cableLengths, cableLengthsFilePath);
                 }
 
-                // --- 8. NOTIFY USER OF SUCCESS ---
-                TaskDialog.Show("Success", $"Process complete. Revit model has been updated and three files have been saved to:\n{outputFolderPath}");
+                // --- 6. NOTIFY USER OF SUCCESS ---
+                TaskDialog.Show("Success", $"Process complete. Revit model has been updated and files have been saved to:\n{outputFolderPath}");
 
                 return Result.Succeeded;
             }
@@ -118,29 +109,89 @@ namespace RT_TrayOccupancy
             }
         }
 
-        #region File Dialog Methods
-        private string GetSourceCsvFilePath()
-        {
-            using (var openFileDialog = new OpenFileDialog())
-            {
-                openFileDialog.Title = "Select Cable Data CSV File";
-                openFileDialog.Filter = "CSV Files (*.csv)|*.csv|All files (*.*)|*.*";
-                openFileDialog.RestoreDirectory = true;
+        #region Extensible Storage Recall Method
 
-                if (openFileDialog.ShowDialog() == DialogResult.OK)
+        /// <summary>
+        /// Recalls the cleaned cable data (PC_Data) from extensible storage.
+        /// This method is copied from PC_Extensible.cs to ensure data consistency.
+        /// </summary>
+        /// <param name="doc">The Revit Document.</param>
+        /// <returns>A List of CableData, or an empty list if no data is found or an error occurs during recall.</returns>
+        private List<CableData> RecallCableDataFromExtensibleStorage(Document doc)
+        {
+            Schema schema = Schema.Lookup(SchemaGuid); // Look up the schema by its GUID
+
+            if (schema == null)
+            {
+                // Schema does not exist in this project yet, so no data is stored under this schema.
+                return new List<CableData>();
+            }
+
+            // Find existing DataStorage elements associated with our schema
+            FilteredElementCollector collector = new FilteredElementCollector(doc)
+                .OfClass(typeof(DataStorage));
+
+            DataStorage dataStorage = null;
+            foreach (DataStorage ds in collector)
+            {
+                // Check if the DataStorage element contains an entity for our schema
+                if (ds.GetEntity(schema) != null)
                 {
-                    return openFileDialog.FileName;
+                    dataStorage = ds;
+                    break;
                 }
             }
-            return null;
+
+            if (dataStorage == null)
+            {
+                // No DataStorage element found containing our schema's data
+                return new List<CableData>();
+            }
+
+            // Get the Entity from the DataStorage
+            Entity entity = dataStorage.GetEntity(schema);
+
+            if (!entity.IsValid())
+            {
+                return new List<CableData>();
+            }
+
+            // Get the JSON string from the field
+            string jsonString = entity.Get<string>(schema.GetField(FieldName));
+
+            if (string.IsNullOrEmpty(jsonString))
+            {
+                return new List<CableData>();
+            }
+
+            // Deserialize the JSON string back into a List<CableData>
+            try
+            {
+                return JsonSerializer.Deserialize<List<CableData>>(jsonString) ?? new List<CableData>();
+            }
+            catch (JsonException ex)
+            {
+                TaskDialog.Show("Data Recall Error", $"Failed to deserialize stored PC_Data: {ex.Message}. The stored data might be corrupt or incompatible.");
+                return new List<CableData>();
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Data Recall Error", $"An unexpected error occurred during PC_Data recall: {ex.Message}");
+                return new List<CableData>();
+            }
         }
 
+        #endregion
+
+        #region File Dialog Methods
+        // Removed GetSourceCsvFilePath() as it's no longer needed
         private string GetOutputFolderPath()
         {
             using (var folderBrowserDialog = new FolderBrowserDialog())
             {
                 folderBrowserDialog.Description = "Select a Folder to Save the Exported Files";
                 folderBrowserDialog.ShowNewFolderButton = true;
+                folderBrowserDialog.SelectedPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); // Default to My Documents
 
                 if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
                 {
@@ -151,148 +202,11 @@ namespace RT_TrayOccupancy
         }
         #endregion
 
-        #region CSV Parsing and Processing
-        private List<string> ParseCsvLine(string line)
-        {
-            var fields = new List<string>();
-            var fieldBuilder = new StringBuilder();
-            bool inQuotes = false;
-
-            for (int i = 0; i < line.Length; i++)
-            {
-                char c = line[i];
-
-                if (c == '"')
-                {
-                    if (inQuotes && i < line.Length - 1 && line[i + 1] == '"')
-                    {
-                        fieldBuilder.Append('"');
-                        i++;
-                    }
-                    else
-                    {
-                        inQuotes = !inQuotes;
-                    }
-                }
-                else if (c == ',' && !inQuotes)
-                {
-                    fields.Add(fieldBuilder.ToString());
-                    fieldBuilder.Clear();
-                }
-                else
-                {
-                    fieldBuilder.Append(c);
-                }
-            }
-
-            fields.Add(fieldBuilder.ToString());
-            return fields;
-        }
-
-        private List<CableData> ParseAndProcessCsvData(string filePath, List<string> requiredHeaders)
-        {
-            var cableDataList = new List<CableData>();
-            var headerMap = new Dictionary<string, int>();
-            string[] headers = null;
-
-            using (var reader = new StreamReader(filePath, Encoding.Default))
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    if (headers == null && line.Trim().StartsWith("Cable Reference", StringComparison.OrdinalIgnoreCase))
-                    {
-                        headers = ParseCsvLine(line).Select(h => h.Trim()).ToArray();
-                        for (int i = 0; i < headers.Length; i++)
-                        {
-                            string header = headers[i];
-                            string cleanHeader = header.Replace("Â²", "\u00B2");
-                            if (requiredHeaders.Contains(cleanHeader) && !headerMap.ContainsKey(cleanHeader))
-                            {
-                                headerMap[cleanHeader] = i;
-                            }
-                        }
-                        continue;
-                    }
-
-                    if (headers == null || string.IsNullOrWhiteSpace(line) || line.StartsWith("Transformer:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    List<string> valuesList = ParseCsvLine(line);
-                    string[] values = valuesList.ToArray();
-
-                    if (values.Length < headerMap.Values.Max()) continue;
-
-                    string conductorActiveValue = GetValueOrDefault(values, headerMap, "Conductor (Active)");
-                    if (string.IsNullOrWhiteSpace(conductorActiveValue))
-                    {
-                        continue;
-                    }
-
-                    var dataRow = new CableData
-                    {
-                        CableReference = GetValueOrDefault(values, headerMap, "Cable Reference"),
-                        From = GetValueOrDefault(values, headerMap, "From"),
-                        To = GetValueOrDefault(values, headerMap, "To"),
-                        CableType = GetValueOrDefault(values, headerMap, "Cable Type"),
-                        CableCode = GetValueOrDefault(values, headerMap, "Cable Code"),
-                        CableConfiguration = GetValueOrDefault(values, headerMap, "Cable Configuration"),
-                        Cores = GetValueOrDefault(values, headerMap, "Cores"),
-                        ConductorActive = conductorActiveValue,
-                        Insulation = GetValueOrDefault(values, headerMap, "Insulation"),
-                        ConductorEarth = GetValueOrDefault(values, headerMap, "Conductor (Earth)"),
-                        SeparateEarthForMulticore = GetValueOrDefault(values, headerMap, "Separate Earth for Multicore"),
-                        CableLength = GetValueOrDefault(values, headerMap, "Cable Length (m)"),
-                        TotalCableRunWeight = GetValueOrDefault(values, headerMap, "Total Cable Run Weight (Incl. N & E) (kg)"),
-                        NominalOverallDiameter = GetValueOrDefault(values, headerMap, "Nominal Overall Diameter (mm)"),
-                        AsNsz3008CableDeratingFactor = GetValueOrDefault(values, headerMap, "AS/NSZ 3008 Cable Derating Factor")
-                    };
-
-                    double weight = 0.0;
-                    double length = 0.0;
-                    bool isWeightValid = double.TryParse(dataRow.TotalCableRunWeight, out weight);
-                    bool isLengthValid = double.TryParse(dataRow.CableLength, out length);
-
-                    if (isWeightValid && isLengthValid && length > 0)
-                    {
-                        double kgPerMeter = Math.Round(weight / length, 1);
-                        dataRow.CablesKgPerM = kgPerMeter.ToString("F1");
-                    }
-                    else
-                    {
-                        dataRow.CablesKgPerM = "0.0";
-                    }
-
-                    string activeCableValue = GetValueOrDefault(values, headerMap, "Cable Size (mm\u00B2)");
-                    string numActive, sizeActive;
-                    ProcessSplit(activeCableValue, out numActive, out sizeActive);
-                    dataRow.NumberOfActiveCables = numActive;
-                    dataRow.ActiveCableSize = sizeActive;
-
-                    string neutralCableValue = GetValueOrDefault(values, headerMap, "Neutral Size (mm\u00B2)");
-                    string numNeutral, sizeNeutral;
-                    ProcessSplit(neutralCableValue, out numNeutral, out sizeNeutral);
-                    dataRow.NumberOfNeutralCables = numNeutral;
-                    dataRow.NeutralCableSize = sizeNeutral;
-
-                    string earthCableValue = GetValueOrDefault(values, headerMap, "Earth Size (mm\u00B2)");
-                    if (earthCableValue.Equals("No Earth", StringComparison.OrdinalIgnoreCase))
-                    {
-                        earthCableValue = "0";
-                    }
-                    string numEarth, sizeEarth;
-                    ProcessSplit(earthCableValue, out numEarth, out sizeEarth);
-                    dataRow.NumberOfEarthCables = numEarth;
-                    dataRow.EarthCableSize = sizeEarth;
-
-                    cableDataList.Add(dataRow);
-                }
-            }
-            return cableDataList;
-        }
-
+        #region CSV Exporting
+        // Removed ParseCsvLine and ParseAndProcessCsvData as CSV reading is no longer needed
+        // The ProcessSplit and GetValueOrDefault methods are also no longer needed for CSV parsing
+        // but are kept if other parts of the script still rely on them for string manipulation.
+        // If not, they can be removed.
         private void ProcessSplit(string inputValue, out string countPart, out string sizePart)
         {
             string[] parts = inputValue.Split(new[] { '×', 'x', 'X' }, StringSplitOptions.RemoveEmptyEntries);
@@ -317,10 +231,12 @@ namespace RT_TrayOccupancy
             return string.Empty;
         }
 
+
         private void ExportDataToCsv(List<CableData> data, string filePath)
         {
             var sb = new StringBuilder();
 
+            // Headers for the exported cleaned data CSV
             var headers = new List<string>
             {
                 "Cable Reference", "From", "To", "Cable Type", "Cable Code", "Cable Configuration",
@@ -345,7 +261,18 @@ namespace RT_TrayOccupancy
                     row.CablesKgPerM, row.NominalOverallDiameter, row.AsNsz3008CableDeratingFactor
                 };
 
-                var formattedLine = line.Select(val => val.Contains(",") ? $"\"{val}\"" : $"{(val ?? string.Empty).Trim()}");
+                // Format each value for CSV, handling commas by enclosing in quotes
+                var formattedLine = line.Select(val =>
+                {
+                    if (val == null) return string.Empty;
+                    val = val.Trim(); // Trim whitespace
+                    if (val.Contains(",") || val.Contains("\"") || val.Contains("\n") || val.Contains("\r"))
+                    {
+                        // Escape double quotes by doubling them, then enclose the whole field in quotes
+                        return $"\"{val.Replace("\"", "\"\"")}\"";
+                    }
+                    return val;
+                });
                 sb.AppendLine(string.Join(",", formattedLine));
             }
 
@@ -489,8 +416,8 @@ namespace RT_TrayOccupancy
                         {
                             double occupancyValue = 0.0;
                             bool isSdi = cableInfo.Cores != null &&
-                                         (cableInfo.Cores.IndexOf("S.D.I.", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                          cableInfo.Cores.IndexOf("SDI", StringComparison.OrdinalIgnoreCase) >= 0);
+                                        (cableInfo.Cores.IndexOf("S.D.I.", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                         cableInfo.Cores.IndexOf("SDI", StringComparison.OrdinalIgnoreCase) >= 0);
 
                             // Apply new occupancy formula based on derating factor
                             if (deratingFactor == 1.0 || deratingFactor == 0.9384 || deratingFactor == 0.8968 || deratingFactor == 0.81)
@@ -615,8 +542,11 @@ namespace RT_TrayOccupancy
             {
                 string cableRef = kvp.Key;
                 double totalLength = kvp.Value.Lengths.Sum();
-                double finalLength = Math.Round(totalLength, 1) + 5.0;
-                string rtsComment = string.Join(":", kvp.Value.TrayTypeNames);
+                double finalLength = Math.Round(totalLength, 1) + 5.0; // Add 5m buffer
+
+                // Ensure RTS_Comment is initialized and only contains distinct non-empty tray type names, joined by ":"
+                string rtsComment = string.Join(":", kvp.Value.TrayTypeNames.Where(name => !string.IsNullOrEmpty(name)).Distinct().OrderBy(name => name));
+
 
                 string fromValue = "Missing from PowerCAD";
                 string toValue = "Missing from PowerCAD";
@@ -729,7 +659,17 @@ namespace RT_TrayOccupancy
                 line.Add(row.TrayMinSize);
                 line.Add(row.RtsComment);
 
-                var formattedLine = line.Select(val => val.Contains(",") ? $"\"{val}\"" : $"{(val ?? string.Empty).Trim()}");
+                var formattedLine = line.Select(val =>
+                {
+                    if (val == null) return string.Empty;
+                    val = val.Trim(); // Trim whitespace
+                    if (val.Contains(",") || val.Contains("\"") || val.Contains("\n") || val.Contains("\r"))
+                    {
+                        // Escape double quotes by doubling them, then enclose the whole field in quotes
+                        return $"\"{val.Replace("\"", "\"\"")}\"";
+                    }
+                    return val;
+                });
                 sb.AppendLine(string.Join(",", formattedLine));
             }
 
@@ -748,7 +688,17 @@ namespace RT_TrayOccupancy
             foreach (var row in data)
             {
                 var line = new List<string> { row.PC_Cable_Reference, row.From, row.To, row.PC_Cable_Length, row.RTS_Comment };
-                var formattedLine = line.Select(val => val.Contains(",") ? $"\"{val}\"" : $"{(val ?? string.Empty).Trim()}");
+                var formattedLine = line.Select(val =>
+                {
+                    if (val == null) return string.Empty;
+                    val = val.Trim(); // Trim whitespace
+                    if (val.Contains(",") || val.Contains("\"") || val.Contains("\n") || val.Contains("\r"))
+                    {
+                        // Escape double quotes by doubling them, then enclose the whole field in quotes
+                        return $"\"{val.Replace("\"", "\"\"")}\"";
+                    }
+                    return val;
+                });
                 sb.AppendLine(string.Join(",", formattedLine));
             }
 
@@ -796,8 +746,9 @@ namespace RT_TrayOccupancy
         #region Data Classes
         /// <summary>
         /// A data class to hold the values for a single row of processed cable data from the CSV.
+        /// Public for JSON serialization/deserialization.
         /// </summary>
-        private class CableData
+        public class CableData // Changed from private to public
         {
             public string CableReference { get; set; }
             public string From { get; set; }

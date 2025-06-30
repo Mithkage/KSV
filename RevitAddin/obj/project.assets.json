@@ -1,7 +1,7 @@
 {
   "version": 3,
   "targets": {
-    ".NETFramework,Version=v4.8": {
+    ".NETFramework,Version=v4.8.1": {
       "ClosedXML/0.102.2": {
         "type": "package",
         "dependencies": {
@@ -1435,7 +1435,7 @@
     }
   },
   "projectFileDependencyGroups": {
-    ".NETFramework,Version=v4.8": [
+    ".NETFramework,Version=v4.8.1": [
       "ClosedXML >= 0.102.2",
       "DocumentFormat.OpenXml >= 2.20.0",
       "System.Text.Json >= 9.0.6"
@@ -1466,15 +1466,15 @@
         "C:\\Program Files (x86)\\NuGet\\Config\\Xamarin.Offline.config"
       ],
       "originalTargetFrameworks": [
-        "net48"
+        "net481"
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
-        "net48": {
-          "targetAlias": "net48",
+        "net481": {
+          "targetAlias": "net481",
           "projectReferences": {}
         }
       },
@@ -1491,8 +1491,8 @@
       "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
-      "net48": {
-        "targetAlias": "net48",
+      "net481": {
+        "targetAlias": "net481",
         "dependencies": {
           "ClosedXML": {
             "target": "Package",

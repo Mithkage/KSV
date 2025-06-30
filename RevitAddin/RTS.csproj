@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 
 	<PropertyGroup>
-		<TargetFramework>net48</TargetFramework>
+		<TargetFramework>net481</TargetFramework>
 		<PlatformTarget>x64</PlatformTarget>
 		<ProjectGuid>24500748-F734-4C0E-BB02-9C6D8F8E5CC9</ProjectGuid>
 		<OutputType>Library</OutputType>
@@ -34,7 +34,19 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Release' OR '$(Configuration)'=='Release2022'">
-		<Optimize>true</Optimize>
+		<Optimize>True</Optimize>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug2022|x64'">
+	  <Optimize>True</Optimize>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+	  <DefineConstants>$(DefineConstants);REVIT2024;TRACE</DefineConstants>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+	  <Optimize>True</Optimize>
 	</PropertyGroup>
 
 
@@ -52,8 +64,12 @@
 
 
 	<ItemGroup>
+	  <Compile Remove="RT_WireRoute.cs" />
+	</ItemGroup>
+
+
+	<ItemGroup>
 	  <Compile Include="Doc\RTS_Initiate .txt" />
-	  <Compile Include="RT_WireRouting.txt" />
 	</ItemGroup>
 
 
@@ -80,18 +96,7 @@
 				</Reference>
 			</ItemGroup>
 		</When>
-		<When Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' ">
-			<ItemGroup>
-				<Reference Include="RevitAPI">
-					<HintPath>C:\Program Files\Autodesk\Revit 2022\RevitAPI.dll</HintPath>
-					<Private>False</Private>
-				</Reference>
-				<Reference Include="RevitAPIUI">
-					<HintPath>C:\Program Files\Autodesk\Revit 2022\RevitAPIUI.dll</HintPath>
-					<Private>False</Private>
-				</Reference>
-			</ItemGroup>
-		</When>
+		<When Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' " />
 		<Otherwise>
 			<ItemGroup>
 				<Reference Include="RevitAPI">
@@ -108,6 +113,13 @@
 
 	<ItemGroup>
 		<Reference Include="Microsoft.VisualBasic" />
+		<Reference Include="ReachFramework" />
+		<Reference Include="RevitAPI">
+		  <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Revit 2022\RevitAPI.dll</HintPath>
+		</Reference>
+		<Reference Include="RevitAPIUI">
+		  <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Revit 2022\RevitAPIUI.dll</HintPath>
+		</Reference>
 	</ItemGroup>
 
 	<Target Name="CopyAddinFilesAfterBuild" AfterTargets="Build">

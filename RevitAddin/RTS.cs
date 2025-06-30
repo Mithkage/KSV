@@ -97,8 +97,8 @@ namespace RTS
                 pbdPcExtensible.LargeImage = new BitmapImage(new Uri(File.Exists(pcExtensibleIconPath) ? pcExtensibleIconPath : genericIconPath));
 
                 // 7. PC_WireData: Update Electrical Wires (Updated Name)
-                PushButtonData pbdPcWireData = new PushButtonData( // Renamed variable
-                    "CmdPcWireData", "Update Electrical\nWires", ExecutingAssemblyPath, "PC_WireData.PC_WireDataClass") // Updated namespace and class name
+                PushButtonData pbdPcWireData = new PushButtonData(
+                    "CmdPcWireData", "Update Electrical\nWires", ExecutingAssemblyPath, "PC_WireData.PC_WireDataClass")
                 {
                     ToolTip = "Reads cleaned cable data from extensible storage and updates electrical wires in the model."
                 };
