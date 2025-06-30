@@ -5896,15 +5896,15 @@ This class encapsulates IUIAnimationTransition interface and serves as a base cl
 Manages the element select sub menu and inserts them as a popup to 
 the context menu that specified (namely ArrowEditor and MFCTreeView).
 </member>
-    <member name="M:getSelectableElementsWithGivenType(ADocument*,ElementId,DBView*,Arr&lt;ElementId&gt;*)">
-  Only allow elements that can be selected by user in the current state of the document.
-  In particular:
-  a) Exclude elements filtered out by ModScopeUtil::isSelectionAllowed;
-  b) Exclude invisible stuff like symbols, surrogates, and invisible balusters.
-  c) Exclude anything that is filtered out by box-selection filter chain.
-  d) Exclude the divided surfaces
+    <member name="M:getEndUserElementsWithGivenType(ADocument*,ElementId,ElementId,DBView*,Arr&lt;ElementId&gt;*)">
   Return in pIdArr all elements that have typeId as their type (as defined by what shows up in the Type Selector).
+  If optionId is valid, find only the elements in the specified Design Option; otherwise (default), find all.
   If pDBView is set, find only in the elements of the DBView; otherwise (default), find in the entire model.
+  Exclude elements not meaningful to the end user:
+  a) Exclude elements in sketches and families.
+  b) Exclude invisible stuff like symbols, surrogates, and invisible balusters.
+  c) Exclude anything in a Legend View.
+  d) Exclude anything that is filtered out by box-selection filter chain.
   Return the number found.
 </member>
     <member name="P:Autodesk.Revit.UI.Macros.DocumentEntryPoint.AddinFolder">
@@ -12731,14 +12731,9 @@ override the behavior of the command in Revit.</summary>
    Opens an IFC file.
 </summary>
     </member>
-    <member name="F:Autodesk.Revit.UI.PostableCommand.ExportCADFormatsOBJ">
-      <summary>
-   Creates DWG, DXF, DGN, OBJ, SAT, or STL files.
-</summary>
-    </member>
     <member name="F:Autodesk.Revit.UI.PostableCommand.ExportCADFormatsSTL">
       <summary>
-   Creates DWG, DXF, DGN, OBJ, SAT, or STL files.
+   Creates DWG, DXF, DGN, SAT, or STL files.
 </summary>
     </member>
     <member name="F:Autodesk.Revit.UI.PostableCommand.ExportPDF">
@@ -12748,22 +12743,22 @@ override the behavior of the command in Revit.</summary>
     </member>
     <member name="F:Autodesk.Revit.UI.PostableCommand.ExportCADFormatsACIS_SAT">
       <summary>
-   Creates DWG, DXF, DGN, OBJ, SAT, or STL files.
+   Creates DWG, DXF, DGN, SAT, or STL files.
 </summary>
     </member>
     <member name="F:Autodesk.Revit.UI.PostableCommand.ExportCADFormatsDGN">
       <summary>
-   Creates DWG, DXF, DGN, OBJ, SAT, or STL files.
+   Creates DWG, DXF, DGN, SAT, or STL files.
 </summary>
     </member>
     <member name="F:Autodesk.Revit.UI.PostableCommand.ExportCADFormatsDXF">
       <summary>
-   Creates DWG, DXF, DGN, OBJ, SAT, or STL files.
+   Creates DWG, DXF, DGN, SAT, or STL files.
 </summary>
     </member>
     <member name="F:Autodesk.Revit.UI.PostableCommand.ExportCADFormatsDWG">
       <summary>
-   Creates DWG, DXF, DGN, OBJ, SAT, or STL files.
+   Creates DWG, DXF, DGN, SAT, or STL files.
 </summary>
     </member>
     <member name="F:Autodesk.Revit.UI.PostableCommand.ExportDWFOrDWFx">
@@ -14619,8 +14614,6 @@ ExternalCommand callbacks.</remarks>
       <exception cref="T:Autodesk.Revit.Exceptions.InvalidOperationException">
    The cloud model is not saved in current release of Revit.
    -or-
-   The model is not allowed to access.
-   -or-
    <ul><li>The document can not be opened.</li><li>Open is temporarily disabled.</li><li>Revit cannot save the transmitted model as a new central because it is already opened.</li></ul></exception>
       <exception cref="T:Autodesk.Revit.Exceptions.OperationCanceledException">
    Opening was canceled by the user or by an API event callback.
@@ -14707,8 +14700,6 @@ ExternalCommand callbacks.</remarks>
 </exception>
       <exception cref="T:Autodesk.Revit.Exceptions.InvalidOperationException">
    The cloud model is not saved in current release of Revit.
-   -or-
-   The model is not allowed to access.
    -or-
    <ul><li>The document can not be opened.</li><li>Open is temporarily disabled.</li><li>Revit cannot save the transmitted model as a new central because it is already opened.</li></ul></exception>
       <exception cref="T:Autodesk.Revit.Exceptions.OperationCanceledException">
@@ -15714,7 +15705,7 @@ The ability to modify the property is reserved for future implementations.</rema
    during this placement operation (the operation will be cancelled). </p>
         <p> The user can cancel the placement operation by pressing Cancel or ESC or a click elsewhere in the UI. </p>
         <p> This method can't be used to place a schedule on a sheet.
-   Use <see cref="T:Autodesk.Revit.DB.ScheduleSheetInstance" /> Create() to add schedules to sheets. </p>
+   Use <see cref="M:Autodesk.Revit.DB.ScheduleSheetInstance.Create(Autodesk.Revit.DB.Document,Autodesk.Revit.DB.ElementId,Autodesk.Revit.DB.ElementId,Autodesk.Revit.DB.XYZ)" /> to add schedules to sheets. </p>
       </remarks>
       <param name="view">
    The view to insert onto a sheet.
@@ -18420,8 +18411,6 @@ Thrown when the given command already has been bound.
       <exception cref="T:Autodesk.Revit.Exceptions.InvalidOperationException">
    The cloud model is not saved in current release of Revit.
    -or-
-   The model is not allowed to access.
-   -or-
    <ul><li>The document can not be opened.</li><li>Open is temporarily disabled.</li><li>Revit cannot save the transmitted model as a new central because it is already opened.</li></ul></exception>
       <exception cref="T:Autodesk.Revit.Exceptions.OperationCanceledException">
    Opening was canceled by the user or by an API event callback.
@@ -18511,8 +18500,6 @@ Thrown when the given command already has been bound.
       <exception cref="T:Autodesk.Revit.Exceptions.InvalidOperationException">
    The cloud model is not saved in current release of Revit.
    -or-
-   The model is not allowed to access.
-   -or-
    <ul><li>The document can not be opened.</li><li>Open is temporarily disabled.</li><li>Revit cannot save the transmitted model as a new central because it is already opened.</li></ul></exception>
       <exception cref="T:Autodesk.Revit.Exceptions.OperationCanceledException">
    Opening was canceled by the user or by an API event callback.
@@ -18600,8 +18587,6 @@ Thrown when the given command already has been bound.
       <exception cref="T:Autodesk.Revit.Exceptions.InvalidOperationException">
    The cloud model is not saved in current release of Revit.
    -or-
-   The model is not allowed to access.
-   -or-
    <ul><li>The document can not be opened.</li><li>Open is temporarily disabled.</li><li>Revit cannot save the transmitted model as a new central because it is already opened.</li></ul></exception>
       <exception cref="T:Autodesk.Revit.Exceptions.OperationCanceledException">
    Opening was canceled by the user or by an API event callback.
@@ -18688,8 +18673,6 @@ Thrown when the given command already has been bound.
 </exception>
       <exception cref="T:Autodesk.Revit.Exceptions.InvalidOperationException">
    The cloud model is not saved in current release of Revit.
-   -or-
-   The model is not allowed to access.
    -or-
    <ul><li>The document can not be opened.</li><li>Open is temporarily disabled.</li><li>Revit cannot save the transmitted model as a new central because it is already opened.</li></ul></exception>
       <exception cref="T:Autodesk.Revit.Exceptions.OperationCanceledException">
@@ -19530,7 +19513,7 @@ The ability to modify the property is reserved for future implementations.</rema
    during this placement operation (the operation will be cancelled). </p>
         <p> The user can cancel the placement operation by pressing Cancel or ESC or a click elsewhere in the UI. </p>
         <p> This method can't be used to place a schedule on a sheet.
-   Use <see cref="T:Autodesk.Revit.DB.ScheduleSheetInstance" /> Create() to add schedules to sheets. </p>
+   Use <see cref="M:Autodesk.Revit.DB.ScheduleSheetInstance.Create(Autodesk.Revit.DB.Document,Autodesk.Revit.DB.ElementId,Autodesk.Revit.DB.ElementId,Autodesk.Revit.DB.XYZ)" /> to add schedules to sheets. </p>
       </remarks>
       <param name="view">
    The view to insert onto a sheet.

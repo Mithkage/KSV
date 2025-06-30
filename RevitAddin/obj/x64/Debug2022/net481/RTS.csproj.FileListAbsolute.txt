@@ -6,10 +6,6 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\RTS.g.resour
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\RTS.GeneratedMSBuildEditorConfig.editorconfig
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\RTS.csproj.CoreCompileInputs.cache
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\RTS.sourcelink.json
-C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\Icon2.png
-C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\Icon3.png
-C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\Icon4.png
-C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\Icon_PC_Launcher.png
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\RTS.pdb
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\ClosedXML.dll
@@ -107,3 +103,13 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\zh-TW\AdWind
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\RTS.csproj.Up2Date
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\RTS.pdb
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\PC_Extensible.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\PC_WireData.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RTS_Initiate.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RTS_MapCables.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RTS_Schedules.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RT_CableLengths.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RT_TrayConduits.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RT_TrayOccupancy.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RT_UpperCase.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\Icon.png

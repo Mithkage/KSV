@@ -29,7 +29,7 @@ using System.Windows.Forms; // For TaskDialog
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-//using Autodesk.Revit.DB.Electrical; // For Wire, ElectricalSystem, Connector, WiringType
+using Autodesk.Revit.DB.Electrical; // For Wire, ElectricalSystem, Connector, WiringType (UNCOMMENTED THIS LINE)
 using System.Diagnostics; // For Debug.WriteLine
 #endregion
 
@@ -41,10 +41,10 @@ using System.Diagnostics; // For Debug.WriteLine
 // Key Steps for Dual-Version Compatibility:
 // 1.  PROJECT STRUCTURE:
 //     * The most robust approach is to have SEPARATE Visual Studio projects for each Revit version
-//         you intend to support (e.g., "RTS_Revit2022.csproj" and "RTS_Revit2024.csproj").
+//       you intend to support (e.g., "RTS_Revit2022.csproj" and "RTS_Revit2024.csproj").
 //     * You can then "Add Existing Item" to these projects and choose "Add as Link"
-//         for your .cs source code files (like this one). This way, you maintain a single
-//         set of C# source files, but compile a distinct DLL for each Revit version.
+//       for your .cs source code files (like this one). This way, you maintain a single
+//       set of C# source files, but compile a distinct DLL for each Revit version.
 //
 // 2.  TARGET .NET FRAMEWORK:
 //     * For Revit 2022: Your Visual Studio project MUST target .NET Framework 4.8.
@@ -53,15 +53,15 @@ using System.Diagnostics; // For Debug.WriteLine
 //
 // 3.  REVT API REFERENCES:
 //     * For Revit 2022: Reference Autodesk.Revit.DB.dll and Autodesk.Revit.UI.dll from
-//         your Revit 2022 installation directory (e.g., C:\Program Files\Autodesk\Revit 2022\).
+//       your Revit 2022 installation directory (e.g., C:\Program Files\Autodesk\Revit 2022\).
 //     * For Revit 2024: Reference Autodesk.Revit.DB.dll and Autodesk.Revit.UI.dll from
-//         your Revit 2024 installation directory (e.g., C:\Program Files\Autodesk\Revit 2024\).
+//       your Revit 2024 installation directory (e.g., C:\Program Files\Autodesk\Revit 2024\).
 //     (Right-click Project -> Add -> Project Reference -> Browse)
 //
 // 4.  "COPY LOCAL" SETTING:
 //     * For ALL Revit API references (RevitAPI.dll, RevitAPIUI.dll, and any others like AdWindows.dll etc.):
-//         Set "Copy Local" to FALSE in the Properties window for each reference.
-//         (Select reference in Solution Explorer -> Properties window -> Copy Local = False)
+//       Set "Copy Local" to FALSE in the Properties window for each reference.
+//       (Select reference in Solution Explorer -> Properties window -> Copy Local = False)
 //
 // 5.  PLATFORM TARGET:
 //     * Ensure your project is configured to build for "x64" (64-bit).
@@ -132,9 +132,10 @@ namespace RT_WireRoute
                         }
 
                         // Get essential properties from the existing wire before deletion
-                        // wire.WireType is a property returning the WireType Element (ElementType)
-                        // .Id gets the ElementId of that WireType.
-                        ElementId oldWireTypeId = wire.WireType.Id;
+                        // The WireType property returns the ElementId of the WiringType Element.
+                        // FIX: Using GetTypeId() which is a general method to get the ElementId of an element's type,
+                        //      as Wire.WireType might be causing compiler issues depending on the Revit API assembly version.
+                        ElementId oldWireTypeId = wire.GetTypeId();
                         string oldWireRtsId = null;
                         Parameter oldWireRtsIdParam = wire.get_Parameter(RTS_ID_GUID);
                         if (oldWireRtsIdParam != null && oldWireRtsIdParam.HasValue)
@@ -396,7 +397,8 @@ namespace RT_WireRoute
                 Connector exitConnector = null;
                 foreach (Connector conn in cm.Connectors)
                 {
-                    if (conn.Origin.DistanceTo(lastPointAdded) < XYZComparer.Instance.Tolerance) // Using DistanceTo
+                    // Check if this connector is the one representing the 'lastPointAdded' on the current element
+                    if (conn.Origin.DistanceTo(lastPointAdded) < XYZComparer.Instance.Tolerance)
                     {
                         exitConnector = conn;
                         break;
