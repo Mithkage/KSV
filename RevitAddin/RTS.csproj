@@ -175,9 +175,11 @@
 		<Reference Include="ReachFramework" />
 		<Reference Include="RevitAPI">
 		  <HintPath>D:\Program Files\Autodesk\Revit 2022\RevitAPI.dll</HintPath>
+		  <Private>False</Private>
 		</Reference>
 		<Reference Include="RevitAPIUI">
 		  <HintPath>D:\Program Files\Autodesk\Revit 2022\RevitAPIUI.dll</HintPath>
+		  <Private>False</Private>
 		</Reference>
 	</ItemGroup>
 
