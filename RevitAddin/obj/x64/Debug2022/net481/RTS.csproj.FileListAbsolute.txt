@@ -114,3 +114,6 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RT
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RT_UpperCase.png
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\Icon.png
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RT_WireRoute.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\MD_Importer.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\PC_Generate_MD.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\BB_Import.png

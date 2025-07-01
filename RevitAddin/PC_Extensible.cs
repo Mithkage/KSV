@@ -14,7 +14,7 @@
 //
 // Author: Kyle Vorster (Modified by AI)
 //
-// Date: June 30, 2025 (Updated with Import/Clear/Export Logic and Conditional Merge)
+// Date: June 30, 2025 (Updated with Import/Clear/Export Logic and Conditional Merge, and public access for Recall method)
 //
 #region Namespaces
 using System;
@@ -129,8 +129,8 @@ namespace PC_Extensible
                 // --- 5. MERGE NEW DATA WITH EXISTING DATA (Conditional Update) ---
                 // Create a dictionary from existing data for efficient lookups by 'To' key
                 var mergedDataDict = existingStoredData
-                                           .Where(cd => !string.IsNullOrEmpty(cd.To))
-                                           .ToDictionary(cd => cd.To, cd => cd);
+                                               .Where(cd => !string.IsNullOrEmpty(cd.To))
+                                               .ToDictionary(cd => cd.To, cd => cd);
 
                 int updatedEntries = 0;
                 int addedEntries = 0;
@@ -224,8 +224,8 @@ namespace PC_Extensible
 
                 // --- 9. NOTIFY USER OF OVERALL SUCCESS ---
                 TaskDialog.Show("Process Complete", $"Import and merge process complete.\n\n" +
-                                                   $"The 'Cleaned_Cable_Schedule.csv' file (containing merged data) has been saved to:\n'{outputCsvFilePath}'\n\n" +
-                                                   $"The cleaned cable data (PC_Data) has also been successfully updated in extensible storage in the current Revit project for later recall.");
+                                                    $"The 'Cleaned_Cable_Schedule.csv' file (containing merged data) has been saved to:\n'{outputCsvFilePath}'\n\n" +
+                                                    $"The cleaned cable data (PC_Data) has also been successfully updated in extensible storage in the current Revit project for later recall.");
                 return Result.Succeeded;
             }
             catch (Exception ex)
@@ -453,7 +453,7 @@ namespace PC_Extensible
         /// </summary>
         /// <param name="doc">The Revit Document.</param>
         /// <returns>A List of CableData, or an empty list if no data is found or an error occurs during recall.</returns>
-        private List<CableData> RecallCableDataFromExtensibleStorage(Document doc)
+        public List<CableData> RecallCableDataFromExtensibleStorage(Document doc) // Changed to public
         {
             Schema schema = Schema.Lookup(SchemaGuid); // Look up the schema by its GUID
 
@@ -807,9 +807,9 @@ namespace PC_Extensible
         #region Data Classes
         /// <summary>
         /// A data class to hold the values for a single row of processed cable data from the CSV.
-        /// Public for JSON serialization.
+        /// Public for JSON serialization and accessibility from other assemblies.
         /// </summary>
-        public class CableData
+        public class CableData // Changed to public
         {
             public string CableReference { get; set; }
             public string From { get; set; }
@@ -825,18 +825,16 @@ namespace PC_Extensible
             public string CableLength { get; set; }
             public string TotalCableRunWeight { get; set; }
             public string NominalOverallDiameter { get; set; }
-            public string NumberOfActiveCables
-            {
-                get;
-                set;
-            }
+            public string AsNsz3008CableDeratingFactor { get; set; } // Added as it's read and used in calculations
+
+            // Properties derived/calculated in ParseAndProcessCsvData, now included for storage:
+            public string NumberOfActiveCables { get; set; }
             public string ActiveCableSize { get; set; }
             public string NumberOfNeutralCables { get; set; }
             public string NeutralCableSize { get; set; }
             public string NumberOfEarthCables { get; set; }
             public string EarthCableSize { get; set; }
-            public string CablesKgPerM { get; set; }
-            public string AsNsz3008CableDeratingFactor { get; set; }
+            public string CablesKgPerM { get; set; } // Calculated in ParseAndProcessCsvData and now stored
         }
         #endregion
     }

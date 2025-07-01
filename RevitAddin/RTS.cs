@@ -6,7 +6,7 @@
 //
 // Author: ReTick Solutions
 //
-// Date: June 28, 2025 (Updated)
+// Date: July 1, 2025 (Updated)
 //
 #region Namespaces
 using Autodesk.Revit.UI;
@@ -62,7 +62,7 @@ namespace RTS
             }
             catch (Exception ex)
             {
-                // TaskDialog.Show("Image Load Error", $"Failed to load image '{imageName}'. Error: {ex.Message}");
+                TaskDialog.Show("Image Load Error", $"Failed to load image '{imageName}'. Error: {ex.Message}");
                 return null;
             }
         }
@@ -91,7 +91,7 @@ namespace RTS
                     "CmdPcSwbExporter", "Export\nSWB Data", ExecutingAssemblyPath, "PC_SWB_Exporter.PC_SWB_ExporterClass")
                 {
                     ToolTip = "Exports data for PowerCAD SWB import.",
-                    LargeImage = defaultIcon
+                    LargeImage = defaultIcon // No specific icon provided, using default
                 };
 
                 // 2. PC SWB Importer
@@ -99,7 +99,7 @@ namespace RTS
                     "CmdPcSwbImporter", "Import\nSWB Data", ExecutingAssemblyPath, "PC_SWB_Importer.PC_SWB_ImporterClass")
                 {
                     ToolTip = "Imports cable data from a PowerCAD SWB CSV export file into filtered Detail Item parameters.",
-                    LargeImage = defaultIcon
+                    LargeImage = defaultIcon // No specific icon provided, using default
                 };
 
                 // 3. Import Cable Summary Data
@@ -107,7 +107,7 @@ namespace RTS
                     "CmdPcCableImporter", "Import Cable\nSummary", ExecutingAssemblyPath, "PC_Cable_Importer.PC_Cable_ImporterClass")
                 {
                     ToolTip = "Imports Cable Summary data from PowerCAD into SLD.",
-                    LargeImage = defaultIcon
+                    LargeImage = defaultIcon // No specific icon provided, using default
                 };
 
                 // 4. PC Clear Data
@@ -115,7 +115,7 @@ namespace RTS
                     "CmdPcClearData", "Clear PCAD\nData", ExecutingAssemblyPath, "PC_Clear_Data.PC_Clear_DataClass")
                 {
                     ToolTip = "Clears specific PowerCAD-related parameters from Detail Items where PC_PowerCAD is 'Yes'.",
-                    LargeImage = defaultIcon
+                    LargeImage = defaultIcon // No specific icon provided, using default
                 };
 
                 // 5. PC Generate MD Report
@@ -123,7 +123,7 @@ namespace RTS
                     "CmdPcGenerateMd", "Generate\nMD Report", ExecutingAssemblyPath, "PC_Generate_MD.PC_Generate_MDClass")
                 {
                     ToolTip = "Generates an Excel report with Cover Page, Authority, and Submains data.",
-                    LargeImage = GetEmbeddedPng("Icon_MD_Report.png") ?? defaultIcon
+                    LargeImage = GetEmbeddedPng("PC_Generate_MD.png") ?? defaultIcon // Updated to PC_Generate_MD.png
                 };
 
                 // 6. PC_Extensible: Process & Save Cable Data
@@ -157,7 +157,7 @@ namespace RTS
                     "CmdRtPanelConnect", "Connect\nPanels", ExecutingAssemblyPath, "RT_PanelConnect.RT_PanelConnectClass")
                 {
                     ToolTip = "Powers electrical panels by connecting them to their source panel based on a CSV file.",
-                    LargeImage = GetEmbeddedPng("Icon_Panel_Connect.png") ?? defaultIcon
+                    LargeImage = defaultIcon // Updated to defaultIcon as no specific new icon was provided
                 };
 
                 // 3. RT Tray Occupancy
@@ -173,7 +173,7 @@ namespace RTS
                     "CmdRtTrayId", "Update Tray\nIDs", ExecutingAssemblyPath, "RT_TrayID.RT_TrayIDClass")
                 {
                     ToolTip = "Generates and updates unique IDs for cable tray elements.",
-                    LargeImage = GetEmbeddedPng("Icon_TrayID.png") ?? defaultIcon
+                    LargeImage = defaultIcon // Updated to defaultIcon as no specific new icon was provided
                 };
 
                 // 5. RT Tray Conduits
@@ -216,7 +216,7 @@ namespace RTS
                     "CmdMdExcelUpdater", "Update SWB\nLoads (Excel)", ExecutingAssemblyPath, "MD_Importer.MD_ImporterClass")
                 {
                     ToolTip = "Updates 'PC_SWB Load' parameter for Detail Items from an Excel file ('TB_Submains' table) based on the 'PC_SWB To' parameter.",
-                    LargeImage = GetEmbeddedPng("Icon_Excel_Import.png") ?? defaultIcon
+                    LargeImage = GetEmbeddedPng("MD_Importer.png") ?? defaultIcon // Updated to MD_Importer.png
                 };
 
                 // --- RTS Setup Panel Buttons ---
