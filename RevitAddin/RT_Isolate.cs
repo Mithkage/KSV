@@ -1,13 +1,14 @@
 ﻿// File: RT_Isolate.cs
 
-// Application: Revit 2022 External Command
+// Application: Revit 2022/2024 External Command
 
 // Description: This script allows the user to input one or more comma-separated string values.
-//              It first unhides all elements in the active view.
+//              It first removes any existing graphic overrides from all elements in the active view.
 //              Then, it searches the active view for elements that have a matching value
 //              in their 'RTS_ID' shared parameter or any of the 'RTS_Cable_XX' shared parameters.
-//              All elements found with a matching value will remain visible, while
-//              all other visible elements in the active view will be hidden.
+//              All elements found with a matching value will have their graphics overridden to solid red.
+//              All other visible elements in the active view will be overridden to be 40% transparent and half-tone.
+//              Elements hidden before running the command will remain hidden unless specifically targeted and made visible by Revit's graphic rules.
 
 using System;
 using System.Collections.Generic;
@@ -16,8 +17,6 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System.Windows.Interop; // Required for HwndSource for WPF owner
-// No longer needed: using Autodesk.Revit.UI.Selection; // PromptStringOptions is not available in Revit 2022
-// No longer needed: using System.Windows.Forms; // Replaced with WPF
 
 namespace RT_Isolate
 {
@@ -77,58 +76,31 @@ namespace RT_Isolate
                 return Result.Failed;
             }
 
-            // --- START: Added code to unhide all elements ---
-            using (Transaction t = new Transaction(doc, "Unhide All Elements"))
+            // --- Reset graphic overrides for all elements at the start ---
+            using (Transaction tResetGraphics = new Transaction(doc, "Reset View Graphic Overrides"))
             {
-                t.Start();
+                tResetGraphics.Start();
                 try
                 {
-                    // Get all elements in the active view (excluding element types)
                     var allElementsInView = new FilteredElementCollector(doc, activeView.Id)
-                                                .WhereElementIsNotElementType()
-                                                .ToList(); // Get all non-type elements
+                        .WhereElementIsNotElementType()
+                        .ToList();
 
-                    List<ElementId> hiddenElementsToUnhide = new List<ElementId>();
-
-                    // Manually check each element if it's hidden in the view using Element.IsHidden(View view)
                     foreach (Element elem in allElementsInView)
                     {
-                        // Check if the element is hidden in the active view
-                        if (elem.IsHidden(activeView)) // Correct method for Revit 2022 and later
-                        {
-                            hiddenElementsToUnhide.Add(elem.Id);
-                        }
-                    }
-
-                    if (hiddenElementsToUnhide.Any())
-                    {
-                        // Add a check for CanBeHidden before attempting to unhide
-                        // While UnhideElements typically handles this more gracefully,
-                        // it's good practice to be aware, though less critical for unhiding.
-                        List<ElementId> actuallyUnhidableElements = hiddenElementsToUnhide
-                            .Where(id => doc.GetElement(id)?.CanBeHidden(activeView) ?? false)
-                            .ToList();
-
-                        if (actuallyUnhidableElements.Any())
-                        {
-                            activeView.UnhideElements(actuallyUnhidableElements);
-                        }
-                        else
-                        {
-                            // Optional: Inform if no hidden elements could actually be unhidden
-                            // TaskDialog.Show("RT_Isolate Info", "No hidden elements found that can be unhidden.");
-                        }
+                        // Removed CanOverrideGraphicsInView check.
+                        activeView.SetElementOverrides(elem.Id, new OverrideGraphicSettings());
                     }
                 }
                 catch (Exception ex)
                 {
-                    // Rollback if unhiding fails, but try to continue with the main logic
-                    t.RollBack();
-                    TaskDialog.Show("RT_Isolate Warning", $"Failed to unhide all elements: {ex.Message}. Attempting to proceed with isolation.");
+                    tResetGraphics.RollBack();
+                    // Keep this warning as it indicates an issue but allows the script to continue.
+                    TaskDialog.Show("RT_Isolate Warning", $"Failed to reset view graphic overrides: {ex.Message}. Attempting to proceed with isolation.");
                 }
-                t.Commit(); // Commit even if no elements were hidden, or if unhide failed for specific reasons
+                tResetGraphics.Commit();
             }
-            // --- END: Added code to unhide all elements ---
+            // --- END Reset Graphics ---
 
 
             // Create and show the WPF input window
@@ -169,9 +141,9 @@ namespace RT_Isolate
 
             // Parse the input string into a list of search values
             List<string> searchValues = inputString.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                                                     .Select(s => s.Trim())
-                                                     .Where(s => !string.IsNullOrEmpty(s))
-                                                     .ToList();
+                                                   .Select(s => s.Trim())
+                                                   .Where(s => !string.IsNullOrEmpty(s))
+                                                   .ToList();
 
             if (!searchValues.Any())
             {
@@ -179,22 +151,36 @@ namespace RT_Isolate
                 return Result.Cancelled;
             }
 
-            // Collect all visible elements in the active view
-            // We'll exclude element types and the view itself
-            var allElementsInViewForIsolation = new FilteredElementCollector(doc, activeView.Id)
-                                                   .WhereElementIsNotElementType()
-                                                   .Where(e => e.Id != activeView.Id) // Exclude the view element itself
-                                                   .ToList();
+            // Collect all elements in the active view for processing (excluding element types and the view itself)
+            var allElementsInViewForProcessing = new FilteredElementCollector(doc, activeView.Id)
+                                                       .WhereElementIsNotElementType()
+                                                       .Where(e => e.Id != activeView.Id) // Exclude the view element itself
+                                                       .ToList();
 
-            List<ElementId> elementsToHide = new List<ElementId>();
-            int elementsFoundCount = 0;
+            List<ElementId> targetedElements = new List<ElementId>();
+            List<ElementId> nonTargetedElements = new List<ElementId>();
 
-            using (Transaction t = new Transaction(doc, "Hide Non-Matching Elements"))
+            // Define graphic overrides
+            // For targeted elements: Solid Red
+            OverrideGraphicSettings solidRedOverride = new OverrideGraphicSettings();
+            solidRedOverride.SetProjectionLineColor(new Color(255, 0, 0)); // Red line color
+            solidRedOverride.SetSurfaceForegroundPatternColor(new Color(255, 0, 0)); // Red fill color
+            solidRedOverride.SetSurfaceForegroundPatternId(GetSolidFillPatternId(doc)); // Get solid fill pattern
+            solidRedOverride.SetSurfaceTransparency(0); // Ensure not transparent (0 means opaque)
+
+            // For non-targeted elements: 40% transparent, halftone
+            OverrideGraphicSettings transparentHalftoneOverride = new OverrideGraphicSettings();
+            transparentHalftoneOverride.SetHalftone(true);
+            transparentHalftoneOverride.SetSurfaceTransparency(40); // 40% transparent
+
+            int elementsFoundCount = 0; // Keep track of how many elements matched the criteria
+
+            using (Transaction tApplyOverrides = new Transaction(doc, "Apply Isolation Overrides"))
             {
-                t.Start();
+                tApplyOverrides.Start();
                 try
                 {
-                    foreach (Element elem in allElementsInViewForIsolation)
+                    foreach (Element elem in allElementsInViewForProcessing)
                     {
                         bool matchFound = false;
 
@@ -206,7 +192,6 @@ namespace RT_Isolate
                             if (searchValues.Any(sv => string.Equals(sv, paramValue, StringComparison.OrdinalIgnoreCase)))
                             {
                                 matchFound = true;
-                                elementsFoundCount++;
                             }
                         }
 
@@ -222,47 +207,66 @@ namespace RT_Isolate
                                     if (searchValues.Any(sv => string.Equals(sv, paramValue, StringComparison.OrdinalIgnoreCase)))
                                     {
                                         matchFound = true;
-                                        elementsFoundCount++;
                                         break; // Found a match, no need to check other cable parameters for this element
                                     }
                                 }
                             }
                         }
 
-                        // If no match was found for this element AND it can be hidden, add it to the list to hide
-                        if (!matchFound && elem.CanBeHidden(activeView)) // Add CanBeHidden check here
+                        // Apply graphic overrides based on match status.
+                        // The CanOverrideGraphicsInView check is removed here, assuming all relevant elements are overrideable.
+                        if (matchFound)
                         {
-                            elementsToHide.Add(elem.Id);
+                            activeView.SetElementOverrides(elem.Id, solidRedOverride);
+                            targetedElements.Add(elem.Id);
+                            elementsFoundCount++;
+                        }
+                        else
+                        {
+                            // Only apply halftone/transparency if it's currently visible
+                            // This prevents making previously hidden elements partially visible unexpectedly
+                            if (!elem.IsHidden(activeView))
+                            {
+                                activeView.SetElementOverrides(elem.Id, transparentHalftoneOverride);
+                                nonTargetedElements.Add(elem.Id);
+                            }
                         }
                     }
 
-                    if (elementsToHide.Any())
-                    {
-                        // Hide the non-matching elements using the HideElements method
-                        activeView.HideElements(elementsToHide);
-                        TaskDialog.Show("RT_Isolate", $"Successfully hid {elementsToHide.Count} non-matching elements. {elementsFoundCount} matching elements remain visible.");
-                    }
-                    else if (elementsFoundCount > 0)
-                    {
-                        TaskDialog.Show("RT_Isolate", $"All {elementsFoundCount} found elements are already visible or cannot be hidden. No elements were hidden.");
-                    }
-                    else
-                    {
-                        TaskDialog.Show("RT_Isolate", "No elements found matching the provided values or no elements could be hidden. No elements were hidden.");
-                    }
-
-                    t.Commit();
+                    // Removed the final success TaskDialog.Show message.
+                    tApplyOverrides.Commit();
                 }
                 catch (Exception ex)
                 {
-                    t.RollBack();
-                    message = $"Error during element visibility modification: {ex.Message}";
+                    tApplyOverrides.RollBack();
+                    message = $"Error during element graphic modification: {ex.Message}";
                     TaskDialog.Show("RT_Isolate Error", message);
                     return Result.Failed;
                 }
             }
 
             return Result.Succeeded;
+        }
+
+        /// <summary>
+        /// Helper method to get the ElementId of the solid fill pattern.
+        /// </summary>
+        private ElementId GetSolidFillPatternId(Document doc)
+        {
+            // Find the solid fill pattern element in the document.
+            FillPatternElement solidFill = new FilteredElementCollector(doc)
+                .OfClass(typeof(FillPatternElement))
+                .Cast<FillPatternElement>()
+                .FirstOrDefault(fp => fp.GetFillPattern().IsSolidFill);
+
+            if (solidFill != null)
+            {
+                return solidFill.Id;
+            }
+
+            // This exception should ideally not be hit in a valid Revit document,
+            // as the solid fill pattern is a standard built-in type.
+            throw new Exception("Solid fill pattern not found in the document. This is unexpected.");
         }
     }
 }

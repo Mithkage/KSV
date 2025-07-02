@@ -2,11 +2,15 @@
 // File: RTS.cs
 //
 // Description: Main application class for creating a custom Revit ribbon tab and buttons.
-// Includes buttons for various PowerCAD related tools and RTS Setup.
+// Includes buttons for various PowerCAD related tools and RTS Setup, including RTS Reports.
 //
 // Author: ReTick Solutions
 //
-// Date: July 1, 2025 (Updated)
+// Date: July 2, 2025
+//
+// Log:
+// - July 2, 2025: Corrected FullClassName for 'RTS Reports' button to 'RTS_Reports.RTS_ReportsClass'
+//                 to match the actual class name and resolve add-in loading error.
 //
 #region Namespaces
 using Autodesk.Revit.UI;
@@ -252,6 +256,14 @@ namespace RTS
                     LargeImage = GetEmbeddedPng("RTS_Schedules.png") ?? defaultIcon
                 };
 
+                // NEW BUTTON: RTS Reports
+                PushButtonData pbdRtsReports = new PushButtonData(
+                    "CmdRtsReports", "RTS\nReports", ExecutingAssemblyPath, "RTS_Reports.RTS_ReportsClass") // CORRECTED CLASS NAME HERE
+                {
+                    ToolTip = "Generates various reports from extensible storage data.",
+                    LargeImage = GetEmbeddedPng("RTS_Reports.png") ?? defaultIcon // Assuming an icon named RTS_Reports.png exists, otherwise uses default
+                };
+
                 // --- Add buttons to their respective panels ---
                 pcadPanel.AddItem(pbdPcSwbExporter);
                 pcadPanel.AddItem(pbdPcSwbImporter);
@@ -276,6 +288,7 @@ namespace RTS
                 rtsSetupPanel.AddItem(pbdRtsInitiate);
                 rtsSetupPanel.AddItem(pbdRtsMapCables);
                 rtsSetupPanel.AddItem(pbdRtsGenerateSchedules);
+                rtsSetupPanel.AddItem(pbdRtsReports); // Add the new RTS Reports button here
 
                 return Result.Succeeded;
             }

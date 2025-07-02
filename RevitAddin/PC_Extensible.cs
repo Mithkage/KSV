@@ -6,15 +6,17 @@
 // Class: PC_ExtensibleClass
 //
 // Function: This Revit external command provides options to either import
-//           new cable data from a CSV (merging/updating existing data in extensible storage),
-//           clear all existing cable data from extensible storage, or export
-//           the current data from extensible storage to a CSV.
-//           It also exports the current cleaned/merged data to "Cleaned_Cable_Schedule.csv" during import.
-//           When importing, if updated data is null or blank, existing stored data is retained.
+//           new cable data from a CSV (merging/updating existing data in extensible storage)
+//           or import consultant cable data from a CSV (merging/updating existing data in a separate extensible storage)
+//           or clear existing cable data from either or both extensible storage locations.
+//           A third extensible storage is defined for 'Model Generated Data' for use by other scripts.
+//           When importing, if updated data is null or blank, existing stored data is retained.
 //
 // Author: Kyle Vorster (Modified by AI)
 //
-// Date: June 30, 2025 (Updated with Import/Clear/Export Logic and Conditional Merge, and public access for Recall method)
+// Date: July 2, 2025 (Removed CSV Export functionality and added Consultant Import/Clear options)
+//       July 2, 2025 (Added FileName and ImportDate columns to CableData)
+//       July 2, 2025 (Added new storage for Model Generated Data, removed direct CSV import for it as per user feedback)
 //
 #region Namespaces
 using System;
@@ -43,13 +45,27 @@ namespace PC_Extensible
     [Regeneration(RegenerationOption.Manual)]
     public class PC_ExtensibleClass : IExternalCommand
     {
-        // Define a unique GUID for your Schema. This GUID must be truly unique for your application.
-        // You can generate a new one using online GUID generators or Visual Studio's "Create GUID" tool.
-        private static readonly Guid SchemaGuid = new Guid("A3F6D2AF-6702-4B9C-9DEF-336EBAA87336"); // Keep this GUID unique
-        private const string SchemaName = "PC_ExtensibleDataSchema"; // General schema name
-        private const string FieldName = "PC_DataJson"; // Field to store the JSON string (now explicitly "PC_Data")
-        private const string DataStorageElementName = "PC_Extensible_PC_Data_Storage"; // Name of the DataStorage element
-        private const string DefaultExportFileName = "Cleaned_Cable_Schedule_Exported.csv"; // Default name for export
+        // Define unique GUIDs and names for your Schemas. These GUIDs must be truly unique.
+        // PRIMARY DATA SCHEMA: Made public for access from other commands (e.g., RT_TrayOccupancy)
+        public static readonly Guid PrimarySchemaGuid = new Guid("A3F6D2AF-6702-4B9C-9DEF-336EBAA87336"); // Existing GUID
+        public const string PrimarySchemaName = "PC_ExtensibleDataSchema";
+        public const string PrimaryFieldName = "PC_DataJson";
+        public const string PrimaryDataStorageElementName = "PC_Extensible_PC_Data_Storage";
+
+        // CONSULTANT DATA SCHEMA: Made public for access from other commands if needed
+        public static readonly Guid ConsultantSchemaGuid = new Guid("B5E7F8C0-1234-5678-9ABC-DEF012345678"); // NEW unique GUID for consultant data
+        public const string ConsultantSchemaName = "PC_ExtensibleConsultantDataSchema";
+        public const string ConsultantFieldName = "PC_ConsultantDataJson";
+        public const string ConsultantDataStorageElementName = "PC_Extensible_Consultant_Data_Storage";
+
+        // MODEL GENERATED DATA SCHEMA: NEW unique GUID for model generated data (accessible by other scripts)
+        public static readonly Guid ModelGeneratedSchemaGuid = new Guid("C7D8E9F0-1234-5678-9ABC-DEF012345678"); // Another NEW unique GUID
+        public const string ModelGeneratedSchemaName = "PC_ExtensibleModelGeneratedDataSchema";
+        public const string ModelGeneratedFieldName = "PC_ModelGeneratedDataJson";
+        public const string ModelGeneratedDataStorageElementName = "PC_Extensible_Model_Generated_Data_Storage";
+
+        // VENDOR ID: Made public as it's used in SchemaBuilder and should match your .addin manifest
+        public const string VendorId = "ReTick_Solutions"; // Ensure this matches your .addin file VendorId
 
         /// <summary>
         /// The main entry point for the external command. Revit calls this method when the user clicks the button.
@@ -62,27 +78,97 @@ namespace PC_Extensible
             // Present user with import or clear options
             TaskDialog mainDialog = new TaskDialog("PC_Extensible Options");
             mainDialog.MainContent = "What operation would you like to perform on the cable data?";
-            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Import Data (from CSV) and Update/Add to Project Storage");
-            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Clear All Existing Cable Data from Project Storage");
-            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Export Current Data from Project Storage to CSV"); // New Option
+            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Import My PowerCAD Data (Update/Add to Project Storage)");
+            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Import Consultant PowerCAD Data (Save to Separate Project Storage)");
+            // mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink4, "Import Model Generated Data (Save to Separate Project Storage)"); // REMOVED - No direct import via this UI
+            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Clear Existing Cable Data"); // Renamed to be more general
             mainDialog.CommonButtons = TaskDialogCommonButtons.Cancel;
-            mainDialog.DefaultButton = TaskDialogResult.CommandLink1; // Default to Import
+            mainDialog.DefaultButton = TaskDialogResult.CommandLink1; // Default to Import My Data
 
             TaskDialogResult dialogResult = mainDialog.Show();
 
-            if (dialogResult == TaskDialogResult.CommandLink1) // Import Data
+            if (dialogResult == TaskDialogResult.CommandLink1) // Import My Data
             {
-                return ImportAndMergeData(doc);
+                return ImportAndMergeData<CableData>(
+                    doc,
+                    PrimarySchemaGuid,
+                    PrimarySchemaName,
+                    PrimaryFieldName,
+                    PrimaryDataStorageElementName,
+                    "My PowerCAD Data",
+                    ParseAndProcessCsvData // Pass the specific parser for CableData
+                );
             }
-            else if (dialogResult == TaskDialogResult.CommandLink2) // Clear Data
+            else if (dialogResult == TaskDialogResult.CommandLink3) // Import Consultant Data
             {
-                return ClearAllData(doc);
+                return ImportAndMergeData<CableData>(
+                    doc,
+                    ConsultantSchemaGuid,
+                    ConsultantSchemaName,
+                    ConsultantFieldName,
+                    ConsultantDataStorageElementName,
+                    "Consultant PowerCAD Data",
+                    ParseAndProcessCsvData // Use the same parser for CableData
+                );
             }
-            else if (dialogResult == TaskDialogResult.CommandLink3) // Export Current Data
+            // Removed the direct import for Model Generated Data as per feedback
+            // else if (dialogResult == TaskDialogResult.CommandLink4) 
+            // { /* ... logic removed ... */ }
+            else if (dialogResult == TaskDialogResult.CommandLink2) // Clear Data options
             {
-                return ExportCurrentData(doc);
+                // Offer choice to clear primary or consultant data, or both
+                TaskDialog clearDialog = new TaskDialog("Clear Data Options");
+                clearDialog.MainContent = "Which data set would you like to clear?";
+                clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Clear My PowerCAD Data Only");
+                clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Clear Consultant PowerCAD Data Only");
+                clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink4, "Clear Model Generated Data Only"); // Still include a clear button for it
+                clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Clear All Data (My, Consultant, and Model Generated)"); // Updated "Clear All"
+                clearDialog.CommonButtons = TaskDialogCommonButtons.Cancel;
+                clearDialog.DefaultButton = TaskDialogResult.CommandLink1;
+
+                TaskDialogResult clearResult = clearDialog.Show();
+
+                if (clearResult == TaskDialogResult.CommandLink1)
+                {
+                    return ClearData(doc, PrimarySchemaGuid, PrimaryDataStorageElementName, "My PowerCAD Data");
+                }
+                else if (clearResult == TaskDialogResult.CommandLink2)
+                {
+                    return ClearData(doc, ConsultantSchemaGuid, ConsultantDataStorageElementName, "Consultant PowerCAD Data");
+                }
+                else if (clearResult == TaskDialogResult.CommandLink4) // Clear Model Generated Data
+                {
+                    return ClearData(doc, ModelGeneratedSchemaGuid, ModelGeneratedDataStorageElementName, "Model Generated Data");
+                }
+                else if (clearResult == TaskDialogResult.CommandLink3) // Clear All Data
+                {
+                    Result primaryClearResult = ClearData(doc, PrimarySchemaGuid, PrimaryDataStorageElementName, "My PowerCAD Data");
+                    Result consultantClearResult = ClearData(doc, ConsultantSchemaGuid, ConsultantDataStorageElementName, "Consultant PowerCAD Data");
+                    Result modelGeneratedClearResult = ClearData(doc, ModelGeneratedSchemaGuid, ModelGeneratedDataStorageElementName, "Model Generated Data");
+
+                    if (primaryClearResult == Result.Succeeded && consultantClearResult == Result.Succeeded && modelGeneratedClearResult == Result.Succeeded)
+                    {
+                        TaskDialog.Show("Clear Data Complete", "All PowerCAD data (My, Consultant, and Model Generated) cleared successfully.");
+                        return Result.Succeeded;
+                    }
+                    else if (primaryClearResult == Result.Cancelled || consultantClearResult == Result.Cancelled || modelGeneratedClearResult == Result.Cancelled)
+                    {
+                        message = "One or more clear operations were cancelled.";
+                        return Result.Cancelled;
+                    }
+                    else
+                    {
+                        message = "One or more clear operations failed. Check previous messages for details.";
+                        return Result.Failed;
+                    }
+                }
+                else
+                {
+                    message = "Clear operation cancelled by user.";
+                    return Result.Cancelled;
+                }
             }
-            else // Cancel
+            else // Cancel main dialog
             {
                 message = "Operation cancelled by user.";
                 return Result.Cancelled;
@@ -91,13 +177,28 @@ namespace PC_Extensible
 
         /// <summary>
         /// Handles the import, merge, and save logic for cable data.
+        /// Made generic to work with different data types (CableData, ModelGeneratedData).
         /// </summary>
+        /// <typeparam name="T">The type of data to import (e.g., CableData, ModelGeneratedData).</typeparam>
         /// <param name="doc">The Revit Document.</param>
+        /// <param name="schemaGuid">The GUID for the schema to use.</param>
+        /// <param name="schemaName">The name of the schema to use.</param>
+        /// <param name="fieldName">The name of the field within the schema to use.</param>
+        /// <param name="dataStorageElementName">The name of the DataStorage element to use.</param>
+        /// <param name="dataTypeName">A descriptive name for the data type (e.g., "My PowerCAD Data", "Consultant PowerCAD Data").</param>
+        /// <param name="csvParser">A delegate to the specific CSV parsing method for type T.</param>
         /// <returns>Result.Succeeded or Result.Failed/Cancelled.</returns>
-        private Result ImportAndMergeData(Document doc)
+        private Result ImportAndMergeData<T>(
+            Document doc,
+            Guid schemaGuid,
+            string schemaName,
+            string fieldName,
+            string dataStorageElementName,
+            string dataTypeName,
+            Func<string, List<string>, List<T>> csvParser) where T : class, new() // Constraint for T
         {
             // --- 1. PROMPT USER FOR INPUT CSV FILE ---
-            string sourceCsvPath = GetSourceCsvFilePath();
+            string sourceCsvPath = GetSourceCsvFilePath($"Select {dataTypeName} CSV File to Import");
             if (string.IsNullOrEmpty(sourceCsvPath))
             {
                 return Result.Cancelled; // User cancelled file selection
@@ -106,126 +207,130 @@ namespace PC_Extensible
             try
             {
                 // --- 2. DEFINE THE COLUMNS TO EXTRACT ---
-                var columnsToRead = new List<string>
+                // This list will be passed to the specific CSV parser.
+                // For CableData, it will be the full list of cable properties.
+                List<string> columnsToRead = new List<string>
                 {
                     "Cable Reference", "From", "To", "Cable Type", "Cable Code", "Cable Configuration",
                     "Cores", "Cable Size (mm\u00B2)", "Conductor (Active)", "Insulation", "Neutral Size (mm\u00B2)",
                     "Earth Size (mm\u00B2)", "Conductor (Earth)", "Separate Earth for Multicore", "Cable Length (m)",
                     "Total Cable Run Weight (Incl. N & E) (kg)", "Nominal Overall Diameter (mm)", "AS/NSZ 3008 Cable Derating Factor"
                 };
+                // Note: ModelGeneratedData CSV parsing logic removed from here as it's not initiated by this UI.
 
                 // --- 3. READ, PARSE, AND CLEAN THE NEW CSV DATA ---
-                List<CableData> newCsvData = ParseAndProcessCsvData(sourceCsvPath, columnsToRead);
+                List<T> newCsvData = csvParser(sourceCsvPath, columnsToRead);
 
-                if (newCsvData.Count == 0)
+                if (newCsvData == null || newCsvData.Count == 0)
                 {
-                    TaskDialog.Show("No New Data", "No valid cable data was found in the selected CSV file. No changes will be made to project data.");
+                    TaskDialog.Show("No New Data", $"No valid data was found in the selected CSV file for {dataTypeName}. No changes will be made to project data.");
                     return Result.Succeeded;
                 }
 
                 // --- 4. RECALL EXISTING DATA FROM EXTENSIBLE STORAGE ---
-                List<CableData> existingStoredData = RecallCableDataFromExtensibleStorage(doc);
+                List<T> existingStoredData = RecallDataFromExtensibleStorage<T>(
+                    doc, schemaGuid, schemaName, fieldName, dataStorageElementName);
 
                 // --- 5. MERGE NEW DATA WITH EXISTING DATA (Conditional Update with additional duplicate check) ---
-                // Create dictionaries from existing data for efficient lookups
+                // This merging logic needs to be generic based on a common "To" property (for lookup) and "CableReference" (for duplicate check).
+                // We'll use reflection to access properties.
                 var mergedDataDict = existingStoredData
-                                            .Where(cd => !string.IsNullOrEmpty(cd.To))
-                                            .ToDictionary(cd => cd.To, cd => cd);
+                    .Where(item => !string.IsNullOrEmpty(GetPropertyValue(item, "To")))
+                    .ToDictionary(item => GetPropertyValue(item, "To"));
 
                 var existingCableReferences = new HashSet<string>(
-                    existingStoredData.Where(cd => !string.IsNullOrEmpty(cd.CableReference)).Select(cd => cd.CableReference)
+                    existingStoredData.Where(item => !string.IsNullOrEmpty(GetPropertyValue(item, "CableReference"))).Select(item => GetPropertyValue(item, "CableReference"))
                 );
 
                 int updatedEntries = 0;
                 int addedEntries = 0;
-                List<string> duplicateCableReferencesReport = new List<string>(); // To store duplicates for reporting
+                List<string> duplicateCableReferencesReport = new List<string>();
 
-                foreach (var newCableEntry in newCsvData)
+                foreach (var newEntry in newCsvData)
                 {
-                    if (string.IsNullOrEmpty(newCableEntry.To))
+                    string newEntryTo = GetPropertyValue(newEntry, "To");
+                    string newEntryCableRef = GetPropertyValue(newEntry, "CableReference");
+
+                    if (string.IsNullOrEmpty(newEntryTo))
                     {
-                        // Skip new entries that don't have a 'To' value, as we can't key them
-                        Debug.WriteLine($"Skipping new CSV entry due to empty 'To' value: Cable Ref: {newCableEntry.CableReference ?? "N/A"}");
+                        Debug.WriteLine($"Skipping new CSV entry due to empty 'To' value: Cable Ref: {newEntryCableRef ?? "N/A"}");
                         continue;
                     }
 
-                    // First, check for 'To' value existence for updates
-                    if (mergedDataDict.TryGetValue(newCableEntry.To, out CableData existingCableEntry))
+                    if (mergedDataDict.TryGetValue(newEntryTo, out T existingEntry))
                     {
                         // Match found by 'To': Iterate through properties and update if new value is not null/blank
-                        PropertyInfo[] properties = typeof(CableData).GetProperties();
+                        PropertyInfo[] properties = typeof(T).GetProperties();
                         bool entryUpdated = false;
 
                         foreach (PropertyInfo prop in properties)
                         {
-                            // We only care about string properties for this logic
+                            // Skip FileName and ImportDate during merge for CableData, these should only be set on initial import
+                            if (typeof(T) == typeof(CableData) && (prop.Name == nameof(CableData.FileName) || prop.Name == nameof(CableData.ImportDate)))
+                            {
+                                continue;
+                            }
+
                             if (prop.PropertyType == typeof(string) && prop.CanWrite)
                             {
-                                string newValue = (string)prop.GetValue(newCableEntry);
+                                string newValue = (string)prop.GetValue(newEntry);
 
-                                // If the new value is not null or blank, update it
                                 if (!string.IsNullOrWhiteSpace(newValue))
                                 {
-                                    string currentValue = (string)prop.GetValue(existingCableEntry);
-                                    if (currentValue != newValue) // Only update if value actually changed
+                                    string currentValue = (string)prop.GetValue(existingEntry);
+                                    if (currentValue != newValue)
                                     {
-                                        prop.SetValue(existingCableEntry, newValue);
+                                        prop.SetValue(existingEntry, newValue);
                                         entryUpdated = true;
                                     }
                                 }
-                                // Else, if the new value IS null or blank, we retain the existing value
-                                // So, no action is needed here as existingCableEntry already has the old value.
                             }
                         }
                         if (entryUpdated) updatedEntries++;
                     }
-                    else // No existing entry found by 'To' value
+                    else
                     {
-                        // Now, check if the 'Cable Reference' value already exists in the entire dataset (existing + newly added)
-                        if (!string.IsNullOrEmpty(newCableEntry.CableReference) &&
-                            (existingCableReferences.Contains(newCableEntry.CableReference) ||
-                             mergedDataDict.Values.Any(cd => cd.CableReference == newCableEntry.CableReference)))
+                        if (!string.IsNullOrEmpty(newEntryCableRef) &&
+                            (existingCableReferences.Contains(newEntryCableRef) ||
+                             mergedDataDict.Values.Any(item => GetPropertyValue(item, "CableReference") == newEntryCableRef)))
                         {
-                            duplicateCableReferencesReport.Add($"Cable Reference: '{newCableEntry.CableReference}', To: '{newCableEntry.To}'");
-                            Debug.WriteLine($"Skipping new CSV entry due to duplicate 'Cable Reference': {newCableEntry.CableReference}");
-                            continue; // Skip this entry
+                            duplicateCableReferencesReport.Add($"Cable Reference: '{newEntryCableRef}', To: '{newEntryTo}'");
+                            Debug.WriteLine($"Skipping new CSV entry due to duplicate 'Cable Reference': {newEntryCableRef}");
+                            continue;
                         }
                         else
                         {
-                            // No match by 'To' and 'Cable Reference' is unique (or not provided)
-                            mergedDataDict.Add(newCableEntry.To, newCableEntry);
-                            existingCableReferences.Add(newCableEntry.CableReference); // Add to the set of existing references
+                            // Add new entry
+                            mergedDataDict.Add(newEntryTo, newEntry);
+                            existingCableReferences.Add(newEntryCableRef);
                             addedEntries++;
                         }
                     }
                 }
 
-                List<CableData> finalMergedData = mergedDataDict.Values.ToList();
+                List<T> finalMergedData = mergedDataDict.Values.ToList();
 
-                // --- 6. PROMPT USER FOR OUTPUT CSV FILE PATH (for the *merged* data) ---
-                string outputCsvFilePath = GetOutputCsvFilePath();
-                if (string.IsNullOrEmpty(outputCsvFilePath))
-                {
-                    return Result.Cancelled; // User cancelled file selection for output
-                }
-
-                // --- 7. EXPORT THE MERGED DATA TO A NEW CSV ---
-                ExportDataToCsv(finalMergedData, outputCsvFilePath);
-
-                // --- 8. SAVE MERGED DATA TO EXTENSIBLE STORAGE ---
-                using (Transaction tx = new Transaction(doc, "Save Merged PC_Data to Extensible Storage"))
+                // --- 6. SAVE MERGED DATA TO EXTENSIBLE STORAGE ---
+                using (Transaction tx = new Transaction(doc, $"Save Merged {dataTypeName} to Extensible Storage"))
                 {
                     tx.Start();
                     try
                     {
-                        SaveCableDataToExtensibleStorage(doc, finalMergedData);
+                        SaveDataToExtensibleStorage(
+                            doc,
+                            finalMergedData,
+                            schemaGuid,
+                            schemaName,
+                            fieldName,
+                            dataStorageElementName
+                        );
                         tx.Commit();
-                        string summaryMessage = $"Merged cable data (PC_Data) saved to project's extensible storage successfully.\n" +
+                        string summaryMessage = $"Merged data ({dataTypeName}) saved to project's extensible storage successfully.\n" +
                                                  $"Updated entries: {updatedEntries}\nAdded entries: {addedEntries}";
 
                         if (duplicateCableReferencesReport.Any())
                         {
-                            summaryMessage += "\n\nSkipped Duplicate Cable References:\n" + string.Join("\n", duplicateCableReferencesReport.Take(10)); // Show first 10
+                            summaryMessage += "\n\nSkipped Duplicate Cable References:\n" + string.Join("\n", duplicateCableReferencesReport.Take(10));
                             if (duplicateCableReferencesReport.Count > 10)
                             {
                                 summaryMessage += $"\n... and {duplicateCableReferencesReport.Count - 10} more.";
@@ -237,8 +342,7 @@ namespace PC_Extensible
                     catch (Exception ex)
                     {
                         tx.RollBack();
-                        string msg = $"Failed to save merged data to extensible storage: {ex.Message}";
-                        // Add more diagnostic info for the common VendorId mismatch issue
+                        string msg = $"Failed to save merged {dataTypeName} to extensible storage: {ex.Message}";
                         if (ex.Message.Contains("Writing of Entities of this Schema is not allowed to the current add-in"))
                         {
                             msg += "\n\nDIAGNOSIS: This often indicates a mismatch in the 'VendorId' specified in the SchemaBuilder " +
@@ -248,39 +352,51 @@ namespace PC_Extensible
                                    "This is crucial for write permissions to Extensible Storage.";
                         }
                         TaskDialog.Show("Extensible Storage Error", msg);
-                        return Result.Failed; // Indicate failure
+                        return Result.Failed;
                     }
                 }
 
-                // --- 9. NOTIFY USER OF OVERALL SUCCESS ---
+                // --- 7. NOTIFY USER OF OVERALL SUCCESS ---
                 TaskDialog.Show("Process Complete", $"Import and merge process complete.\n\n" +
-                                                 $"The 'Cleaned_Cable_Schedule.csv' file (containing merged data) has been saved to:\n'{outputCsvFilePath}'\n\n" +
-                                                 $"The cleaned cable data (PC_Data) has also been successfully updated in extensible storage in the current Revit project for later recall.");
+                                                 $"The cleaned data ({dataTypeName}) has been successfully updated in extensible storage in the current Revit project for later recall.");
                 return Result.Succeeded;
             }
             catch (Exception ex)
             {
-                string msg = $"An unexpected error occurred during import/merge process:\n{ex.Message}\n\nStackTrace: {ex.StackTrace}";
+                string msg = $"An unexpected error occurred during {dataTypeName} import/merge process:\n{ex.Message}\n\nStackTrace: {ex.StackTrace}";
                 TaskDialog.Show("Error", msg);
                 return Result.Failed;
             }
         }
 
         /// <summary>
-        /// Handles the clearing of all existing cable data from extensible storage.
+        /// Helper method to get a string property value using reflection.
+        /// This is used for generic merging logic where property names are known but types vary.
+        /// </summary>
+        private string GetPropertyValue<T>(T obj, string propertyName) where T : class
+        {
+            PropertyInfo prop = typeof(T).GetProperty(propertyName);
+            return prop?.GetValue(obj) as string;
+        }
+
+        /// <summary>
+        /// Handles the clearing of all existing data from extensible storage for a specific schema.
         /// </summary>
         /// <param name="doc">The Revit Document.</param>
+        /// <param name="schemaGuid">The GUID for the schema to clear.</param>
+        /// <param name="dataStorageElementName">The name of the DataStorage element to clear.</param>
+        /// <param name="dataTypeName">A descriptive name for the data type (e.g., "My PowerCAD Data", "Consultant PowerCAD Data").</param>
         /// <returns>Result.Succeeded or Result.Failed.</returns>
-        private Result ClearAllData(Document doc)
+        private Result ClearData(Document doc, Guid schemaGuid, string dataStorageElementName, string dataTypeName)
         {
             TaskDialog confirmDialog = new TaskDialog("Confirm Clear Data");
-            confirmDialog.MainContent = "Are you sure you want to clear ALL existing cable data from the project's extensible storage?\nThis action cannot be undone.";
+            confirmDialog.MainContent = $"Are you sure you want to clear ALL existing {dataTypeName} from the project's extensible storage?\nThis action cannot be undone.";
             confirmDialog.CommonButtons = TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No;
             confirmDialog.DefaultButton = TaskDialogResult.No;
 
             if (confirmDialog.Show() == TaskDialogResult.Yes)
             {
-                using (Transaction tx = new Transaction(doc, "Clear PC_Data from Extensible Storage"))
+                using (Transaction tx = new Transaction(doc, $"Clear {dataTypeName} from Extensible Storage"))
                 {
                     tx.Start();
                     try
@@ -293,13 +409,15 @@ namespace PC_Extensible
                         foreach (DataStorage ds in collector)
                         {
                             // Check if this DataStorage element holds our schema's entity
-                            // Note: Schema.Lookup(SchemaGuid) might return null if the schema hasn't been created yet.
-                            // It's safer to get the schema first.
-                            Schema foundSchema = Schema.Lookup(SchemaGuid);
+                            Schema foundSchema = Schema.Lookup(schemaGuid);
                             if (foundSchema != null && ds.GetEntity(foundSchema) != null)
                             {
-                                dataStorageToDelete = ds;
-                                break;
+                                // Additionally check if the name matches to be more specific, especially for consultant data
+                                if (ds.Name == dataStorageElementName)
+                                {
+                                    dataStorageToDelete = ds;
+                                    break;
+                                }
                             }
                         }
 
@@ -307,21 +425,20 @@ namespace PC_Extensible
                         {
                             doc.Delete(dataStorageToDelete.Id);
                             tx.Commit();
-                            TaskDialog.Show("Clear Data Complete", "All existing cable data (PC_Data) successfully cleared from project's extensible storage.");
+                            TaskDialog.Show("Clear Data Complete", $"All existing {dataTypeName} successfully cleared from project's extensible storage.");
                             return Result.Succeeded;
                         }
                         else
                         {
                             tx.RollBack(); // No actual change, but ensure transaction is handled
-                            TaskDialog.Show("Clear Data Info", "No existing cable data (PC_Data) found in project's extensible storage to clear.");
+                            TaskDialog.Show("Clear Data Info", $"No existing {dataTypeName} found in project's extensible storage to clear.");
                             return Result.Succeeded; // Still a successful outcome from user perspective
                         }
                     }
                     catch (Exception ex)
                     {
                         tx.RollBack();
-                        string msg = $"An error occurred while clearing data: {ex.Message}";
-                        // Add more diagnostic info for the common VendorId mismatch issue
+                        string msg = $"An error occurred while clearing {dataTypeName}: {ex.Message}";
                         if (ex.Message.Contains("Writing of Entities of this Schema is not allowed to the current add-in"))
                         {
                             msg += "\n\nDIAGNOSIS: This often indicates a mismatch in the 'VendorId' specified in the SchemaBuilder " +
@@ -337,82 +454,31 @@ namespace PC_Extensible
             }
             else
             {
-                TaskDialog.Show("Clear Data Cancelled", "Clear data operation cancelled.");
+                TaskDialog.Show("Clear Data Cancelled", $"Clear {dataTypeName} operation cancelled.");
                 return Result.Cancelled;
             }
         }
 
-        /// <summary>
-        /// Handles the export of all existing cable data from extensible storage to a CSV file.
-        /// </summary>
-        /// <param name="doc">The Revit Document.</param>
-        /// <returns>Result.Succeeded or Result.Failed/Cancelled.</returns>
-        private Result ExportCurrentData(Document doc)
-        {
-            try
-            {
-                // 1. Recall existing data from extensible storage
-                List<CableData> storedData = RecallCableDataFromExtensibleStorage(doc);
-
-                if (storedData == null || !storedData.Any())
-                {
-                    TaskDialog.Show("No Data to Export", "No cable data (PC_Data) found in the project's extensible storage to export.");
-                    return Result.Succeeded;
-                }
-
-                // 2. Prompt user for output folder
-                string outputFolderPath = GetOutputFolderPathForExport();
-                if (string.IsNullOrEmpty(outputFolderPath))
-                {
-                    return Result.Cancelled; // User cancelled folder selection
-                }
-
-                // 3. Define the full export file path
-                string exportFilePath = Path.Combine(outputFolderPath, DefaultExportFileName);
-
-                // 4. Export the data to CSV
-                ExportDataToCsv(storedData, exportFilePath);
-
-                TaskDialog.Show("Export Complete", $"Current cable data (PC_Data) successfully exported to:\n'{exportFilePath}'");
-                return Result.Succeeded;
-            }
-            catch (Exception ex)
-            {
-                string msg = $"An unexpected error occurred during export process:\n{ex.Message}\n\nStackTrace: {ex.StackTrace}";
-                TaskDialog.Show("Export Error", msg);
-                return Result.Failed;
-            }
-        }
-
-
-        #region Extensible Storage Methods
+        #region Extensible Storage Methods (Generic)
 
         /// <summary>
-        /// Gets or creates the Schema for storing cable data.
+        /// Gets or creates the Schema for storing generic data.
         /// </summary>
-        /// <returns>The Schema object.</returns>
-        private Schema GetOrCreateCableDataSchema()
+        private Schema GetOrCreateCableDataSchema(Guid schemaGuid, string schemaName, string fieldName)
         {
-            Schema schema = Schema.Lookup(SchemaGuid);
+            Schema schema = Schema.Lookup(schemaGuid);
 
             if (schema == null)
             {
-                SchemaBuilder schemaBuilder = new SchemaBuilder(SchemaGuid);
-                schemaBuilder.SetSchemaName(SchemaName);
+                SchemaBuilder schemaBuilder = new SchemaBuilder(schemaGuid);
+                schemaBuilder.SetSchemaName(schemaName);
                 schemaBuilder.SetReadAccessLevel(AccessLevel.Public);
                 schemaBuilder.SetWriteAccessLevel(AccessLevel.Vendor); // Only this add-in can write to this schema
 
-                // IMPORTANT: The VendorId MUST exactly match the VendorId declared for your Revit Add-in.
-                // This is typically specified in your add-in's .addin manifest file, e.g.:
-                // <AddIn Type="Command">
-                //    <VendorId>ReTick_Solutions</VendorId>
-                //    ...
-                // </AddIn>
-                // Make sure "ReTick_Solutions" (or whatever you use here) is consistent.
-                schemaBuilder.SetVendorId("ReTick_Solutions"); // Updated to match .addin file VendorId
+                schemaBuilder.SetVendorId(VendorId); // Use the common VendorId defined at the class level
 
-                // Create a field to store the JSON string of all CableData
-                FieldBuilder fieldBuilder = schemaBuilder.AddSimpleField(FieldName, typeof(string));
+                // Create a field to store the JSON string of all data
+                FieldBuilder fieldBuilder = schemaBuilder.AddSimpleField(fieldName, typeof(string));
 
                 schema = schemaBuilder.Finish();
             }
@@ -420,12 +486,10 @@ namespace PC_Extensible
         }
 
         /// <summary>
-        /// Gets the existing DataStorage element for cable data, or creates a new one if it doesn't exist.
+        /// Gets the existing DataStorage element, or creates a new one if it doesn't exist.
         /// This method assumes a transaction is open if called with an intent to create/modify.
         /// </summary>
-        /// <param name="doc">The Revit Document.</param>
-        /// <returns>The DataStorage element.</returns>
-        private DataStorage GetOrCreateDataStorage(Document doc)
+        private DataStorage GetOrCreateDataStorage(Document doc, Guid schemaGuid, string dataStorageElementName)
         {
             // Find existing DataStorage elements for our schema
             FilteredElementCollector collector = new FilteredElementCollector(doc)
@@ -434,14 +498,16 @@ namespace PC_Extensible
             DataStorage dataStorage = null;
             foreach (DataStorage ds in collector)
             {
-                // Check if this DataStorage element holds our schema's entity
-                // Note: Schema.Lookup(SchemaGuid) might return null if the schema hasn't been created yet.
-                // It's safer to get the schema first.
-                Schema foundSchema = Schema.Lookup(SchemaGuid);
+                // Check if this DataStorage element holds our schema's entity AND has the correct name
+                Schema foundSchema = Schema.Lookup(schemaGuid);
                 if (foundSchema != null && ds.GetEntity(foundSchema) != null)
                 {
-                    dataStorage = ds;
-                    break;
+                    // Also check the specific name, especially important for multiple storage elements
+                    if (ds.Name == dataStorageElementName)
+                    {
+                        dataStorage = ds;
+                        break;
+                    }
                 }
             }
 
@@ -449,59 +515,69 @@ namespace PC_Extensible
             {
                 // No existing DataStorage found, create a new one
                 dataStorage = DataStorage.Create(doc);
-                dataStorage.Name = DataStorageElementName; // Assign a name for easier identification in Revit
+                dataStorage.Name = dataStorageElementName; // Assign a name for easier identification in Revit
             }
 
             return dataStorage;
         }
 
         /// <summary>
-        /// Saves the cleaned cable data to extensible storage.
+        /// Saves a list of generic data to extensible storage.
         /// This method assumes a transaction is already open.
         /// </summary>
-        /// <param name="doc">The Revit Document.</param>
-        /// <param name="cableDataList">The list of CableData to save.</param>
-        private void SaveCableDataToExtensibleStorage(Document doc, List<CableData> cableDataList)
+        /// <typeparam name="T">The type of data to save.</typeparam>
+        public void SaveDataToExtensibleStorage<T>( // Made public for use by other scripts
+            Document doc,
+            List<T> dataList,
+            Guid schemaGuid,
+            string schemaName,
+            string fieldName,
+            string dataStorageElementName)
         {
-            Schema schema = GetOrCreateCableDataSchema();
-            DataStorage dataStorage = GetOrCreateDataStorage(doc); // Ensure DataStorage exists within transaction
+            Schema schema = GetOrCreateCableDataSchema(schemaGuid, schemaName, fieldName);
+            DataStorage dataStorage = GetOrCreateDataStorage(doc, schemaGuid, dataStorageElementName); // Ensure DataStorage exists within transaction
 
-            // Serialize the list of CableData to a JSON string
+            // Serialize the list of data to a JSON string
             var options = new JsonSerializerOptions { WriteIndented = true }; // For readable JSON
-            string jsonString = JsonSerializer.Serialize(cableDataList, options);
+            string jsonString = JsonSerializer.Serialize(dataList, options);
 
             // Create an Entity to store the data
             Entity entity = new Entity(schema);
-            entity.Set(schema.GetField(FieldName), jsonString);
+            entity.Set(schema.GetField(fieldName), jsonString);
 
             // Set the entity to the DataStorage element
             dataStorage.SetEntity(entity);
         }
 
         /// <summary>
-        /// Recalls the cleaned cable data (PC_Data) from extensible storage.
+        /// Recalls a list of generic data from extensible storage.
         /// </summary>
-        /// <param name="doc">The Revit Document.</param>
-        /// <returns>A List of CableData, or an empty list if no data is found or an error occurs during recall.</returns>
-        public List<CableData> RecallCableDataFromExtensibleStorage(Document doc) // Changed to public
+        /// <typeparam name="T">The type of data to recall.</typeparam>
+        /// <returns>A List of T, or an empty list if no data is found or an error occurs during recall.</returns>
+        public List<T> RecallDataFromExtensibleStorage<T>( // Made public for use by other scripts
+            Document doc,
+            Guid schemaGuid,
+            string schemaName,
+            string fieldName,
+            string dataStorageElementName)
         {
-            Schema schema = Schema.Lookup(SchemaGuid); // Look up the schema by its GUID
+            Schema schema = Schema.Lookup(schemaGuid); // Look up the schema by its GUID
 
             if (schema == null)
             {
                 // Schema does not exist in this project yet, so no data is stored under this schema.
-                return new List<CableData>();
+                return new List<T>();
             }
 
-            // Find existing DataStorage elements associated with our schema
+            // Find existing DataStorage elements associated with our schema and name
             FilteredElementCollector collector = new FilteredElementCollector(doc)
                 .OfClass(typeof(DataStorage));
 
             DataStorage dataStorage = null;
             foreach (DataStorage ds in collector)
             {
-                // Check if the DataStorage element contains an entity for our schema
-                if (ds.GetEntity(schema) != null)
+                // Check if the DataStorage element contains an entity for our schema AND has the correct name
+                if (ds.Name == dataStorageElementName && ds.GetEntity(schema) != null)
                 {
                     dataStorage = ds;
                     break;
@@ -511,7 +587,7 @@ namespace PC_Extensible
             if (dataStorage == null)
             {
                 // No DataStorage element found containing our schema's data
-                return new List<CableData>();
+                return new List<T>();
             }
 
             // Get the Entity from the DataStorage
@@ -519,42 +595,43 @@ namespace PC_Extensible
 
             if (!entity.IsValid())
             {
-                return new List<CableData>();
+                return new List<T>();
             }
 
             // Get the JSON string from the field
-            string jsonString = entity.Get<string>(schema.GetField(FieldName));
+            string jsonString = entity.Get<string>(schema.GetField(fieldName));
 
             if (string.IsNullOrEmpty(jsonString))
             {
-                return new List<CableData>();
+                return new List<T>();
             }
 
-            // Deserialize the JSON string back into a List<CableData>
+            // Deserialize the JSON string back into a List<T>
             try
             {
-                return JsonSerializer.Deserialize<List<CableData>>(jsonString) ?? new List<CableData>();
+                return JsonSerializer.Deserialize<List<T>>(jsonString) ?? new List<T>();
             }
             catch (JsonException ex)
             {
-                TaskDialog.Show("Data Recall Error", $"Failed to deserialize stored PC_Data: {ex.Message}. The stored data might be corrupt or incompatible.");
-                return new List<CableData>();
+                // Use TaskDialog.Show for user-friendly error messages in Revit context
+                TaskDialog.Show("Data Recall Error", $"Failed to deserialize stored {schemaName} data: {ex.Message}. The stored data might be corrupt or incompatible.");
+                return new List<T>();
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Data Recall Error", $"An unexpected error occurred during PC_Data recall: {ex.Message}");
-                return new List<CableData>();
+                TaskDialog.Show("Data Recall Error", $"An unexpected error occurred during {schemaName} data recall: {ex.Message}");
+                return new List<T>();
             }
         }
 
         #endregion
 
         #region File Dialog Methods
-        private string GetSourceCsvFilePath()
+        private string GetSourceCsvFilePath(string dialogTitle)
         {
             using (var openFileDialog = new OpenFileDialog())
             {
-                openFileDialog.Title = "Select Cable Data CSV File to Import";
+                openFileDialog.Title = dialogTitle;
                 openFileDialog.Filter = "CSV Files (*.csv)|*.csv|All files (*.*)|*.*";
                 openFileDialog.RestoreDirectory = true;
 
@@ -565,93 +642,19 @@ namespace PC_Extensible
             }
             return null;
         }
-
-        /// <summary>
-        /// Prompts the user to select a file path to save the output CSV during import.
-        /// </summary>
-        /// <returns>The selected file path, or null if cancelled.</returns>
-        private string GetOutputCsvFilePath()
-        {
-            using (var saveFileDialog = new SaveFileDialog())
-            {
-                saveFileDialog.Title = "Save Cleaned Cable Schedule CSV File (During Import)";
-                saveFileDialog.Filter = "CSV Files (*.csv)|*.csv|All files (*.*)|*.*";
-                saveFileDialog.DefaultExt = "csv";
-                saveFileDialog.FileName = "Cleaned_Cable_Schedule.csv"; // Default filename
-                saveFileDialog.RestoreDirectory = true;
-
-                if (saveFileDialog.ShowDialog() == DialogResult.OK)
-                {
-                    return saveFileDialog.FileName;
-                }
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// Prompts the user to select a folder to save the exported CSV file.
-        /// </summary>
-        /// <returns>The selected folder path, or null if cancelled.</returns>
-        private string GetOutputFolderPathForExport()
-        {
-            using (var folderBrowserDialog = new FolderBrowserDialog())
-            {
-                folderBrowserDialog.Description = "Select a Folder to Save the Exported Cable Data CSV";
-                folderBrowserDialog.ShowNewFolderButton = true;
-                folderBrowserDialog.SelectedPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); // Default to My Documents
-
-                if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
-                {
-                    return folderBrowserDialog.SelectedPath;
-                }
-            }
-            return null;
-        }
         #endregion
 
-        #region CSV Parsing and Processing
-        private List<string> ParseCsvLine(string line)
-        {
-            var fields = new List<string>();
-            var fieldBuilder = new StringBuilder();
-            bool inQuotes = false;
+        #region CSV Parsing and Processing (Specific to Data Types)
 
-            for (int i = 0; i < line.Length; i++)
-            {
-                char c = line[i];
-
-                if (c == '"')
-                {
-                    if (inQuotes && i < line.Length - 1 && line[i + 1] == '"')
-                    {
-                        fieldBuilder.Append('"');
-                        i++;
-                    }
-                    else
-                    {
-                        inQuotes = !inQuotes;
-                    }
-                }
-                else if (c == ',' && !inQuotes)
-                {
-                    fields.Add(fieldBuilder.ToString());
-                    fieldBuilder.Clear();
-                }
-                else
-                {
-                    fieldBuilder.Append(c);
-                }
-            }
-
-            fields.Add(fieldBuilder.ToString());
-            return fields;
-        }
-
+        // Parser for CableData (Your original data and Consultant data)
         private List<CableData> ParseAndProcessCsvData(string filePath, List<string> requiredHeaders)
         {
             var cableDataList = new List<CableData>();
             var headerMap = new Dictionary<string, int>();
             string[] headers = null;
+
+            string fileName = Path.GetFileName(filePath); // Get the file name from the path
+            string importDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); // Get current date/time
 
             using (var reader = new StreamReader(filePath, Encoding.Default))
             {
@@ -686,11 +689,9 @@ namespace PC_Extensible
                     // Ensure there are enough values for the headers we care about
                     if (values.Length < headerMap.Values.Max() + 1) // +1 because Max() gives 0-based index
                     {
-                        // Log or inform if a line is malformed, but don't stop the process
                         Debug.WriteLine($"Skipping malformed line in CSV: {line}");
                         continue;
                     }
-
 
                     string conductorActiveValue = GetValueOrDefault(values, headerMap, "Conductor (Active)");
                     if (string.IsNullOrWhiteSpace(conductorActiveValue))
@@ -701,6 +702,8 @@ namespace PC_Extensible
 
                     var dataRow = new CableData
                     {
+                        FileName = fileName, // Set the new FileName property
+                        ImportDate = importDate, // Set the new ImportDate property
                         CableReference = GetValueOrDefault(values, headerMap, "Cable Reference"),
                         From = GetValueOrDefault(values, headerMap, "From"),
                         To = GetValueOrDefault(values, headerMap, "To"),
@@ -761,6 +764,55 @@ namespace PC_Extensible
             return cableDataList;
         }
 
+        // Generic CSV line parsing method
+        private List<string> ParseCsvLine(string line)
+        {
+            var fields = new List<string>();
+            var fieldBuilder = new StringBuilder();
+            bool inQuotes = false;
+
+            for (int i = 0; i < line.Length; i++)
+            {
+                char c = line[i];
+
+                if (c == '"')
+                {
+                    if (inQuotes && i < line.Length - 1 && line[i + 1] == '"')
+                    {
+                        fieldBuilder.Append('"');
+                        i++;
+                    }
+                    else
+                    {
+                        inQuotes = !inQuotes;
+                    }
+                }
+                else if (c == ',' && !inQuotes)
+                {
+                    fields.Add(fieldBuilder.ToString());
+                    fieldBuilder.Clear();
+                }
+                else
+                {
+                    fieldBuilder.Append(c);
+                }
+            }
+
+            fields.Add(fieldBuilder.ToString());
+            return fields;
+        }
+
+        // Dummy parser for ModelGeneratedData. This method exists to satisfy the `Func` delegate
+        // in `ImportAndMergeData`, even though this specific UI command will not be importing it via CSV.
+        // Other scripts will call SaveDataToExtensibleStorage<ModelGeneratedData> directly.
+        private List<ModelGeneratedData> ParseAndProcessModelGeneratedCsvData(string filePath, List<string> requiredHeaders)
+        {
+            // This method is intentionally left minimal or can throw an exception if called,
+            // as Model Generated Data is not intended to be imported via CSV through this UI.
+            TaskDialog.Show("Information", "This command does not directly import 'Model Generated Data' via CSV. It is managed by other scripts.");
+            return new List<ModelGeneratedData>(); // Return an empty list or throw an exception if you prefer.
+        }
+
         private void ProcessSplit(string inputValue, out string countPart, out string sizePart)
         {
             string cleanedInput = inputValue.Trim();
@@ -786,61 +838,20 @@ namespace PC_Extensible
             }
             return string.Empty;
         }
-
-        private void ExportDataToCsv(List<CableData> data, string filePath)
-        {
-            var sb = new StringBuilder();
-
-            var headers = new List<string>
-            {
-                "Cable Reference", "From", "To", "Cable Type", "Cable Code", "Cable Configuration",
-                "Cores", "Number of Active Cables", "Active Cable Size (mm\u00B2)", "Conductor (Active)",
-                "Insulation", "Number of Neutral Cables", "Neutral Cable Size (mm\u00B2)",
-                "Number of Earth Cables", "Earth Cable Size (mm\u00B2)", "Conductor (Earth)",
-                "Separate Earth for Multicore", "Cable Length (m)",
-                "Total Cable Run Weight (Incl. N & E) (kg)", "Cables kg per m", "Nominal Overall Diameter (mm)", "AS/NSZ 3008 Cable Derating Factor"
-            };
-
-            sb.AppendLine(string.Join(",", headers));
-
-            foreach (var row in data)
-            {
-                var line = new List<string>
-                {
-                    row.CableReference, row.From, row.To, row.CableType, row.CableCode,
-                    row.CableConfiguration, row.Cores, row.NumberOfActiveCables, row.ActiveCableSize,
-                    row.ConductorActive, row.Insulation, row.NumberOfNeutralCables, row.NeutralCableSize,
-                    row.NumberOfEarthCables, row.EarthCableSize, row.ConductorEarth,
-                    row.SeparateEarthForMulticore, row.CableLength, row.TotalCableRunWeight,
-                    row.CablesKgPerM, row.NominalOverallDiameter, row.AsNsz3008CableDeratingFactor
-                };
-
-                // Format each value for CSV, handling commas by enclosing in quotes
-                var formattedLine = line.Select(val =>
-                {
-                    if (val == null) return string.Empty;
-                    val = val.Trim(); // Trim whitespace
-                    if (val.Contains(",") || val.Contains("\"") || val.Contains("\n") || val.Contains("\r"))
-                    {
-                        // Escape double quotes by doubling them, then enclose the whole field in quotes
-                        return $"\"{val.Replace("\"", "\"\"")}\"";
-                    }
-                    return val;
-                });
-                sb.AppendLine(string.Join(",", formattedLine));
-            }
-
-            File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
-        }
         #endregion
 
         #region Data Classes
         /// <summary>
         /// A data class to hold the values for a single row of processed cable data from the CSV.
         /// Public for JSON serialization and accessibility from other assemblies.
+        /// Used for My PowerCAD Data and Consultant PowerCAD Data.
         /// </summary>
-        public class CableData // Changed to public
+        public class CableData
         {
+            // New fields for provenance
+            public string FileName { get; set; } // Name of the CSV file this record came from
+            public string ImportDate { get; set; } // Date and time of import
+
             public string CableReference { get; set; }
             public string From { get; set; }
             public string To { get; set; }
@@ -865,6 +876,20 @@ namespace PC_Extensible
             public string NumberOfEarthCables { get; set; }
             public string EarthCableSize { get; set; }
             public string CablesKgPerM { get; set; } // Calculated in ParseAndProcessCsvData and now stored
+        }
+
+        /// <summary>
+        /// A data class to hold values for model-generated data.
+        /// Public for JSON serialization and accessibility from other assemblies.
+        /// </summary>
+        public class ModelGeneratedData
+        {
+            public string CableReference { get; set; }
+            public string From { get; set; }
+            public string To { get; set; }
+            public string CableLengthM { get; set; } // Using 'M' suffix to differentiate from CableData.CableLength
+            public string Variance { get; set; }
+            public string Comment { get; set; }
         }
         #endregion
     }

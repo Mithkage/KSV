@@ -67,11 +67,13 @@
 	  <Content Remove="Resources\BB_Import.png" />
 	  <Content Remove="Resources\Icon.png" />
 	  <Content Remove="Resources\MD_Importer.png" />
+	  <Content Remove="Resources\PC_Clear_Data.png" />
 	  <Content Remove="Resources\PC_Extensible.png" />
 	  <Content Remove="Resources\PC_Generate_MD.png" />
 	  <Content Remove="Resources\PC_WireData.png" />
 	  <Content Remove="Resources\RTS_Initiate.png" />
 	  <Content Remove="Resources\RTS_MapCables.png" />
+	  <Content Remove="Resources\RTS_Reports.png" />
 	  <Content Remove="Resources\RTS_Schedules.png" />
 	  <Content Remove="Resources\RT_CableLengths.png" />
 	  <Content Remove="Resources\RT_Isolate.png" />
@@ -97,6 +99,9 @@
 	  <EmbeddedResource Include="Resources\MD_Importer.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\PC_Clear_Data.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\PC_Extensible.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -112,13 +117,18 @@
 	  <EmbeddedResource Include="Resources\RTS_MapCables.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\RTS_Reports.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\RTS_Schedules.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\RT_CableLengths.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RT_Isolate.png" />
+	  <EmbeddedResource Include="Resources\RT_Isolate.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\RT_TrayConduits.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -141,6 +151,7 @@
 	<ItemGroup>
 		<PackageReference Include="ClosedXML" Version="0.102.2" />
 		<PackageReference Include="DocumentFormat.OpenXml" Version="2.20.0" />
+		<PackageReference Include="EPPlus" Version="8.0.7" />
 		<PackageReference Include="System.Text.Json" Version="9.0.6" />
 	</ItemGroup>
 
