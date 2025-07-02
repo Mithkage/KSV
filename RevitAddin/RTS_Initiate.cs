@@ -191,7 +191,7 @@ namespace RTS_Initiate
                     TaskDialog.Show("Error - Prerequisite Failed", message);
                     return Result.Failed;
                 }
-                summaryMessage.AppendLine("  -> Shared Parameter File is valid.");
+                summaryMessage.AppendLine("    -> Shared Parameter File is valid.");
 
                 app.SharedParametersFilename = currentSharedParamFile;
                 sharedParamFile = app.OpenSharedParameterFile();
@@ -202,7 +202,7 @@ namespace RTS_Initiate
                     TaskDialog.Show("Error - Prerequisite Failed", message);
                     return Result.Failed;
                 }
-                summaryMessage.AppendLine("  -> Shared Parameter File opened successfully.");
+                summaryMessage.AppendLine("    -> Shared Parameter File opened successfully.");
 
                 // 2. Process Detail Item Parameters
                 summaryMessage.AppendLine("\nStep 2: Processing Detail Item Parameters...");
@@ -294,7 +294,6 @@ namespace RTS_Initiate
                     ProcessParameters(doc, app, sharedParamFile, wireParametersToAdd, wireCategoriesSet, parameterGroup, summaryMessage, "Wires PC_ Parameters");
                 }
 
-
                 TaskDialog.Show("RTS Initiate Parameters - Results", summaryMessage.ToString());
                 return Result.Succeeded;
             }
@@ -312,11 +311,11 @@ namespace RTS_Initiate
         /// Processes a list of shared parameters, binding them to the specified categories.
         /// </summary>
         private void ProcessParameters(Document doc, Application app, DefinitionFile sharedParamFile,
-                                       List<SharedParameterInfo> parametersToProcess,
-                                       CategorySet targetCategories,
-                                       BuiltInParameterGroup parameterGroup,
-                                       StringBuilder summaryMessage,
-                                       string categorySetNameForMessages)
+                               List<SharedParameterInfo> parametersToProcess,
+                               CategorySet targetCategories,
+                               BuiltInParameterGroup parameterGroup,
+                               StringBuilder summaryMessage,
+                               string categorySetNameForMessages)
         {
             if (targetCategories.IsEmpty)
             {
@@ -341,7 +340,7 @@ namespace RTS_Initiate
 
                     if (externalDefinition == null)
                     {
-                        summaryMessage.AppendLine($"  -> ERROR: Definition not found in shared parameter file for GUID: {paramInfo.GuidString}. Please ensure the shared parameter file is correct and contains this parameter.");
+                        summaryMessage.AppendLine($"    -> ERROR: Definition not found in shared parameter file for GUID: {paramInfo.GuidString}. Please ensure the shared parameter file is correct and contains this parameter.");
                         continue;
                     }
 
@@ -372,43 +371,44 @@ namespace RTS_Initiate
 
                         if (needsRebind)
                         {
-                            summaryMessage.AppendLine($"  -> INFO: Existing binding found. Updating categories...");
+                            summaryMessage.AppendLine($"    -> INFO: Existing binding found. Updating categories...");
                             // ReInsert implicitly updates the categories for an existing binding
                             if (bindingMap.ReInsert(externalDefinition, app.Create.NewInstanceBinding(categoriesToInsert), parameterGroup))
                             {
-                                summaryMessage.AppendLine($"    -> SUCCESS: Updated binding to include new categories.");
+                                summaryMessage.AppendLine($"      -> SUCCESS: Updated binding to include new categories.");
                                 bindingSuccess = true;
                             }
                             else
                             {
-                                summaryMessage.AppendLine($"    -> ERROR: Failed to update (ReInsert) binding.");
+                                summaryMessage.AppendLine($"      -> ERROR: Failed to update (ReInsert) binding.");
                             }
                         }
                         else
                         {
-                            summaryMessage.AppendLine($"  -> INFO: Existing binding is already correct. No changes needed.");
+                            summaryMessage.AppendLine($"    -> INFO: Existing binding is already correct. No changes needed.");
                             bindingSuccess = true; // No action needed, but consider it a success.
                         }
                     }
                     else
                     {
                         // The parameter does not have an existing binding. Create a new one.
-                        summaryMessage.AppendLine($"  -> INFO: No existing binding found. Creating new one...");
+                        summaryMessage.AppendLine($"    -> INFO: No existing binding found. Creating new one...");
                         InstanceBinding newBinding = app.Create.NewInstanceBinding(targetCategories);
                         if (bindingMap.Insert(externalDefinition, newBinding, parameterGroup))
                         {
-                            summaryMessage.AppendLine($"    -> SUCCESS: Created new binding.");
+                            summaryMessage.AppendLine($"      -> SUCCESS: Created new binding.");
                             bindingSuccess = true;
                         }
                         else
                         {
-                            summaryMessage.AppendLine($"    -> ERROR: Failed to create (Insert) new binding.");
+                            summaryMessage.AppendLine($"      -> ERROR: Failed to create (Insert) new binding.");
                         }
                     }
 
                     if (bindingSuccess)
                     {
-                        // Set 'Vary by Group' property.
+                        // Set 'Vary by Group' property only if it's an instance parameter.
+                        // Type parameters do not support this property and will throw an ArgumentException.
                         SharedParameterElement spElement = SharedParameterElement.Lookup(doc, paramInfo.Guid);
                         if (spElement != null)
                         {
@@ -417,10 +417,31 @@ namespace RTS_Initiate
                             {
                                 if (internalDef.Name != paramInfo.Name)
                                 {
-                                    summaryMessage.AppendLine($"    -> WARNING: In-project name is '{internalDef.Name}'; shared file name is '{paramInfo.Name}'.");
+                                    summaryMessage.AppendLine($"      -> WARNING: In-project name is '{internalDef.Name}'; shared file name is '{paramInfo.Name}'.");
                                 }
-                                internalDef.SetAllowVaryBetweenGroups(doc, true);
-                                summaryMessage.AppendLine("    -> INFO: 'Vary by Group' property set.");
+
+                                // Use GetDataType() instead of ParameterType to check for instance parameter compatibility
+                                // SpecTypeId.Text for text, but you'll generally check if it's NOT a type parameter data type
+                                // GetDataType() returns a ForgeTypeId
+                                ForgeTypeId dataType = internalDef.GetDataType();
+
+                                // Check if it's an instance parameter. A simple heuristic is that type parameters
+                                // typically have a specific data type related to type-level properties,
+                                // while many instance parameters are more general (like text, number, etc.)
+                                // If SetAllowVaryBetweenGroups throws an error, it's definitely a type parameter.
+                                try
+                                {
+                                    // This line will still throw if it's a Type Parameter,
+                                    // but we're now attempting it based on the new API recommendation
+                                    // and catching the specific ArgumentException if it fails.
+                                    internalDef.SetAllowVaryBetweenGroups(doc, true);
+                                    summaryMessage.AppendLine("      -> INFO: 'Vary by Group' property set.");
+                                }
+                                catch (ArgumentException exSetVary)
+                                {
+                                    // This catch block is for when SetAllowVaryBetweenGroups truly isn't applicable
+                                    summaryMessage.AppendLine($"      -> WARNING: Could not set 'Vary by Group' for '{paramInfo.Name}'. This parameter might be a Type Parameter, which does not support this property. (Error: {exSetVary.Message})");
+                                }
                             }
                         }
                     }
@@ -439,7 +460,7 @@ namespace RTS_Initiate
                     if (t != null && t.GetStatus() == TransactionStatus.Started)
                     {
                         t.RollBack();
-                        summaryMessage.AppendLine("  -> INFO: Transaction was rolled back.");
+                        summaryMessage.AppendLine("    -> INFO: Transaction was rolled back.");
                     }
                 }
             }

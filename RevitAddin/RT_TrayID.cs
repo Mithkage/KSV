@@ -1,32 +1,43 @@
 ﻿// File: RT_TrayID.cs
 // Application: Revit 2022 External Command
 // Description: This script identifies cable tray elements (horizontal, vertical, or sloped) that have values
-//              in any of the RTS_Cable_XX shared parameters (RTS_Cable_01 to RTS_Cable_30).
-//              For each identified cable tray, it generates a unique ID based on a prefix, a type suffix,
-//              its reference level name, bottom elevation (in mm), and a sequential unique number.
-//              This generated ID is then assigned to the 'RTS_ID' shared parameter.
-//              This version also iterates through Detail Components, and where their RTS_ID matches
-//              a cable tray's RTS_ID, it populates the Detail Item's RTS_Cable_XX parameters
-//              with the corresponding Cable Tray's cable values, shifting values up to fill gaps.
-//              This script is intended to be compiled as a Revit Add-in.
-//              This version includes:
-//              - Processing of cable trays regardless of their orientation (horizontal, vertical, or sloped).
-//              - NEW: Sorting of cable trays to prioritize those occupying lower-indexed RTS_Cable_XX parameters first,
-//                     then by their values, and finally by all subsequent RTS_Cable_XX values to ensure continuity.
-//              - Refined retrieval of bottom elevation using cable tray's Z-coordinate, height parameter,
-//                and associated level's elevation.
-//              - Improved and more robust retrieval of the reference level name.
-//              - Application of the unique 4-digit number based on identical consecutive RTS_Cable_XX parameter values.
-//              - Addition of a prefix derived from the 5th character of the first available RTS_Cable_XX parameter.
-//              - Validation of the prefix character: if not alphabetic, it defaults to 'T'.
-//              - Addition of a 3-character type suffix based on the cable tray's type name ("FR" -> "FLS", "ESS" -> "ESS", else "DFT").
-//              - Writes the unique 4-digit identifier to the 'Branch Number' shared parameter.
-//              - Ensures the bottom elevation part of the RTS_ID is always 4 characters long, padded with leading zeros.
-//              - UPDATED: Handles cable trays without cable values by assigning an 'X' prefix and continuing Branch Numbering
-//                         from the last used Branch Number + 1000, then incrementing sequentially for connected trays without values.
-//              - NEW: Iterates through Detail Components, matches them by RTS_ID to cable trays, and populates
-//                     their RTS_Cable_XX parameters, shifting values to fill gaps.
-
+//              in any of the RTS_Cable_XX shared parameters (RTS_Cable_01 to RTS_Cable_30).
+//              For each identified cable tray, it generates a unique ID based on a prefix, a type suffix,
+//              its reference level name, bottom elevation (in mm), and a sequential unique number.
+//              This generated ID is then assigned to the 'RTS_ID' shared parameter.
+//              This version also iterates through Detail Components, and where their RTS_ID matches
+//              a cable tray's RTS_ID, it populates the Detail Item's RTS_Cable_XX parameters
+//              with the corresponding Cable Tray's cable values, shifting values up to fill gaps.
+//              This script is intended to be compiled as a Revit Add-in.
+//              This version includes:
+//              - Processing of cable trays regardless of their orientation (horizontal, vertical, or sloped).
+//              - Sorting of cable trays to prioritize those occupying lower-indexed RTS_Cable_XX parameters first,
+//                     then by their values, and finally by all subsequent RTS_Cable_XX values to ensure continuity.
+//              - Refined retrieval of bottom elevation using cable tray's absolute Z-coordinate, height parameter,
+//                and associated level's elevation. The elevation component in the ID is always a positive value
+//                representing the bottom elevation in millimeters relative to the project's internal origin.
+//              - Improved and more robust retrieval of the reference level name.
+//              - Application of the unique 4-digit number based on identical consecutive RTS_Cable_XX parameter values
+//                or sequential numbering for trays without values.
+//              - Addition of a prefix derived from the 5th character of the first available RTS_Cable_XX parameter.
+//              - Validation of the prefix character: if not alphabetic, it defaults to 'T'.
+//              - Addition of a 3-character type suffix based on the cable tray's type name ("FR" -> "FLS", "ESS" -> "ESS", else "DFT").
+//              - Writes the unique 4-digit identifier to the 'Branch Number' shared parameter.
+//              - Ensures the bottom elevation part of the RTS_ID is always 4 characters long, padded with leading zeros,
+//                and represents a positive value.
+//              - UPDATED: Handles cable trays without cable values by assigning an 'X' prefix and continuing Branch Numbering
+//                         from the last used Branch Number + 1000, then incrementing sequentially for connected trays without values.
+//              - NEW: Iterates through Detail Components, and now also Cable Tray Fittings, Conduits, and Conduit Fittings,
+//                     matches them by RTS_ID to cable trays, and populates their RTS_Cable_XX parameters,
+//                     shifting values to fill gaps. **RTS_ID is NOT generated for these elements.**
+//
+// RTS_ID Format: [Prefix]-[TypeSuffix]-[LevelAbbr]-[ElevationMM]-[UniqueSuffix]
+// Example ID:    P-FLS-L01-4285-0001
+//   - Prefix (P):        Derived from the 5th character of the first populated RTS_Cable_XX parameter (e.g., if RTS_Cable_01 = "CABLE-POWER-MAIN", 'P' is used). Defaults to 'X' if no cable values or non-alphabetic character.
+//   - TypeSuffix (FLS):  3-character abbreviation based on Cable Tray Type Name (e.g., "FR" in type name becomes "FLS", "ESS" becomes "ESS", otherwise "DFT").
+//   - LevelAbbr (L01):   First 3 characters of the associated Reference Level name (e.g., "Level 01" becomes "L01"). Padded with '?' if shorter than 3.
+//   - ElevationMM (4285): Bottom elevation of the cable tray in millimeters, rounded to the nearest integer. This value is always positive and padded with leading zeros to 4 digits.
+//   - UniqueSuffix (0001): A sequential 4-digit number. Increments for each unique set of RTS_Cable_XX values. For trays without values, it starts at 1000 + last counter and increments.
 
 using System;
 using System.Collections.Generic;
@@ -34,7 +45,7 @@ using System.Linq;
 using System.Text;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Electrical; // Required for CableTray class
+using Autodesk.Revit.DB.Electrical; // Required for Conduit/ConduitFitting
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 
@@ -85,7 +96,7 @@ namespace RT_TrayID
         /// <summary>
         /// Helper method to find the index and value of the first non-empty RTS_Cable_XX parameter for an element.
         /// </summary>
-        /// <param name="elem">The Revit element (Cable Tray).</param>
+        /// <param name="elem">The Revit element.</param>
         /// <returns>
         /// A Tuple where Item1 is the 0-indexed position of the first non-empty parameter (or RTS_Cable_GUIDs.Count if none are found),
         /// and Item2 is the string value of that parameter (or string.Empty).
@@ -106,9 +117,9 @@ namespace RT_TrayID
         }
 
         /// <summary>
-        /// Helper method to get all cable parameter values for sorting.
+        /// Helper method to get all cable parameter values for sorting or populating.
         /// </summary>
-        /// <param name="elem">The Revit element (Cable Tray).</param>
+        /// <param name="elem">The Revit element.</param>
         /// <returns>A concatenated string of all cable parameter values, separated by a delimiter.</returns>
         private string GetAllCableParamValues(Element elem)
         {
@@ -132,21 +143,21 @@ namespace RT_TrayID
             Document doc = uidoc.Document;
 
             // Dictionary to store generated RTS_ID and their associated cable values for quick lookup
-            // Key: RTS_ID, Value: List of non-empty RTS_Cable_XX values
+            // Key: RTS_ID, Value: List of non-empty RTS_Cable_XX values from the Cable Tray
             Dictionary<string, List<string>> cableTrayRtsIdToCableValuesMap = new Dictionary<string, List<string>>();
 
             // Start a transaction to modify the document
-            using (Transaction t = new Transaction(doc, "Update Cable Tray and Detail Item IDs"))
+            using (Transaction t = new Transaction(doc, "Update RTS_IDs and Cable Parameters")) // Changed transaction name
             {
                 try
                 {
                     t.Start();
 
-                    // Filter for Cable Tray elements
+                    // --- 1. Process Cable Tray elements (generate RTS_ID and collect cable data) ---
                     FilteredElementCollector cableTrayCollector = new FilteredElementCollector(doc);
                     List<Element> allCableTrays = cableTrayCollector
                         .OfCategory(BuiltInCategory.OST_CableTray)
-                        .WhereElementIsNotElementType() // Exclude element types (definitions)
+                        .WhereElementIsNotElementType()
                         .ToList();
 
                     List<Element> cableTraysWithValues = new List<Element>();
@@ -201,7 +212,7 @@ namespace RT_TrayID
                         sortedCableTraysWithValues = Enumerable.Empty<Element>().OrderBy(e => e.Id.IntegerValue); // Empty sequence
                     }
 
-                    int updatedCount = 0;
+                    int updatedCableTrayCount = 0;
                     int uniqueIdCounter = 0; // Initialize counter for cable trays with values
                     string previousCableKey = null; // Stores the concatenated values of RTS_Cable_XX for the previous element
 
@@ -213,7 +224,7 @@ namespace RT_TrayID
                         Parameter rtsIdParam = elem.get_Parameter(RTS_ID_GUID);
                         Parameter branchNumberParam = elem.get_Parameter(BRANCH_NUMBER_GUID);
 
-                        if (rtsIdParam != null)
+                        if (rtsIdParam != null && !rtsIdParam.IsReadOnly) // Ensure parameter is writeable
                         {
                             // 1. Determine the prefix from the 5th character of the first RTS_Cable_XX with a value
                             string prefixChar = "X"; // Default prefix character, will be overridden if cable values exist
@@ -289,7 +300,7 @@ namespace RT_TrayID
                             }
 
                             // 4. Get the bottom elevation in millimeters (rounded)
-                            double bottomElevationFeet = 0.0;
+                            double absoluteBottomElevationFeet = 0.0;
                             double absoluteMiddleElevationFeet = 0.0;
                             double trayHeightFeet = 0.0;
 
@@ -308,26 +319,21 @@ namespace RT_TrayID
                                 trayHeightFeet = heightParam.AsDouble();
                             }
 
-                            if (associatedLevel != null)
+                            // Calculate the absolute bottom elevation relative to Revit's internal origin
+                            if (trayHeightFeet > 0)
                             {
-                                double relativeMiddleElevation = absoluteMiddleElevationFeet - associatedLevel.Elevation;
-                                if (trayHeightFeet > 0)
-                                {
-                                    bottomElevationFeet = relativeMiddleElevation - (trayHeightFeet / 2.0);
-                                }
-                                else
-                                {
-                                    bottomElevationFeet = relativeMiddleElevation;
-                                }
+                                absoluteBottomElevationFeet = absoluteMiddleElevationFeet - (trayHeightFeet / 2.0);
                             }
                             else
                             {
-                                bottomElevationFeet = absoluteMiddleElevationFeet;
-                                System.Diagnostics.Debug.WriteLine($"Warning: Cable Tray {elem.Id} could not determine associated level. Using absolute Z for elevation.");
+                                absoluteBottomElevationFeet = absoluteMiddleElevationFeet;
                             }
 
-                            long bottomElevationMM = (long)Math.Round(bottomElevationFeet * 304.8);
-                            string formattedBottomElevation = bottomElevationMM.ToString("D4");
+                            // Direct conversion from feet to millimeters. 1 foot = 304.8 millimeters.
+                            long bottomElevationMM = (long)Math.Round(absoluteBottomElevationFeet * 304.8);
+
+                            // Use Math.Abs to ensure the elevation string is always positive for the ID component
+                            string formattedBottomElevation = Math.Abs(bottomElevationMM).ToString("D4");
 
 
                             // 5. Generate a unique 4-digit number based on the sorted order and parameter values
@@ -344,15 +350,15 @@ namespace RT_TrayID
                             string newRtsId = $"{prefixChar}-{trayTypeSuffix}-{levelAbbreviation}-{formattedBottomElevation}-{uniqueSuffix}";
                             rtsIdParam.Set(newRtsId);
 
-                            if (branchNumberParam != null)
+                            if (branchNumberParam != null && !branchNumberParam.IsReadOnly)
                             {
                                 branchNumberParam.Set(uniqueSuffix);
                             }
                             else
                             {
-                                System.Diagnostics.Debug.WriteLine($"Warning: Cable Tray {elem.Id} does not have the 'Branch Number' shared parameter.");
+                                System.Diagnostics.Debug.WriteLine($"Warning: Cable Tray {elem.Id} does not have a writeable 'Branch Number' shared parameter or it's missing.");
                             }
-                            updatedCount++;
+                            updatedCableTrayCount++;
 
                             // Store the generated RTS_ID and the collected cable values in the map
                             if (!cableTrayRtsIdToCableValuesMap.ContainsKey(newRtsId))
@@ -368,7 +374,7 @@ namespace RT_TrayID
                         }
                         else
                         {
-                            System.Diagnostics.Debug.WriteLine($"Warning: Cable Tray {elem.Id} does not have the 'RTS_ID' shared parameter.");
+                            System.Diagnostics.Debug.WriteLine($"Warning: Cable Tray {elem.Id} does not have a writeable 'RTS_ID' shared parameter or it's missing.");
                         }
                     }
 
@@ -424,7 +430,7 @@ namespace RT_TrayID
                             Parameter rtsIdParam = elem.get_Parameter(RTS_ID_GUID);
                             Parameter branchNumberParam = elem.get_Parameter(BRANCH_NUMBER_GUID);
 
-                            if (rtsIdParam != null)
+                            if (rtsIdParam != null && !rtsIdParam.IsReadOnly)
                             {
                                 // Prefix for trays without cable values defaults to 'X'
                                 string prefixChar = "X";
@@ -469,8 +475,8 @@ namespace RT_TrayID
                                     }
                                 }
 
-                                // Get the bottom elevation in millimeters (rounded) (same logic as before)
-                                double bottomElevationFeet = 0.0;
+                                // Get the bottom elevation in millimeters (rounded)
+                                double absoluteBottomElevationFeet = 0.0;
                                 double absoluteMiddleElevationFeet = 0.0;
                                 double trayHeightFeet = 0.0;
 
@@ -489,26 +495,20 @@ namespace RT_TrayID
                                     trayHeightFeet = heightParam.AsDouble();
                                 }
 
-                                if (associatedLevel != null)
+                                // Calculate the absolute bottom elevation relative to Revit's internal origin
+                                if (trayHeightFeet > 0)
                                 {
-                                    double relativeMiddleElevation = absoluteMiddleElevationFeet - associatedLevel.Elevation;
-                                    if (trayHeightFeet > 0)
-                                    {
-                                        bottomElevationFeet = relativeMiddleElevation - (trayHeightFeet / 2.0);
-                                    }
-                                    else
-                                    {
-                                        bottomElevationFeet = relativeMiddleElevation;
-                                    }
+                                    absoluteBottomElevationFeet = absoluteMiddleElevationFeet - (trayHeightFeet / 2.0);
                                 }
                                 else
                                 {
-                                    bottomElevationFeet = absoluteMiddleElevationFeet;
-                                    System.Diagnostics.Debug.WriteLine($"Warning: Cable Tray {elem.Id} could not determine associated level. Using absolute Z for elevation.");
+                                    absoluteBottomElevationFeet = absoluteMiddleElevationFeet;
                                 }
 
-                                long bottomElevationMM = (long)Math.Round(bottomElevationFeet * 304.8);
-                                string formattedBottomElevation = bottomElevationMM.ToString("D4");
+                                // Direct conversion from feet to millimeters. 1 foot = 304.8 millimeters.
+                                long bottomElevationMM = (long)Math.Round(absoluteBottomElevationFeet * 304.8);
+                                string formattedBottomElevation = Math.Abs(bottomElevationMM).ToString("D4");
+
 
                                 // Increment the counter for trays without values
                                 string uniqueSuffix = noCableUniqueIdCounter.ToString("D4");
@@ -517,15 +517,15 @@ namespace RT_TrayID
                                 string newRtsId = $"{prefixChar}-{trayTypeSuffix}-{levelAbbreviation}-{formattedBottomElevation}-{uniqueSuffix}";
                                 rtsIdParam.Set(newRtsId);
 
-                                if (branchNumberParam != null)
+                                if (branchNumberParam != null && !branchNumberParam.IsReadOnly)
                                 {
                                     branchNumberParam.Set(uniqueSuffix);
                                 }
                                 else
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"Warning: Cable Tray {elem.Id} does not have the 'Branch Number' shared parameter.");
+                                    System.Diagnostics.Debug.WriteLine($"Warning: Cable Tray {elem.Id} does not have a writeable 'Branch Number' shared parameter or it's missing.");
                                 }
-                                updatedCount++;
+                                updatedCableTrayCount++;
 
                                 // For trays without cable values, their cable values list will be empty
                                 if (!cableTrayRtsIdToCableValuesMap.ContainsKey(newRtsId))
@@ -540,80 +540,97 @@ namespace RT_TrayID
                             }
                             else
                             {
-                                System.Diagnostics.Debug.WriteLine($"Warning: Cable Tray {elem.Id} does not have the 'RTS_ID' shared parameter.");
+                                System.Diagnostics.Debug.WriteLine($"Warning: Cable Tray {elem.Id} does not have a writeable 'RTS_ID' shared parameter or it's missing.");
                             }
                         }
                     }
 
-                    // *** Process Detail Items ***
-                    FilteredElementCollector detailItemCollector = new FilteredElementCollector(doc);
-                    List<Element> detailItems = detailItemCollector
-                        .OfCategory(BuiltInCategory.OST_DetailComponents)
+                    // --- 2. Process Detail Components, Cable Tray Fittings, Conduits, and Conduit Fittings ---
+                    // These elements will have their RTS_Cable_XX parameters ordered/compacted
+                    // based on a matching RTS_ID found on a Cable Tray. No new RTS_ID will be generated.
+                    var categoriesToUpdateCableParams = new List<BuiltInCategory>
+                    {
+                        BuiltInCategory.OST_DetailComponents,
+                        BuiltInCategory.OST_CableTrayFitting,
+                        BuiltInCategory.OST_Conduit,
+                        BuiltInCategory.OST_ConduitFitting
+                    };
+                    var filterForCableParamUpdate = new ElementMulticategoryFilter(categoriesToUpdateCableParams);
+
+                    var otherElementsToUpdate = new FilteredElementCollector(doc)
+                        .WherePasses(filterForCableParamUpdate)
                         .WhereElementIsNotElementType()
                         .ToList();
 
-                    int detailItemsUpdatedCount = 0;
+                    int otherElementsUpdatedCount = 0;
 
-                    foreach (Element detailItem in detailItems)
+                    foreach (Element currentElement in otherElementsToUpdate)
                     {
-                        Parameter detailItemRtsIdParam = detailItem.get_Parameter(RTS_ID_GUID);
+                        Parameter elementRtsIdParam = currentElement.get_Parameter(RTS_ID_GUID);
 
-                        if (detailItemRtsIdParam != null && !string.IsNullOrEmpty(detailItemRtsIdParam.AsString()))
+                        if (elementRtsIdParam != null && !string.IsNullOrEmpty(elementRtsIdParam.AsString()))
                         {
-                            string detailItemRtsId = detailItemRtsIdParam.AsString();
+                            string elementRtsId = elementRtsIdParam.AsString();
 
                             // Try to find a matching cable tray's RTS_ID
-                            if (cableTrayRtsIdToCableValuesMap.TryGetValue(detailItemRtsId, out List<string> cableTrayValues))
+                            if (cableTrayRtsIdToCableValuesMap.TryGetValue(elementRtsId, out List<string> cableTrayValues))
                             {
-                                System.Diagnostics.Debug.WriteLine($"Processing Detail Item {detailItem.Id} with RTS_ID '{detailItemRtsId}'. Matching cable tray found.");
+                                System.Diagnostics.Debug.WriteLine($"Processing {currentElement.Category.Name} {currentElement.Id} with RTS_ID '{elementRtsId}'. Matching cable tray found.");
 
-                                // Populate Detail Item's RTS_Cable_XX parameters, shifting values to fill gaps
+                                // Sort the cable values obtained from the cable tray (already done by the TrayID part)
+                                // and apply them to the current element's RTS_Cable_XX parameters, filling gaps.
+                                // The cableTrayValues List is already guaranteed to be non-null and correctly ordered from how it was built.
+
                                 int cableValueIndex = 0;
                                 for (int i = 0; i < RTS_Cable_GUIDs.Count; i++)
                                 {
-                                    Parameter detailItemCableParam = detailItem.get_Parameter(RTS_Cable_GUIDs[i]);
-                                    if (detailItemCableParam != null)
+                                    Parameter elementCableParam = currentElement.get_Parameter(RTS_Cable_GUIDs[i]);
+                                    if (elementCableParam != null && !elementCableParam.IsReadOnly) // Ensure parameter is writeable
                                     {
                                         if (cableValueIndex < cableTrayValues.Count)
                                         {
                                             // Set the parameter with the next available cable tray value
-                                            detailItemCableParam.Set(cableTrayValues[cableValueIndex]);
-                                            System.Diagnostics.Debug.WriteLine($"  - Set RTS_Cable_{i + 1:D2} to: '{cableTrayValues[cableValueIndex]}'");
+                                            // Only set if the value is different to avoid unnecessary modifications
+                                            if (elementCableParam.AsString() != cableTrayValues[cableValueIndex])
+                                            {
+                                                elementCableParam.Set(cableTrayValues[cableValueIndex]);
+                                                System.Diagnostics.Debug.WriteLine($"  - Set RTS_Cable_{i + 1:D2} on {currentElement.Category.Name} {currentElement.Id} to: '{cableTrayValues[cableValueIndex]}'");
+                                            }
                                             cableValueIndex++;
                                         }
                                         else
                                         {
-                                            // If no more values from cable tray, clear the remaining parameters on the Detail Item
-                                            if (!string.IsNullOrEmpty(detailItemCableParam.AsString()))
+                                            // If no more values from cable tray, clear the remaining parameters on the current element
+                                            if (!string.IsNullOrEmpty(elementCableParam.AsString()))
                                             {
-                                                detailItemCableParam.Set(string.Empty); // Clear existing value
-                                                System.Diagnostics.Debug.WriteLine($"  - Cleared RTS_Cable_{i + 1:D2}");
+                                                elementCableParam.Set(string.Empty); // Clear existing value
+                                                System.Diagnostics.Debug.WriteLine($"  - Cleared RTS_Cable_{i + 1:D2} on {currentElement.Category.Name} {currentElement.Id}");
                                             }
                                         }
                                     }
                                     else
                                     {
-                                        System.Diagnostics.Debug.WriteLine($"  - Warning: Detail Item {detailItem.Id} missing RTS_Cable_{i + 1:D2} parameter.");
+                                        System.Diagnostics.Debug.WriteLine($"  - Warning: {currentElement.Category.Name} {currentElement.Id} missing writeable RTS_Cable_{i + 1:D2} parameter.");
                                     }
                                 }
-                                detailItemsUpdatedCount++;
+                                otherElementsUpdatedCount++;
                             }
                             else
                             {
-                                System.Diagnostics.Debug.WriteLine($"Detail Item {detailItem.Id} has RTS_ID '{detailItemRtsId}' but no matching Cable Tray found.");
-                                // Option: You might want to clear cable parameters of detail items that don't match any tray,
-                                // or assign default values. For now, they are left as is if no match.
+                                System.Diagnostics.Debug.WriteLine($"{currentElement.Category.Name} {currentElement.Id} has RTS_ID '{elementRtsId}' but no matching Cable Tray found. Not updating cable parameters.");
+                                // Option: You might want to clear cable parameters of elements that don't match any tray.
+                                // For now, they are left as is if no match.
                             }
                         }
                         else
                         {
-                            System.Diagnostics.Debug.WriteLine($"Warning: Detail Item {detailItem.Id} does not have a valid 'RTS_ID' shared parameter value.");
+                            System.Diagnostics.Debug.WriteLine($"Warning: {currentElement.Category.Name} {currentElement.Id} does not have a valid 'RTS_ID' shared parameter value. Skipping cable parameter update.");
                         }
                     }
 
 
                     t.Commit();
-                    TaskDialog.Show("RT_TrayID", $"{updatedCount} Cable Trays and {detailItemsUpdatedCount} Detail Items updated successfully.");
+                    TaskDialog.Show("RT_TrayID", $"{updatedCableTrayCount} Cable Trays and {otherElementsUpdatedCount} other elements (Detail Items, Fittings, Conduits) updated successfully.");
                 }
                 catch (Exception ex)
                 {

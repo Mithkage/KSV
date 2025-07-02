@@ -3,7 +3,8 @@
 // Application: Revit 2022 External Command
 
 // Description: This script allows the user to input one or more comma-separated string values.
-//              It then searches the active view for elements that have a matching value
+//              It first unhides all elements in the active view.
+//              Then, it searches the active view for elements that have a matching value
 //              in their 'RTS_ID' shared parameter or any of the 'RTS_Cable_XX' shared parameters.
 //              All elements found with a matching value will remain visible, while
 //              all other visible elements in the active view will be hidden.
@@ -76,6 +77,60 @@ namespace RT_Isolate
                 return Result.Failed;
             }
 
+            // --- START: Added code to unhide all elements ---
+            using (Transaction t = new Transaction(doc, "Unhide All Elements"))
+            {
+                t.Start();
+                try
+                {
+                    // Get all elements in the active view (excluding element types)
+                    var allElementsInView = new FilteredElementCollector(doc, activeView.Id)
+                                                .WhereElementIsNotElementType()
+                                                .ToList(); // Get all non-type elements
+
+                    List<ElementId> hiddenElementsToUnhide = new List<ElementId>();
+
+                    // Manually check each element if it's hidden in the view using Element.IsHidden(View view)
+                    foreach (Element elem in allElementsInView)
+                    {
+                        // Check if the element is hidden in the active view
+                        if (elem.IsHidden(activeView)) // Correct method for Revit 2022 and later
+                        {
+                            hiddenElementsToUnhide.Add(elem.Id);
+                        }
+                    }
+
+                    if (hiddenElementsToUnhide.Any())
+                    {
+                        // Add a check for CanBeHidden before attempting to unhide
+                        // While UnhideElements typically handles this more gracefully,
+                        // it's good practice to be aware, though less critical for unhiding.
+                        List<ElementId> actuallyUnhidableElements = hiddenElementsToUnhide
+                            .Where(id => doc.GetElement(id)?.CanBeHidden(activeView) ?? false)
+                            .ToList();
+
+                        if (actuallyUnhidableElements.Any())
+                        {
+                            activeView.UnhideElements(actuallyUnhidableElements);
+                        }
+                        else
+                        {
+                            // Optional: Inform if no hidden elements could actually be unhidden
+                            // TaskDialog.Show("RT_Isolate Info", "No hidden elements found that can be unhidden.");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Rollback if unhiding fails, but try to continue with the main logic
+                    t.RollBack();
+                    TaskDialog.Show("RT_Isolate Warning", $"Failed to unhide all elements: {ex.Message}. Attempting to proceed with isolation.");
+                }
+                t.Commit(); // Commit even if no elements were hidden, or if unhide failed for specific reasons
+            }
+            // --- END: Added code to unhide all elements ---
+
+
             // Create and show the WPF input window
             string inputString = "";
             try
@@ -114,9 +169,9 @@ namespace RT_Isolate
 
             // Parse the input string into a list of search values
             List<string> searchValues = inputString.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                                                   .Select(s => s.Trim())
-                                                   .Where(s => !string.IsNullOrEmpty(s))
-                                                   .ToList();
+                                                     .Select(s => s.Trim())
+                                                     .Where(s => !string.IsNullOrEmpty(s))
+                                                     .ToList();
 
             if (!searchValues.Any())
             {
@@ -126,10 +181,10 @@ namespace RT_Isolate
 
             // Collect all visible elements in the active view
             // We'll exclude element types and the view itself
-            var allVisibleElementsInView = new FilteredElementCollector(doc, activeView.Id)
-                                            .WhereElementIsNotElementType()
-                                            .Where(e => e.Id != activeView.Id) // Exclude the view element itself
-                                            .ToList();
+            var allElementsInViewForIsolation = new FilteredElementCollector(doc, activeView.Id)
+                                                   .WhereElementIsNotElementType()
+                                                   .Where(e => e.Id != activeView.Id) // Exclude the view element itself
+                                                   .ToList();
 
             List<ElementId> elementsToHide = new List<ElementId>();
             int elementsFoundCount = 0;
@@ -139,7 +194,7 @@ namespace RT_Isolate
                 t.Start();
                 try
                 {
-                    foreach (Element elem in allVisibleElementsInView)
+                    foreach (Element elem in allElementsInViewForIsolation)
                     {
                         bool matchFound = false;
 
@@ -174,8 +229,8 @@ namespace RT_Isolate
                             }
                         }
 
-                        // If no match was found for this element, add it to the list to hide
-                        if (!matchFound)
+                        // If no match was found for this element AND it can be hidden, add it to the list to hide
+                        if (!matchFound && elem.CanBeHidden(activeView)) // Add CanBeHidden check here
                         {
                             elementsToHide.Add(elem.Id);
                         }
@@ -189,11 +244,11 @@ namespace RT_Isolate
                     }
                     else if (elementsFoundCount > 0)
                     {
-                        TaskDialog.Show("RT_Isolate", $"All {elementsFoundCount} found elements are already visible. No elements were hidden.");
+                        TaskDialog.Show("RT_Isolate", $"All {elementsFoundCount} found elements are already visible or cannot be hidden. No elements were hidden.");
                     }
                     else
                     {
-                        TaskDialog.Show("RT_Isolate", "No elements found matching the provided values. No elements were hidden.");
+                        TaskDialog.Show("RT_Isolate", "No elements found matching the provided values or no elements could be hidden. No elements were hidden.");
                     }
 
                     t.Commit();

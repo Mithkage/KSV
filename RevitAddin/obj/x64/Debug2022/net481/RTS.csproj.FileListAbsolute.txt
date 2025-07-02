@@ -44,4 +44,5 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\RTS.pdb
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\InputWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\InputWindow.g.cs
-C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net481\Resources\RT_Isolate.png
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\ScheduleSelectionWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net481\ScheduleSelectionWindow.g.cs

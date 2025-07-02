@@ -6,11 +6,11 @@
 // Class: PC_ExtensibleClass
 //
 // Function: This Revit external command provides options to either import
-//           new cable data from a CSV (merging/updating existing data in extensible storage),
-//           clear all existing cable data from extensible storage, or export
-//           the current data from extensible storage to a CSV.
-//           It also exports the current cleaned/merged data to "Cleaned_Cable_Schedule.csv" during import.
-//           When importing, if updated data is null or blank, existing stored data is retained.
+//           new cable data from a CSV (merging/updating existing data in extensible storage),
+//           clear all existing cable data from extensible storage, or export
+//           the current data from extensible storage to a CSV.
+//           It also exports the current cleaned/merged data to "Cleaned_Cable_Schedule.csv" during import.
+//           When importing, if updated data is null or blank, existing stored data is retained.
 //
 // Author: Kyle Vorster (Modified by AI)
 //
@@ -126,14 +126,19 @@ namespace PC_Extensible
                 // --- 4. RECALL EXISTING DATA FROM EXTENSIBLE STORAGE ---
                 List<CableData> existingStoredData = RecallCableDataFromExtensibleStorage(doc);
 
-                // --- 5. MERGE NEW DATA WITH EXISTING DATA (Conditional Update) ---
-                // Create a dictionary from existing data for efficient lookups by 'To' key
+                // --- 5. MERGE NEW DATA WITH EXISTING DATA (Conditional Update with additional duplicate check) ---
+                // Create dictionaries from existing data for efficient lookups
                 var mergedDataDict = existingStoredData
-                                               .Where(cd => !string.IsNullOrEmpty(cd.To))
-                                               .ToDictionary(cd => cd.To, cd => cd);
+                                            .Where(cd => !string.IsNullOrEmpty(cd.To))
+                                            .ToDictionary(cd => cd.To, cd => cd);
+
+                var existingCableReferences = new HashSet<string>(
+                    existingStoredData.Where(cd => !string.IsNullOrEmpty(cd.CableReference)).Select(cd => cd.CableReference)
+                );
 
                 int updatedEntries = 0;
                 int addedEntries = 0;
+                List<string> duplicateCableReferencesReport = new List<string>(); // To store duplicates for reporting
 
                 foreach (var newCableEntry in newCsvData)
                 {
@@ -144,9 +149,10 @@ namespace PC_Extensible
                         continue;
                     }
 
+                    // First, check for 'To' value existence for updates
                     if (mergedDataDict.TryGetValue(newCableEntry.To, out CableData existingCableEntry))
                     {
-                        // Match found: Iterate through properties and update if new value is not null/blank
+                        // Match found by 'To': Iterate through properties and update if new value is not null/blank
                         PropertyInfo[] properties = typeof(CableData).GetProperties();
                         bool entryUpdated = false;
 
@@ -173,11 +179,24 @@ namespace PC_Extensible
                         }
                         if (entryUpdated) updatedEntries++;
                     }
-                    else
+                    else // No existing entry found by 'To' value
                     {
-                        // No match found: Add the new entry as is
-                        mergedDataDict.Add(newCableEntry.To, newCableEntry);
-                        addedEntries++;
+                        // Now, check if the 'Cable Reference' value already exists in the entire dataset (existing + newly added)
+                        if (!string.IsNullOrEmpty(newCableEntry.CableReference) &&
+                            (existingCableReferences.Contains(newCableEntry.CableReference) ||
+                             mergedDataDict.Values.Any(cd => cd.CableReference == newCableEntry.CableReference)))
+                        {
+                            duplicateCableReferencesReport.Add($"Cable Reference: '{newCableEntry.CableReference}', To: '{newCableEntry.To}'");
+                            Debug.WriteLine($"Skipping new CSV entry due to duplicate 'Cable Reference': {newCableEntry.CableReference}");
+                            continue; // Skip this entry
+                        }
+                        else
+                        {
+                            // No match by 'To' and 'Cable Reference' is unique (or not provided)
+                            mergedDataDict.Add(newCableEntry.To, newCableEntry);
+                            existingCableReferences.Add(newCableEntry.CableReference); // Add to the set of existing references
+                            addedEntries++;
+                        }
                     }
                 }
 
@@ -201,8 +220,19 @@ namespace PC_Extensible
                     {
                         SaveCableDataToExtensibleStorage(doc, finalMergedData);
                         tx.Commit();
-                        TaskDialog.Show("Extensible Storage Save", $"Merged cable data (PC_Data) saved to project's extensible storage successfully.\n" +
-                                                                   $"Updated entries: {updatedEntries}\nAdded entries: {addedEntries}");
+                        string summaryMessage = $"Merged cable data (PC_Data) saved to project's extensible storage successfully.\n" +
+                                                 $"Updated entries: {updatedEntries}\nAdded entries: {addedEntries}";
+
+                        if (duplicateCableReferencesReport.Any())
+                        {
+                            summaryMessage += "\n\nSkipped Duplicate Cable References:\n" + string.Join("\n", duplicateCableReferencesReport.Take(10)); // Show first 10
+                            if (duplicateCableReferencesReport.Count > 10)
+                            {
+                                summaryMessage += $"\n... and {duplicateCableReferencesReport.Count - 10} more.";
+                            }
+                            summaryMessage += "\n\nThese entries were skipped because their 'Cable Reference' value already exists.";
+                        }
+                        TaskDialog.Show("Extensible Storage Save", summaryMessage);
                     }
                     catch (Exception ex)
                     {
@@ -224,8 +254,8 @@ namespace PC_Extensible
 
                 // --- 9. NOTIFY USER OF OVERALL SUCCESS ---
                 TaskDialog.Show("Process Complete", $"Import and merge process complete.\n\n" +
-                                                    $"The 'Cleaned_Cable_Schedule.csv' file (containing merged data) has been saved to:\n'{outputCsvFilePath}'\n\n" +
-                                                    $"The cleaned cable data (PC_Data) has also been successfully updated in extensible storage in the current Revit project for later recall.");
+                                                 $"The 'Cleaned_Cable_Schedule.csv' file (containing merged data) has been saved to:\n'{outputCsvFilePath}'\n\n" +
+                                                 $"The cleaned cable data (PC_Data) has also been successfully updated in extensible storage in the current Revit project for later recall.");
                 return Result.Succeeded;
             }
             catch (Exception ex)
@@ -375,8 +405,8 @@ namespace PC_Extensible
                 // IMPORTANT: The VendorId MUST exactly match the VendorId declared for your Revit Add-in.
                 // This is typically specified in your add-in's .addin manifest file, e.g.:
                 // <AddIn Type="Command">
-                //    <VendorId>ReTick_Solutions</VendorId>
-                //    ...
+                //    <VendorId>ReTick_Solutions</VendorId>
+                //    ...
                 // </AddIn>
                 // Make sure "ReTick_Solutions" (or whatever you use here) is consistent.
                 schemaBuilder.SetVendorId("ReTick_Solutions"); // Updated to match .addin file VendorId

@@ -200,6 +200,13 @@ namespace RTS
                     LargeImage = GetEmbeddedPng("RT_WireRoute.png") ?? defaultIcon
                 };
 
+                // NEW BUTTON: RT_Isolate
+                PushButtonData pbdRtIsolate = new PushButtonData(
+                    "CmdRtIsolate", "Isolate by\nID/Cable", ExecutingAssemblyPath, "RT_Isolate.RT_IsolateClass")
+                {
+                    ToolTip = "Isolates elements in the active view based on 'RTS_ID' or 'RTS_Cable_XX' parameter values.",
+                    LargeImage = GetEmbeddedPng("RT_Isolate.png") ?? defaultIcon // Assuming an icon named RT_Isolate.png exists, otherwise uses default
+                };
 
                 // --- Misc Tools Buttons ---
 
@@ -260,7 +267,8 @@ namespace RTS
                 revitToolsPanel.AddItem(pbdRtTrayId);
                 revitToolsPanel.AddItem(pbdRtTrayConduits);
                 revitToolsPanel.AddItem(pbdRtUppercase);
-                revitToolsPanel.AddItem(pbdRtWireRoute); // Add the new Wire Route button
+                revitToolsPanel.AddItem(pbdRtWireRoute);
+                revitToolsPanel.AddItem(pbdRtIsolate); // Add the new Isolate button here
 
                 miscPanel.AddItem(pbdBbImport);
                 miscPanel.AddItem(pbdMdImporter);

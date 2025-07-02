@@ -74,6 +74,7 @@
 	  <Content Remove="Resources\RTS_MapCables.png" />
 	  <Content Remove="Resources\RTS_Schedules.png" />
 	  <Content Remove="Resources\RT_CableLengths.png" />
+	  <Content Remove="Resources\RT_Isolate.png" />
 	  <Content Remove="Resources\RT_TrayConduits.png" />
 	  <Content Remove="Resources\RT_TrayOccupancy.png" />
 	  <Content Remove="Resources\RT_UpperCase.png" />
@@ -117,6 +118,7 @@
 	  <EmbeddedResource Include="Resources\RT_CableLengths.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\RT_Isolate.png" />
 	  <EmbeddedResource Include="Resources\RT_TrayConduits.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
