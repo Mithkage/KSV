@@ -11,8 +11,8 @@
 //           and occupancy for each tray using conditional logic, reports on missing cables,
 //           determines minimum tray size, and exports that data to a second CSV. Finally,
 //           it calculates the total run length for each unique cable across all trays and
-//           fittings, exports that to a third CSV, and writes the calculated data back to
-//           the Model Generated Data extensible storage, excluding variance.
+//           fittings, exports that to a third CSV, and updates/merges this calculated data
+//           into the Model Generated Data extensible storage based on Cable Reference.
 //
 // Author: Kyle Vorster
 //
@@ -26,6 +26,7 @@
 //       July 2, 2025 - Excluded Variance from data written to ModelGeneratedData storage.
 //       July 2, 2025 - Fixed "An item with the same key has already been added" error in CollectCableLengthsData
 //                      by handling duplicate CableReference keys when creating lookup dictionary.
+//       July 2, 2025 - Implemented update/merge logic for saving data to Model Generated Data extensible storage.
 //
 #region Namespaces
 using System;
@@ -39,6 +40,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using PC_Extensible; // Added reference to the PC_Extensible namespace
+using System.Reflection; // For property iteration in merge logic
 #endregion
 
 namespace RT_TrayOccupancy
@@ -111,19 +113,82 @@ namespace RT_TrayOccupancy
                     string cableLengthsFilePath = Path.Combine(outputFolderPath, "Cable_Lengths.csv");
                     ExportCableLengthsToCsv(cableLengths, cableLengthsFilePath);
 
-                    // --- 7. SAVE CALCULATED CABLE LENGTHS DATA TO MODEL GENERATED EXTENSIBLE STORAGE ---
-                    // Transform CableLengthData into ModelGeneratedData, excluding Variance
-                    List<PC_ExtensibleClass.ModelGeneratedData> modelGeneratedDataList = cableLengths.Select(cl => new PC_ExtensibleClass.ModelGeneratedData
-                    {
-                        CableReference = cl.PC_Cable_Reference,
-                        From = cl.From,
-                        To = cl.To,
-                        CableLengthM = cl.PC_Cable_Length, // This is the calculated length from Revit model
-                        Variance = string.Empty,            // Explicitly set Variance to empty string or null
-                        Comment = cl.RTS_Comment
-                    }).ToList();
+                    // --- 7. SAVE/MERGE CALCULATED CABLE LENGTHS DATA TO MODEL GENERATED EXTENSIBLE STORAGE ---
+                    // Recall existing Model Generated Data first for merging
+                    List<PC_ExtensibleClass.ModelGeneratedData> existingModelGeneratedData = pcExtensible.RecallDataFromExtensibleStorage<PC_ExtensibleClass.ModelGeneratedData>(
+                        doc,
+                        PC_ExtensibleClass.ModelGeneratedSchemaGuid,
+                        PC_ExtensibleClass.ModelGeneratedSchemaName,
+                        PC_ExtensibleClass.ModelGeneratedFieldName,
+                        PC_ExtensibleClass.ModelGeneratedDataStorageElementName
+                    );
 
-                    // Save to Model Generated Data storage
+                    // Create a dictionary from existing data for efficient lookups by CableReference
+                    var mergedModelDataDict = existingModelGeneratedData
+                        .Where(mgd => !string.IsNullOrEmpty(mgd.CableReference))
+                        .GroupBy(mgd => mgd.CableReference) // Handle potential duplicates in existing data
+                        .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+                    int updatedEntriesCount = 0;
+                    int addedEntriesCount = 0;
+
+                    // Iterate through newly calculated cable lengths
+                    foreach (var newCalculatedCable in cableLengths)
+                    {
+                        if (string.IsNullOrEmpty(newCalculatedCable.PC_Cable_Reference))
+                        {
+                            // Skip if Cable Reference is empty in new data
+                            continue;
+                        }
+
+                        // Create a new ModelGeneratedData object from the calculated data
+                        var newModelDataEntry = new PC_ExtensibleClass.ModelGeneratedData
+                        {
+                            CableReference = newCalculatedCable.PC_Cable_Reference,
+                            From = newCalculatedCable.From,
+                            To = newCalculatedCable.To,
+                            CableLengthM = newCalculatedCable.PC_Cable_Length,
+                            Variance = string.Empty, // As per previous instruction, variance is empty
+                            Comment = newCalculatedCable.RTS_Comment
+                        };
+
+                        if (mergedModelDataDict.TryGetValue(newModelDataEntry.CableReference, out PC_ExtensibleClass.ModelGeneratedData existingEntry))
+                        {
+                            // Match found: Update existing entry's values
+                            // Iterate through properties and update if new value is not null/blank
+                            PropertyInfo[] properties = typeof(PC_ExtensibleClass.ModelGeneratedData).GetProperties();
+                            bool entryChanged = false;
+
+                            foreach (PropertyInfo prop in properties)
+                            {
+                                if (prop.PropertyType == typeof(string) && prop.CanWrite)
+                                {
+                                    string newValue = (string)prop.GetValue(newModelDataEntry);
+                                    string currentValue = (string)prop.GetValue(existingEntry);
+
+                                    // Only update if the new value is not null/empty/whitespace AND it's different from the current value
+                                    if (!string.IsNullOrWhiteSpace(newValue) && !string.Equals(newValue, currentValue, StringComparison.Ordinal))
+                                    {
+                                        prop.SetValue(existingEntry, newValue);
+                                        entryChanged = true;
+                                    }
+                                    // If newValue is null/empty/whitespace, we retain the existing value.
+                                    // If it's the same, no change needed.
+                                }
+                            }
+                            if (entryChanged) updatedEntriesCount++;
+                        }
+                        else
+                        {
+                            // No match found: Add as a new entry
+                            mergedModelDataDict.Add(newModelDataEntry.CableReference, newModelDataEntry);
+                            addedEntriesCount++;
+                        }
+                    }
+
+                    List<PC_ExtensibleClass.ModelGeneratedData> finalModelGeneratedData = mergedModelDataDict.Values.ToList();
+
+                    // Save the final merged data to Model Generated Data storage
                     using (Transaction tx = new Transaction(doc, "Save Model Generated Data"))
                     {
                         tx.Start();
@@ -131,14 +196,14 @@ namespace RT_TrayOccupancy
                         {
                             pcExtensible.SaveDataToExtensibleStorage<PC_ExtensibleClass.ModelGeneratedData>(
                                 doc,
-                                modelGeneratedDataList,
+                                finalModelGeneratedData,
                                 PC_ExtensibleClass.ModelGeneratedSchemaGuid,
                                 PC_ExtensibleClass.ModelGeneratedSchemaName,
                                 PC_ExtensibleClass.ModelGeneratedFieldName,
                                 PC_ExtensibleClass.ModelGeneratedDataStorageElementName
                             );
                             tx.Commit();
-                            TaskDialog.Show("Model Data Saved", "Calculated Cable Lengths data successfully saved to Model Generated Data storage.");
+                            TaskDialog.Show("Model Data Saved", $"Calculated Cable Lengths data successfully saved/merged into Model Generated Data storage.\nUpdated entries: {updatedEntriesCount}\nAdded entries: {addedEntriesCount}");
                         }
                         catch (Exception ex)
                         {

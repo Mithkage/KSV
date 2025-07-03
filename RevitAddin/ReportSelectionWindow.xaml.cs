@@ -1,4 +1,28 @@
-﻿// ReportSelectionWindow.xaml.cs
+﻿//-----------------------------------------------------------------------------
+// <copyright file="ReportSelectionWindow.xaml.cs" company="RTS Reports">
+//     Copyright (c) RTS Reports. All rights reserved.
+// </copyright>
+// <summary>
+//     This file contains the interaction logic for the ReportSelectionWindow.xaml.
+//     It handles user selections for various report types and orchestrates
+//     the data recall from Revit's extensible storage and subsequent export
+//     to CSV format, particularly for the RSGx Cable Schedule.
+// </summary>
+//-----------------------------------------------------------------------------
+
+/*
+ * Change Log:
+ *
+ * Date       | Version | Author | Description
+ * -----------|---------|--------|----------------------------------------------------------------------------------------------------
+ * 2025-07-04 | 1.0.0   | Gemini | Initial implementation to address column and data mixing in RSGx report.
+ * |         |        | - Introduced explicit ordering for RSGxCableData properties in ExportDataToCsvGeneric.
+ * |         |        | - Added `orderedPropertiesToExport` to ensure CSV column order matches defined headers.
+ * |         |        | - Included a check for missing properties in RSGxCableData to enhance robustness.
+ * 2025-07-04 | 1.0.1   | Gemini | Added file header comments and a change log as requested.
+ * |         |        | - Included detailed description of file purpose and function.
+ */
+
 #region Namespaces
 using System;
 using System.Collections.Generic;
@@ -18,9 +42,9 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using PC_Extensible; // IMPORTANT: Add reference to PC_Extensible project and this using directive
 using System.Text.RegularExpressions; // For regex in CSV export helper
-using System.Windows.Forms; // ADDED: For FolderBrowserDialog (Windows Forms)
 
-// OfficeOpenXml references are entirely removed
+// ADDED: For WindowsAPICodePack.Dialogs
+using Microsoft.WindowsAPICodePack.Dialogs;
 #endregion
 
 namespace RTS_Reports
@@ -87,7 +111,7 @@ namespace RTS_Reports
             string outputFolderPath = GetOutputFolderPath();
             if (string.IsNullOrEmpty(outputFolderPath))
             {
-                TaskDialog.Show("Export Cancelled", "Output folder not selected. RSGx Cable Schedule export cancelled.");
+                Autodesk.Revit.UI.TaskDialog.Show("Export Cancelled", "Output folder not selected. RSGx Cable Schedule export cancelled.");
                 return;
             }
 
@@ -144,7 +168,7 @@ namespace RTS_Reports
 
                     // Get RSGx and DJV lengths
                     string rsgxRouteLength = primaryInfo?.CableLength ?? "N/A";
-                    string djvDesignLength = consultantInfo?.CableLength ?? "N/A"; // Changed to use consultantInfo?.CableLength
+                    string djvDesignLength = consultantInfo?.CableLength ?? "N/A";
 
                     // Calculate Cable Length Difference
                     string cableLengthDifference = "N/A";
@@ -167,6 +191,22 @@ namespace RTS_Reports
                         }
                     }
 
+                    // Determine "Earth Included (Yes / No)"
+                    string earthIncludedRaw = primaryInfo?.SeparateEarthForMulticore;
+                    string earthIncludedFormatted;
+                    if (string.Equals(earthIncludedRaw, "Yes", StringComparison.OrdinalIgnoreCase))
+                    {
+                        earthIncludedFormatted = "No"; // Invert: If raw is "Yes", output "No"
+                    }
+                    else if (string.Equals(earthIncludedRaw, "No", StringComparison.OrdinalIgnoreCase))
+                    {
+                        earthIncludedFormatted = "Yes"; // Invert: If raw is "No", output "Yes"
+                    }
+                    else
+                    {
+                        earthIncludedFormatted = "No"; // Default to "No" for null/empty/other values
+                    }
+
 
                     reportData.Add(new RSGxCableData
                     {
@@ -177,46 +217,47 @@ namespace RTS_Reports
                         RSGxRouteLengthM = rsgxRouteLength,
                         DJVDesignLengthM = djvDesignLength,
                         CableLengthDifferenceM = cableLengthDifference,
-                        Comments = modelInfo?.Comment ?? "N/A", // Comments from Model Generated Data
-                        CableSizeChangeFromDesignYN = cableSizeChangeYN, // Populated based on new logic
 
-                        // Remaining fields are "N/A" as per current instruction unless specified otherwise
-                        MaxLengthPermissibleForCableSizeM = "N/A",
-                        ActiveCableSizeMM2 = "N/A",
-                        NoOfSets = "N/A",
-                        NeutralCableSizeMM2 = "N/A",
-                        No = "N/A",
-                        EarthIncludedYesNo = "N/A",
-                        EarthSizeMM2 = "N/A",
-                        Voltage = "N/A",
-                        VoltageRating = "N/A",
-                        Type = "N/A",
-                        SheathConstruction = "N/A",
-                        InsulationConstruction = "N/A",
-                        FireRating = "N/A",
-                        InstallationConfiguration = "N/A",
-                        CableDescription = "N/A",
-                        CableType = "N/A",
-                        ConductorType = "N/A",
-                        PreviousDesignSize = "N/A",
-                        UpdateSummary = "N/A"
+                        // Mapped fields from Primary Data:
+                        MaxLengthPermissibleForCableSizeM = primaryInfo?.CableMaxLengthM ?? "N/A", // From new CableMaxLengthM
+                        ActiveCableSizeMM2 = primaryInfo?.ActiveCableSize ?? "N/A",
+                        NoOfSets = primaryInfo?.NumberOfActiveCables ?? "N/A",
+                        NeutralCableSizeMM2 = primaryInfo?.NeutralCableSize ?? "N/A",
+                        No = primaryInfo?.NumberOfNeutralCables ?? "N/A", // This is the "No." under Neutral Cable Size
+                        CableType = primaryInfo?.CableType ?? "N/A", // From Primary Data's CableType
+                        ConductorType = primaryInfo?.ConductorActive ?? "N/A", // Conductor Type from Primary's ConductorActive
+                        CableSizeChangeFromDesignYN = cableSizeChangeYN, // Populated based on logic above
+                        PreviousDesignSize = consultantInfo?.ActiveCableSize ?? "N/A", // From Consultant Data's ActiveCableSize
+                        EarthIncludedYesNo = earthIncludedFormatted, // Populated with inverted logic
+                        EarthSizeMM2 = primaryInfo?.EarthCableSize ?? "N/A",
+                        // EarthSheath property is removed from RSGxCableData class
+                        Voltage = primaryInfo?.VoltageVac ?? "N/A", // From Primary Data's VoltageVac
+                        VoltageRating = "0.6/1kV", // UPDATED: Set to constant value
+                        Type = primaryInfo?.CableType ?? "N/A", // Reusing CableType if 'Type' refers to cable type description
+                        SheathConstruction = primaryInfo?.Sheath ?? "N/A", // From Primary Data's Sheath (RSGx Sheath Construction)
+                        InsulationConstruction = primaryInfo?.Insulation ?? "N/A", // From Primary Data's Insulation (RSGx Insulation Construction)
+                        FireRating = "WS52W", // UPDATED: Set to constant value
+                        InstallationConfiguration = "N/A", // Not yet mapped
+                        CableDescription = "N/A", // Not yet mapped
+                        Comments = modelInfo?.Comment ?? "N/A", // Comments from Model Generated Data
+                        UpdateSummary = "N/A" // Not yet mapped
                     });
                 }
 
                 // Display message if no data to export
                 if (!reportData.Any())
                 {
-                    TaskDialog.Show("No Data", "No unique cable references found across all specified extensible storages to generate the RSGx Cable Schedule. The report will be empty.");
+                    Autodesk.Revit.UI.TaskDialog.Show("No Data", "No unique cable references found across all specified extensible storages to generate the RSGx Cable Schedule. The report will be empty.");
                     // Optionally, you might want to create an empty CSV with just headers.
                 }
 
                 // Call the generic CSV exporter for RSGx Cable Schedule data
                 ExportDataToCsvGeneric(reportData, filePath, "RSGx Cable Schedule");
-                TaskDialog.Show("Export Complete", $"RSGx Cable Schedule successfully exported to:\n{filePath}");
+                Autodesk.Revit.UI.TaskDialog.Show("Export Complete", $"RSGx Cable Schedule successfully exported to:\n{filePath}");
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Export Error", $"Failed to export RSGx Cable Schedule: {ex.Message}");
+                Autodesk.Revit.UI.TaskDialog.Show("Export Error", $"Failed to export RSGx Cable Schedule: {ex.Message}");
             }
         }
 
@@ -240,14 +281,14 @@ namespace RTS_Reports
 
             if (dataToExport == null || !dataToExport.Any())
             {
-                TaskDialog.Show("No Data", $"No {dataTypeName} found in project's extensible storage to export.");
+                Autodesk.Revit.UI.TaskDialog.Show("No Data", $"No {dataTypeName} found in project's extensible storage to export.");
                 return; // Exit as there's no data
             }
 
             string outputFolderPath = GetOutputFolderPath();
             if (string.IsNullOrEmpty(outputFolderPath))
             {
-                TaskDialog.Show("Export Cancelled", "Output folder not selected. Export operation cancelled.");
+                Autodesk.Revit.UI.TaskDialog.Show("Export Cancelled", "Output folder not selected. Export operation cancelled.");
                 return; // Exit if folder not selected
             }
 
@@ -257,31 +298,34 @@ namespace RTS_Reports
             try
             {
                 ExportDataToCsvGeneric(dataToExport, filePath, dataTypeName); // Call method within this class
-                TaskDialog.Show("Export Complete", $"{dataTypeName} successfully exported to:\n{filePath}");
+                Autodesk.Revit.UI.TaskDialog.Show("Export Complete", $"{dataTypeName} successfully exported to:\n{filePath}");
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Export Error", $"Failed to export {dataTypeName}: {ex.Message}");
+                Autodesk.Revit.UI.TaskDialog.Show("Export Error", $"Failed to export {dataTypeName}: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// Prompts the user to select an output folder.
+        /// Prompts the user to select an output folder using Microsoft.WindowsAPICodePack.Dialogs.CommonOpenFileDialog.
+        /// This provides a modern Windows dialog for folder selection.
         /// </summary>
         private string GetOutputFolderPath()
         {
-            using (var folderBrowserDialog = new FolderBrowserDialog())
+            using (CommonOpenFileDialog dialog = new CommonOpenFileDialog())
             {
-                folderBrowserDialog.Description = "Select a Folder to Save the Exported Reports";
-                folderBrowserDialog.ShowNewFolderButton = true;
-                folderBrowserDialog.SelectedPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); // Default to My Documents
+                dialog.IsFolderPicker = true;
+                dialog.Title = "Select a Folder to Save the Exported Reports";
+                dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
-                if (folderBrowserDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                CommonFileDialogResult result = dialog.ShowDialog();
+
+                if (result == CommonFileDialogResult.Ok) // Check against CommonFileDialogResult.Ok
                 {
-                    return folderBrowserDialog.SelectedPath;
+                    return dialog.FileName; // FileName property contains the selected folder path when IsFolderPicker is true
                 }
             }
-            return null;
+            return null; // User cancelled
         }
 
         /// <summary>
@@ -297,34 +341,79 @@ namespace RTS_Reports
             var sb = new StringBuilder();
 
             // Get properties of type T using reflection
-            PropertyInfo[] properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            PropertyInfo[] allTypeProperties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
-            // Generate headers from property names
-            // For RSGxCableData, use a specific header definition that flattens the two-row Excel concept.
             List<string> headers = new List<string>();
+            List<PropertyInfo> orderedPropertiesToExport = new List<PropertyInfo>(); // This will hold the ordered properties
+
             if (typeof(T) == typeof(RSGxCableData))
             {
                 // Explicitly define the single header row for RSGx Cable Schedule CSV
                 // This combines the two Excel rows into one logical CSV header.
-                headers.Add("Row Number"); headers.Add("Cable Tag");
-                headers.Add("Origin Device (ID)"); headers.Add("Destination Device (ID)");
-                headers.Add("RSGx Route Length (m)"); headers.Add("DJV Design Length (m)");
-                headers.Add("Cable Length Difference (m)"); headers.Add("Maximum Length permissible for Cable Size (m)");
-                headers.Add("Active Cable Size (mm²)"); headers.Add("No. of Sets");
-                headers.Add("Neutral Cable Size (mm²)"); headers.Add("No.");
-                headers.Add("Earth Included (Yes / No)"); headers.Add("Earth Size (mm2)");
-                headers.Add("Voltage"); headers.Add("Voltage Rating");
-                headers.Add("Type"); headers.Add("Sheath Construction");
-                headers.Add("Insulation Construction"); headers.Add("Fire Rating");
-                headers.Add("Installation Configuration"); headers.Add("Cable Description");
+                headers.Add("Row Number");
+                headers.Add("Cable Tag");
+                headers.Add("Origin Device (ID)");
+                headers.Add("Destination Device (ID)");
+                headers.Add("RSGx Route Length (m)");
+                headers.Add("DJV Design Length (m)");
+                headers.Add("Cable Length Difference (m)");
+                headers.Add("Maximum Length permissible for Cable Size (m)");
+                headers.Add("Active Cable Size (mm²)");
+                headers.Add("No. of Sets");
+                headers.Add("Neutral Cable Size (mm²)");
+                headers.Add("No.");
+                headers.Add("Cable Type");
+                headers.Add("Conductor Type");
+                headers.Add("Cable size Change from Design (Y/N)");
+                headers.Add("Previous Design Size");
+                headers.Add("Earth Included (Yes / No)");
+                headers.Add("Earth Size (mm2)");
+                headers.Add("Voltage");
+                headers.Add("Voltage Rating");
+                headers.Add("Type");
+                headers.Add("Sheath Construction");
+                headers.Add("Insulation Construction");
+                headers.Add("Fire Rating");
+                headers.Add("Installation Configuration");
+                headers.Add("Cable Description");
                 headers.Add("Comments");
-                headers.Add("Cable Type"); headers.Add("Conductor Type");
-                headers.Add("Cable size Change from Design (Y/N)"); headers.Add("Previous Design Size");
                 headers.Add("Update Summary");
+
+                // Manually order properties to match the headers for RSGxCableData
+                // Ensure property names here match the actual property names in RSGxCableData class
+                var rsgxPropertyNamesInOrder = new List<string>
+                {
+                    "RowNumber", "CableTag", "OriginDeviceID", "DestinationDeviceID",
+                    "RSGxRouteLengthM", "DJVDesignLengthM", "CableLengthDifferenceM",
+                    "MaxLengthPermissibleForCableSizeM", "ActiveCableSizeMM2", "NoOfSets",
+                    "NeutralCableSizeMM2", "No", "CableType", "ConductorType",
+                    "CableSizeChangeFromDesignYN", "PreviousDesignSize", "EarthIncludedYesNo",
+                    "EarthSizeMM2", "Voltage", "VoltageRating", "Type", "SheathConstruction",
+                    "InsulationConstruction", "FireRating", "InstallationConfiguration",
+                    "CableDescription", "Comments", "UpdateSummary"
+                };
+
+                foreach (var propName in rsgxPropertyNamesInOrder)
+                {
+                    var propInfo = typeof(T).GetProperty(propName, BindingFlags.Public | BindingFlags.Instance);
+                    if (propInfo != null)
+                    {
+                        orderedPropertiesToExport.Add(propInfo);
+                    }
+                    else
+                    {
+                        // This is a critical error: a property expected in the header list is missing from the class.
+                        // You should log this or throw an exception during development.
+                        throw new InvalidOperationException($"Property '{propName}' not found in RSGxCableData class, but listed in CSV header order.");
+                    }
+                }
             }
             else // For CableData, ModelGeneratedData etc., use generic header generation
             {
-                headers = properties.Select(p =>
+                // For generic types, maintain current behavior of generating headers and properties
+                // based on reflection order (which might still be inconsistent for non-RSGx reports,
+                // but that's a separate concern if it becomes an issue for those reports).
+                headers = allTypeProperties.Select(p =>
                 {
                     // Custom formatting for specific property names to make headers user-friendly
                     if (p.Name == "CableLengthM") return "Cable Length (m)";
@@ -362,17 +451,21 @@ namespace RTS_Reports
                     if (p.Name == "CableSizeChangeFromDesignYN") return "Cable size Change from Design (Y/N)";
                     if (p.Name == "PreviousDesignSize") return "Previous Design Size";
                     if (p.Name == "UpdateSummary") return "Update Summary";
+                    if (p.Name == "EarthSheath") return "Earth Sheath";
+                    if (p.Name == "VoltageVac") return "Voltage (Vac)";
 
                     return Regex.Replace(p.Name, "([a-z])([A-Z])", "$1 $2"); // Convert CamelCase to "Camel Case"
                 }).ToList();
+
+                orderedPropertiesToExport = allTypeProperties.ToList(); // For generic types, just use the reflection order
             }
 
             sb.AppendLine(string.Join(",", headers));
 
-            // Generate data rows
+            // Generate data rows using the determined order of properties
             foreach (var item in data)
             {
-                string[] values = properties.Select(p =>
+                string[] values = orderedPropertiesToExport.Select(p => // Use orderedPropertiesToExport here
                 {
                     object value = p.GetValue(item);
                     string stringValue = value?.ToString() ?? string.Empty;
@@ -409,8 +502,13 @@ namespace RTS_Reports
             public string NoOfSets { get; set; }
             public string NeutralCableSizeMM2 { get; set; }
             public string No { get; set; }
+            public string CableType { get; set; } // These 4 were implicitly single headers in row 1
+            public string ConductorType { get; set; }
+            public string CableSizeChangeFromDesignYN { get; set; }
+            public string PreviousDesignSize { get; set; }
             public string EarthIncludedYesNo { get; set; }
             public string EarthSizeMM2 { get; set; }
+            // REMOVED: public string EarthSheath { get; set; } // Removed as requested
             public string Voltage { get; set; }
             public string VoltageRating { get; set; }
             public string Type { get; set; } // Renamed from original "Type" to distinguish from System.Type
@@ -420,10 +518,6 @@ namespace RTS_Reports
             public string InstallationConfiguration { get; set; }
             public string CableDescription { get; set; }
             public string Comments { get; set; }
-            public string CableType { get; set; } // These 4 were implicitly single headers in row 1
-            public string ConductorType { get; set; }
-            public string CableSizeChangeFromDesignYN { get; set; }
-            public string PreviousDesignSize { get; set; }
             public string UpdateSummary { get; set; }
 
             // Constructor to initialize with empty strings for dummy data

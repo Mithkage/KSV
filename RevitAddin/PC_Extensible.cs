@@ -6,17 +6,23 @@
 // Class: PC_ExtensibleClass
 //
 // Function: This Revit external command provides options to either import
-//           new cable data from a CSV (merging/updating existing data in extensible storage)
-//           or import consultant cable data from a CSV (merging/updating existing data in a separate extensible storage)
+//           cable data from a selected folder (processing multiple "Cables Summary" CSVs)
+//           or import consultant cable data from a folder (processing multiple CSVs)
 //           or clear existing cable data from either or both extensible storage locations.
 //           A third extensible storage is defined for 'Model Generated Data' for use by other scripts.
 //           When importing, if updated data is null or blank, existing stored data is retained.
 //
 // Author: Kyle Vorster (Modified by AI)
 //
-// Date: July 2, 2025 (Removed CSV Export functionality and added Consultant Import/Clear options)
-//       July 2, 2025 (Added FileName and ImportDate columns to CableData)
-//       July 2, 2025 (Added new storage for Model Generated Data, removed direct CSV import for it as per user feedback)
+// Log:
+// - July 2, 2025: Removed CSV Export functionality and added Consultant Import/Clear options.
+// - July 2, 2025: Added FileName and ImportDate columns to CableData.
+// - July 2, 2025: Added new storage for Model Generated Data, removed direct CSV import for it as per user feedback.
+// - July 2, 2025: Included parsing for 'Sheath', 'Cable Max. Length (m)', and 'Voltage (Vac)' in CableData.
+// - July 3, 2025: Modified import logic to allow selection of a folder and process multiple "Cables Summary" CSV files within it.
+// - July 3, 2025: Adjusted aggregation logic for bulk imports: first processed file now takes precedence for duplicate Cable References.
+// - July 3, 2025: Resolved multiple compilation errors (CS0019, CS1501, CS1061, CS1503) by adjusting type comparisons,
+//                 using compatible string/dictionary methods, and ensuring argument type consistency.
 //
 #region Namespaces
 using System;
@@ -24,7 +30,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Windows.Forms;
+using System.Windows.Forms; // For FolderBrowserDialog
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -78,16 +84,15 @@ namespace PC_Extensible
             // Present user with import or clear options
             TaskDialog mainDialog = new TaskDialog("PC_Extensible Options");
             mainDialog.MainContent = "What operation would you like to perform on the cable data?";
-            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Import My PowerCAD Data (Update/Add to Project Storage)");
-            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Import Consultant PowerCAD Data (Save to Separate Project Storage)");
-            // mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink4, "Import Model Generated Data (Save to Separate Project Storage)"); // REMOVED - No direct import via this UI
+            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Import My PowerCAD Data (from Folder) and Update/Add to Project Storage"); // Updated text
+            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Import Consultant PowerCAD Data (from Folder) and Save to Separate Project Storage"); // Updated text
             mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Clear Existing Cable Data"); // Renamed to be more general
             mainDialog.CommonButtons = TaskDialogCommonButtons.Cancel;
             mainDialog.DefaultButton = TaskDialogResult.CommandLink1; // Default to Import My Data
 
             TaskDialogResult dialogResult = mainDialog.Show();
 
-            if (dialogResult == TaskDialogResult.CommandLink1) // Import My Data
+            if (dialogResult == TaskDialogResult.CommandLink1) // Import My Data (from Folder)
             {
                 return ImportAndMergeData<CableData>(
                     doc,
@@ -99,7 +104,7 @@ namespace PC_Extensible
                     ParseAndProcessCsvData // Pass the specific parser for CableData
                 );
             }
-            else if (dialogResult == TaskDialogResult.CommandLink3) // Import Consultant Data
+            else if (dialogResult == TaskDialogResult.CommandLink3) // Import Consultant Data (from Folder)
             {
                 return ImportAndMergeData<CableData>(
                     doc,
@@ -111,9 +116,6 @@ namespace PC_Extensible
                     ParseAndProcessCsvData // Use the same parser for CableData
                 );
             }
-            // Removed the direct import for Model Generated Data as per feedback
-            // else if (dialogResult == TaskDialogResult.CommandLink4) 
-            // { /* ... logic removed ... */ }
             else if (dialogResult == TaskDialogResult.CommandLink2) // Clear Data options
             {
                 // Offer choice to clear primary or consultant data, or both
@@ -128,6 +130,7 @@ namespace PC_Extensible
 
                 TaskDialogResult clearResult = clearDialog.Show();
 
+                // FIX: Use TaskDialogResult for comparison here
                 if (clearResult == TaskDialogResult.CommandLink1)
                 {
                     return ClearData(doc, PrimarySchemaGuid, PrimaryDataStorageElementName, "My PowerCAD Data");
@@ -176,10 +179,10 @@ namespace PC_Extensible
         }
 
         /// <summary>
-        /// Handles the import, merge, and save logic for cable data.
-        /// Made generic to work with different data types (CableData, ModelGeneratedData).
+        /// Handles the import, merge, and save logic for cable data from a selected folder.
+        /// Made generic to work with different data types (CableData).
         /// </summary>
-        /// <typeparam name="T">The type of data to import (e.g., CableData, ModelGeneratedData).</typeparam>
+        /// <typeparam name="T">The type of data to import (e.g., CableData).</typeparam>
         /// <param name="doc">The Revit Document.</param>
         /// <param name="schemaGuid">The GUID for the schema to use.</param>
         /// <param name="schemaName">The name of the schema to use.</param>
@@ -197,33 +200,99 @@ namespace PC_Extensible
             string dataTypeName,
             Func<string, List<string>, List<T>> csvParser) where T : class, new() // Constraint for T
         {
-            // --- 1. PROMPT USER FOR INPUT CSV FILE ---
-            string sourceCsvPath = GetSourceCsvFilePath($"Select {dataTypeName} CSV File to Import");
-            if (string.IsNullOrEmpty(sourceCsvPath))
+            // --- 1. PROMPT USER FOR INPUT FOLDER ---
+            string sourceFolderPath = GetSourceFolderPath($"Select Folder Containing {dataTypeName} CSV Files");
+            if (string.IsNullOrEmpty(sourceFolderPath))
             {
-                return Result.Cancelled; // User cancelled file selection
+                return Result.Cancelled; // User cancelled folder selection
             }
 
             try
             {
                 // --- 2. DEFINE THE COLUMNS TO EXTRACT ---
-                // This list will be passed to the specific CSV parser.
-                // For CableData, it will be the full list of cable properties.
                 List<string> columnsToRead = new List<string>
                 {
                     "Cable Reference", "From", "To", "Cable Type", "Cable Code", "Cable Configuration",
                     "Cores", "Cable Size (mm\u00B2)", "Conductor (Active)", "Insulation", "Neutral Size (mm\u00B2)",
                     "Earth Size (mm\u00B2)", "Conductor (Earth)", "Separate Earth for Multicore", "Cable Length (m)",
-                    "Total Cable Run Weight (Incl. N & E) (kg)", "Nominal Overall Diameter (mm)", "AS/NSZ 3008 Cable Derating Factor"
+                    "Total Cable Run Weight (Incl. N & E) (kg)", "Nominal Overall Diameter (mm)", "AS/NSZ 3008 Cable Derating Factor",
+                    // NEWLY ADDED COLUMNS:
+                    "Sheath", "Cable Max. Length (m)", "Voltage (Vac)"
                 };
-                // Note: ModelGeneratedData CSV parsing logic removed from here as it's not initiated by this UI.
 
-                // --- 3. READ, PARSE, AND CLEAN THE NEW CSV DATA ---
-                List<T> newCsvData = csvParser(sourceCsvPath, columnsToRead);
+                // --- 3. AGGREGATE NEW DATA FROM MULTIPLE CSV FILES ---
+                int totalCsvFilesFound = 0;
+                int processedFilesCount = 0;
+                List<string> skippedFiles = new List<string>();
+                List<string> errorFiles = new List<string>();
 
-                if (newCsvData == null || newCsvData.Count == 0)
+                string[] csvFiles = Directory.GetFiles(sourceFolderPath, "*.csv", SearchOption.TopDirectoryOnly);
+                totalCsvFilesFound = csvFiles.Length;
+
+                if (!csvFiles.Any())
                 {
-                    TaskDialog.Show("No New Data", $"No valid data was found in the selected CSV file for {dataTypeName}. No changes will be made to project data.");
+                    TaskDialog.Show("No CSVs Found", $"No CSV files were found in the selected folder: {sourceFolderPath}. No data will be imported.");
+                    return Result.Succeeded;
+                }
+
+                // Temporary dictionary to handle duplicate Cable References from multiple files
+                // The first file processed for a given Cable Reference will take precedence.
+                var aggregatedNewDataDict = new Dictionary<string, T>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (string csvFilePath in csvFiles)
+                {
+                    string fileName = Path.GetFileName(csvFilePath);
+                    // FIX: Use IndexOf for string search compatible with older .NET Framework versions
+                    if (fileName.IndexOf("Cables Summary", StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        skippedFiles.Add($"Skipped '{fileName}': Does not contain 'Cables Summary' in filename.");
+                        continue;
+                    }
+
+                    try
+                    {
+                        List<T> fileSpecificNewData = csvParser(csvFilePath, columnsToRead);
+                        if (fileSpecificNewData != null && fileSpecificNewData.Any())
+                        {
+                            foreach (var item in fileSpecificNewData)
+                            {
+                                string cableRef = GetPropertyValue(item, "CableReference");
+                                if (!string.IsNullOrEmpty(cableRef))
+                                {
+                                    // FIX: Manual TryAdd logic for compatibility, ensuring first-wins precedence
+                                    if (!aggregatedNewDataDict.ContainsKey(cableRef))
+                                    {
+                                        aggregatedNewDataDict.Add(cableRef, item);
+                                    }
+                                    else
+                                    {
+                                        Debug.WriteLine($"CableRef '{cableRef}' from '{fileName}' was skipped; it already exists from a prior file (first-wins precedence).");
+                                    }
+                                }
+                                else
+                                {
+                                    skippedFiles.Add($"Skipped record in '{fileName}': Missing 'Cable Reference'.");
+                                }
+                            }
+                            processedFilesCount++;
+                        }
+                        else
+                        {
+                            skippedFiles.Add($"Skipped '{fileName}': No valid data found after parsing.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        errorFiles.Add($"Error processing '{fileName}': {ex.Message}");
+                        Debug.WriteLine($"Error processing file {fileName}: {ex.Message}");
+                    }
+                }
+
+                List<T> allNewCsvDataFromFolder = aggregatedNewDataDict.Values.ToList();
+
+                if (!allNewCsvDataFromFolder.Any())
+                {
+                    TaskDialog.Show("No Relevant Data", $"No relevant 'Cables Summary' data found across all CSV files in '{sourceFolderPath}'. No changes will be made to project data.");
                     return Result.Succeeded;
                 }
 
@@ -231,35 +300,38 @@ namespace PC_Extensible
                 List<T> existingStoredData = RecallDataFromExtensibleStorage<T>(
                     doc, schemaGuid, schemaName, fieldName, dataStorageElementName);
 
-                // --- 5. MERGE NEW DATA WITH EXISTING DATA (Conditional Update with additional duplicate check) ---
-                // This merging logic needs to be generic based on a common "To" property (for lookup) and "CableReference" (for duplicate check).
-                // We'll use reflection to access properties.
+                // --- 5. MERGE AGGREGATED NEW DATA WITH EXISTING DATA (Conditional Update with additional duplicate check) ---
+                // The primary merge key is 'To'. Handle duplicates in existing data if 'To' is not unique.
                 var mergedDataDict = existingStoredData
                     .Where(item => !string.IsNullOrEmpty(GetPropertyValue(item, "To")))
-                    .ToDictionary(item => GetPropertyValue(item, "To"));
+                    .GroupBy(item => GetPropertyValue(item, "To"))
+                    .ToDictionary(g => g.Key, g => g.First());
 
-                var existingCableReferences = new HashSet<string>(
+
+                // Keep track of Cable References already existing or newly added in this merge session
+                var finalMergedCableReferences = new HashSet<string>(
                     existingStoredData.Where(item => !string.IsNullOrEmpty(GetPropertyValue(item, "CableReference"))).Select(item => GetPropertyValue(item, "CableReference"))
                 );
 
                 int updatedEntries = 0;
                 int addedEntries = 0;
-                List<string> duplicateCableReferencesReport = new List<string>();
+                List<string> duplicateCableReferencesReport = new List<string>(); // For new entries with duplicate Cable Ref where 'To' doesn't match a stored one
 
-                foreach (var newEntry in newCsvData)
+                foreach (var newEntry in allNewCsvDataFromFolder) // Iterate aggregated data (first-wins for intra-folder CableRef)
                 {
                     string newEntryTo = GetPropertyValue(newEntry, "To");
                     string newEntryCableRef = GetPropertyValue(newEntry, "CableReference");
 
                     if (string.IsNullOrEmpty(newEntryTo))
                     {
-                        Debug.WriteLine($"Skipping new CSV entry due to empty 'To' value: Cable Ref: {newEntryCableRef ?? "N/A"}");
+                        Debug.WriteLine($"Skipping new aggregated entry due to empty 'To' value: Cable Ref: {newEntryCableRef ?? "N/A"}");
+                        // If 'To' is empty, we cannot merge by 'To'. For now, skipping this entry from the merge.
                         continue;
                     }
 
                     if (mergedDataDict.TryGetValue(newEntryTo, out T existingEntry))
                     {
-                        // Match found by 'To': Iterate through properties and update if new value is not null/blank
+                        // Match found by 'To': Update existing entry's values
                         PropertyInfo[] properties = typeof(T).GetProperties();
                         bool entryUpdated = false;
 
@@ -274,15 +346,13 @@ namespace PC_Extensible
                             if (prop.PropertyType == typeof(string) && prop.CanWrite)
                             {
                                 string newValue = (string)prop.GetValue(newEntry);
+                                string currentValue = (string)prop.GetValue(existingEntry);
 
-                                if (!string.IsNullOrWhiteSpace(newValue))
+                                // Only update if the new value is not null or blank AND it's different from the current value
+                                if (!string.IsNullOrWhiteSpace(newValue) && !string.Equals(newValue, currentValue, StringComparison.Ordinal))
                                 {
-                                    string currentValue = (string)prop.GetValue(existingEntry);
-                                    if (currentValue != newValue)
-                                    {
-                                        prop.SetValue(existingEntry, newValue);
-                                        entryUpdated = true;
-                                    }
+                                    prop.SetValue(existingEntry, newValue);
+                                    entryUpdated = true;
                                 }
                             }
                         }
@@ -290,19 +360,21 @@ namespace PC_Extensible
                     }
                     else
                     {
-                        if (!string.IsNullOrEmpty(newEntryCableRef) &&
-                            (existingCableReferences.Contains(newEntryCableRef) ||
-                             mergedDataDict.Values.Any(item => GetPropertyValue(item, "CableReference") == newEntryCableRef)))
+                        // No match found by 'To' value. Check for duplicate 'Cable Reference' across the *final merged dataset* before adding as new.
+                        if (!string.IsNullOrEmpty(newEntryCableRef) && finalMergedCableReferences.Contains(newEntryCableRef))
                         {
-                            duplicateCableReferencesReport.Add($"Cable Reference: '{newEntryCableRef}', To: '{newEntryTo}'");
-                            Debug.WriteLine($"Skipping new CSV entry due to duplicate 'Cable Reference': {newEntryCableRef}");
+                            // This means a CableRef exists, but its 'To' value is different from the current 'newEntryTo'.
+                            // Or it's a duplicate CableRef from existing data that couldn't be merged by 'To'.
+                            // We report it as a skipped duplicate for adding.
+                            duplicateCableReferencesReport.Add($"Cable Reference: '{newEntryCableRef}', New To: '{newEntryTo}'");
+                            Debug.WriteLine($"Skipping new aggregated entry due to duplicate 'Cable Reference' in final merge (no 'To' match): {newEntryCableRef}");
                             continue;
                         }
                         else
                         {
-                            // Add new entry
+                            // Add as new entry to the merged dictionary
                             mergedDataDict.Add(newEntryTo, newEntry);
-                            existingCableReferences.Add(newEntryCableRef);
+                            finalMergedCableReferences.Add(newEntryCableRef); // Track that this CableRef is now in the final set
                             addedEntries++;
                         }
                     }
@@ -325,17 +397,16 @@ namespace PC_Extensible
                             dataStorageElementName
                         );
                         tx.Commit();
-                        string summaryMessage = $"Merged data ({dataTypeName}) saved to project's extensible storage successfully.\n" +
+                        string summaryMessage = $"Data merge to extensible storage complete for {dataTypeName}.\n" +
                                                  $"Updated entries: {updatedEntries}\nAdded entries: {addedEntries}";
 
                         if (duplicateCableReferencesReport.Any())
                         {
-                            summaryMessage += "\n\nSkipped Duplicate Cable References:\n" + string.Join("\n", duplicateCableReferencesReport.Take(10));
+                            summaryMessage += "\n\nSkipped new entries (duplicate Cable Ref in final merged data, where 'To' didn't match existing data):\n" + string.Join("\n", duplicateCableReferencesReport.Take(10));
                             if (duplicateCableReferencesReport.Count > 10)
                             {
                                 summaryMessage += $"\n... and {duplicateCableReferencesReport.Count - 10} more.";
                             }
-                            summaryMessage += "\n\nThese entries were skipped because their 'Cable Reference' value already exists.";
                         }
                         TaskDialog.Show("Extensible Storage Save", summaryMessage);
                     }
@@ -356,14 +427,35 @@ namespace PC_Extensible
                     }
                 }
 
-                // --- 7. NOTIFY USER OF OVERALL SUCCESS ---
-                TaskDialog.Show("Process Complete", $"Import and merge process complete.\n\n" +
-                                                 $"The cleaned data ({dataTypeName}) has been successfully updated in extensible storage in the current Revit project for later recall.");
+                // --- 7. FINAL SUMMARY OF FILE PROCESSING AND DATA MERGE ---
+                StringBuilder finalSummary = new StringBuilder();
+                finalSummary.AppendLine($"Bulk Import for {dataTypeName} Process Complete!");
+                finalSummary.AppendLine($"Selected Folder: {sourceFolderPath}");
+                finalSummary.AppendLine($"Total CSV files in folder: {totalCsvFilesFound}");
+                finalSummary.AppendLine($"'Cables Summary' CSVs Processed: {processedFilesCount}");
+                finalSummary.AppendLine($"CSVs Skipped (by filter or no data): {skippedFiles.Count}");
+                if (skippedFiles.Any())
+                {
+                    finalSummary.AppendLine("Skipped Files/Records Details (first 5):");
+                    foreach (var s in skippedFiles.Take(5)) finalSummary.AppendLine($"- {s}");
+                    if (skippedFiles.Count > 5) finalSummary.AppendLine("...");
+                }
+                finalSummary.AppendLine($"CSVs with Errors: {errorFiles.Count}");
+                if (errorFiles.Any())
+                {
+                    finalSummary.AppendLine("Error Files Details (first 5):");
+                    foreach (var e in errorFiles.Take(5)) finalSummary.AppendLine($"- {e}");
+                    if (errorFiles.Count > 5) finalSummary.AppendLine("...");
+                }
+
+                TaskDialog.Show("Bulk Import Summary", finalSummary.ToString());
+
+
                 return Result.Succeeded;
             }
             catch (Exception ex)
             {
-                string msg = $"An unexpected error occurred during {dataTypeName} import/merge process:\n{ex.Message}\n\nStackTrace: {ex.StackTrace}";
+                string msg = $"An unexpected error occurred during {dataTypeName} bulk import process: {ex.Message}\nStackTrace: {ex.StackTrace}";
                 TaskDialog.Show("Error", msg);
                 return Result.Failed;
             }
@@ -371,7 +463,6 @@ namespace PC_Extensible
 
         /// <summary>
         /// Helper method to get a string property value using reflection.
-        /// This is used for generic merging logic where property names are known but types vary.
         /// </summary>
         private string GetPropertyValue<T>(T obj, string propertyName) where T : class
         {
@@ -412,7 +503,7 @@ namespace PC_Extensible
                             Schema foundSchema = Schema.Lookup(schemaGuid);
                             if (foundSchema != null && ds.GetEntity(foundSchema) != null)
                             {
-                                // Additionally check if the name matches to be more specific, especially for consultant data
+                                // Also check the specific name, especially important for multiple storage elements
                                 if (ds.Name == dataStorageElementName)
                                 {
                                     dataStorageToDelete = ds;
@@ -627,17 +718,20 @@ namespace PC_Extensible
         #endregion
 
         #region File Dialog Methods
-        private string GetSourceCsvFilePath(string dialogTitle)
+        /// <summary>
+        /// Prompts the user to select a source folder.
+        /// </summary>
+        private string GetSourceFolderPath(string dialogTitle)
         {
-            using (var openFileDialog = new OpenFileDialog())
+            using (var folderBrowserDialog = new FolderBrowserDialog())
             {
-                openFileDialog.Title = dialogTitle;
-                openFileDialog.Filter = "CSV Files (*.csv)|*.csv|All files (*.*)|*.*";
-                openFileDialog.RestoreDirectory = true;
+                folderBrowserDialog.Description = dialogTitle;
+                folderBrowserDialog.ShowNewFolderButton = true;
+                folderBrowserDialog.SelectedPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); // Default to My Documents
 
-                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
                 {
-                    return openFileDialog.FileName;
+                    return folderBrowserDialog.SelectedPath;
                 }
             }
             return null;
@@ -650,7 +744,7 @@ namespace PC_Extensible
         private List<CableData> ParseAndProcessCsvData(string filePath, List<string> requiredHeaders)
         {
             var cableDataList = new List<CableData>();
-            var headerMap = new Dictionary<string, int>();
+            var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase); // Case-insensitive header matching
             string[] headers = null;
 
             string fileName = Path.GetFileName(filePath); // Get the file name from the path
@@ -684,16 +778,17 @@ namespace PC_Extensible
                     }
 
                     List<string> valuesList = ParseCsvLine(line);
-                    string[] values = valuesList.ToArray();
+                    // FIX: Use valuesList directly instead of converting to array, to match GetValueOrDefault expected type
+                    // string[] values = valuesList.ToArray(); 
 
                     // Ensure there are enough values for the headers we care about
-                    if (values.Length < headerMap.Values.Max() + 1) // +1 because Max() gives 0-based index
+                    if (valuesList.Count < headerMap.Values.Max() + 1) // Using valuesList directly
                     {
                         Debug.WriteLine($"Skipping malformed line in CSV: {line}");
                         continue;
                     }
 
-                    string conductorActiveValue = GetValueOrDefault(values, headerMap, "Conductor (Active)");
+                    string conductorActiveValue = GetValueOrDefault(valuesList, headerMap, "Conductor (Active)"); // Using valuesList
                     if (string.IsNullOrWhiteSpace(conductorActiveValue))
                     {
                         // Skip rows that don't have a Conductor (Active) value as per original logic
@@ -704,21 +799,25 @@ namespace PC_Extensible
                     {
                         FileName = fileName, // Set the new FileName property
                         ImportDate = importDate, // Set the new ImportDate property
-                        CableReference = GetValueOrDefault(values, headerMap, "Cable Reference"),
-                        From = GetValueOrDefault(values, headerMap, "From"),
-                        To = GetValueOrDefault(values, headerMap, "To"),
-                        CableType = GetValueOrDefault(values, headerMap, "Cable Type"),
-                        CableCode = GetValueOrDefault(values, headerMap, "Cable Code"),
-                        CableConfiguration = GetValueOrDefault(values, headerMap, "Cable Configuration"),
-                        Cores = GetValueOrDefault(values, headerMap, "Cores"),
+                        CableReference = GetValueOrDefault(valuesList, headerMap, "Cable Reference"), // Using valuesList
+                        From = GetValueOrDefault(valuesList, headerMap, "From"), // Using valuesList
+                        To = GetValueOrDefault(valuesList, headerMap, "To"), // Using valuesList
+                        CableType = GetValueOrDefault(valuesList, headerMap, "Cable Type"), // Using valuesList
+                        CableCode = GetValueOrDefault(valuesList, headerMap, "Cable Code"), // Using valuesList
+                        CableConfiguration = GetValueOrDefault(valuesList, headerMap, "Cable Configuration"), // Using valuesList
+                        Cores = GetValueOrDefault(valuesList, headerMap, "Cores"), // Using valuesList
                         ConductorActive = conductorActiveValue,
-                        Insulation = GetValueOrDefault(values, headerMap, "Insulation"),
-                        ConductorEarth = GetValueOrDefault(values, headerMap, "Conductor (Earth)"),
-                        SeparateEarthForMulticore = GetValueOrDefault(values, headerMap, "Separate Earth for Multicore"),
-                        CableLength = GetValueOrDefault(values, headerMap, "Cable Length (m)"),
-                        TotalCableRunWeight = GetValueOrDefault(values, headerMap, "Total Cable Run Weight (Incl. N & E) (kg)"),
-                        NominalOverallDiameter = GetValueOrDefault(values, headerMap, "Nominal Overall Diameter (mm)"),
-                        AsNsz3008CableDeratingFactor = GetValueOrDefault(values, headerMap, "AS/NSZ 3008 Cable Derating Factor")
+                        Insulation = GetValueOrDefault(valuesList, headerMap, "Insulation"), // Using valuesList
+                        ConductorEarth = GetValueOrDefault(valuesList, headerMap, "Conductor (Earth)"), // Using valuesList
+                        SeparateEarthForMulticore = GetValueOrDefault(valuesList, headerMap, "Separate Earth for Multicore"), // Using valuesList
+                        CableLength = GetValueOrDefault(valuesList, headerMap, "Cable Length (m)"), // Using valuesList
+                        TotalCableRunWeight = GetValueOrDefault(valuesList, headerMap, "Total Cable Run Weight (Incl. N & E) (kg)"), // Using valuesList
+                        NominalOverallDiameter = GetValueOrDefault(valuesList, headerMap, "Nominal Overall Diameter (mm)"), // Using valuesList
+                        AsNsz3008CableDeratingFactor = GetValueOrDefault(valuesList, headerMap, "AS/NSZ 3008 Cable Derating Factor"), // Using valuesList
+                        // NEWLY ADDED COLUMNS:
+                        Sheath = GetValueOrDefault(valuesList, headerMap, "Sheath"), // Using valuesList
+                        CableMaxLengthM = GetValueOrDefault(valuesList, headerMap, "Cable Max. Length (m)"), // Using valuesList
+                        VoltageVac = GetValueOrDefault(valuesList, headerMap, "Voltage (Vac)") // Using valuesList
                     };
 
                     double weight = 0.0;
@@ -736,19 +835,19 @@ namespace PC_Extensible
                         dataRow.CablesKgPerM = "0.0";
                     }
 
-                    string activeCableValue = GetValueOrDefault(values, headerMap, "Cable Size (mm\u00B2)");
+                    string activeCableValue = GetValueOrDefault(valuesList, headerMap, "Cable Size (mm\u00B2)"); // Using valuesList
                     string numActive, sizeActive;
                     ProcessSplit(activeCableValue, out numActive, out sizeActive);
                     dataRow.NumberOfActiveCables = numActive;
                     dataRow.ActiveCableSize = sizeActive;
 
-                    string neutralCableValue = GetValueOrDefault(values, headerMap, "Neutral Size (mm\u00B2)");
+                    string neutralCableValue = GetValueOrDefault(valuesList, headerMap, "Neutral Size (mm\u00B2)"); // Using valuesList
                     string numNeutral, sizeNeutral;
                     ProcessSplit(neutralCableValue, out numNeutral, out sizeNeutral);
                     dataRow.NumberOfNeutralCables = numNeutral;
                     dataRow.NeutralCableSize = sizeNeutral;
 
-                    string earthCableValue = GetValueOrDefault(values, headerMap, "Earth Size (mm\u00B2)");
+                    string earthCableValue = GetValueOrDefault(valuesList, headerMap, "Earth Size (mm\u00B2)"); // Using valuesList
                     if (earthCableValue.Equals("No Earth", StringComparison.OrdinalIgnoreCase))
                     {
                         earthCableValue = "0"; // Normalize "No Earth" to "0" for splitting
@@ -830,9 +929,10 @@ namespace PC_Extensible
             }
         }
 
-        private string GetValueOrDefault(string[] values, Dictionary<string, int> map, string headerName)
+        // FIX: Change parameter type from string[] to List<string> for values, to match ParseCsvLine return type
+        private string GetValueOrDefault(List<string> values, Dictionary<string, int> map, string headerName)
         {
-            if (map.TryGetValue(headerName, out int index) && index < values.Length)
+            if (map.TryGetValue(headerName, out int index) && index < values.Count)
             {
                 return values[index].Trim();
             }
@@ -876,6 +976,11 @@ namespace PC_Extensible
             public string NumberOfEarthCables { get; set; }
             public string EarthCableSize { get; set; }
             public string CablesKgPerM { get; set; } // Calculated in ParseAndProcessCsvData and now stored
+
+            // NEWLY ADDED CABLE DATA PROPERTIES:
+            public string Sheath { get; set; } // "Sheath"
+            public string CableMaxLengthM { get; set; } // "Cable Max. Length (m)"
+            public string VoltageVac { get; set; } // "Voltage (Vac)"
         }
 
         /// <summary>

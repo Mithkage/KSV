@@ -9,8 +9,65 @@
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Topmost="True"
-        Background="#FF80CBC4" >
-    <Grid Margin="10">
+        WindowStyle="ToolWindow"
+        AllowsTransparency="False"
+        Background="#FFE0F2F1">
+    <Window.Resources>
+        <!-- Modern Button Style copied from UserSelectionWindow.xaml -->
+        <Style x:Key="ModernButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#FF26A69A"/>
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="BorderBrush" Value="#FF00796B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#FF616161" Direction="270" ShadowDepth="2" BlurRadius="4" Opacity="0.4"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border CornerRadius="8" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FF4DB6AC"/>
+                    <Setter Property="BorderBrush" Value="#FF00897B"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#FF00897B"/>
+                    <Setter Property="BorderBrush" Value="#FF00695C"/>
+                    <Setter Property="Effect">
+                        <Setter.Value>
+                            <DropShadowEffect Color="#FF616161" Direction="270" ShadowDepth="1" BlurRadius="2" Opacity="0.6" />
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Style for the TextBox to match the new aesthetic -->
+        <Style TargetType="TextBox">
+            <Setter Property="BorderBrush" Value="#FF00796B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <!-- Removed CornerRadius as it's not a valid property for TextBox directly -->
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#FF333333"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -23,21 +80,28 @@
             <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
-        <TextBlock Grid.Row="0" Grid.ColumnSpan="3" FontWeight="Bold" Margin="0,0,0,5" Foreground="#FF333333">
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="3" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,5" Foreground="#FF333333" HorizontalAlignment="Center">
             Enter values to isolate elements:
         </TextBlock>
-        <TextBlock Grid.Row="1" Grid.ColumnSpan="3" TextWrapping="Wrap" Margin="0,0,0,10" Foreground="#FF333333">
+        <TextBlock Grid.Row="1" Grid.ColumnSpan="3" TextWrapping="Wrap" Margin="0,0,0,10" Foreground="#FF333333" FontSize="12">
             Enter one or more values, separated by commas, to isolate elements by 'RTS_ID' or 'RTS_Cable_XX' parameters.
             Example: 'C101, C102, Cable-A'
         </TextBlock>
 
-        <TextBox x:Name="InputTextBox" Grid.Row="2" Grid.ColumnSpan="3" MinHeight="25" VerticalContentAlignment="Center"
-                 BorderBrush="#FFCC0000" BorderThickness="1"/>
-        <StackPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button Content="OK" Width="80" Height="25" Margin="0,0,10,0" Click="Ok_Click"
-                    Background="#FFCC0000" Foreground="White" BorderThickness="0"/>
-            <Button Content="Cancel" Width="80" Height="25" Click="Cancel_Click"
-                    Background="#FFE0E0E0" Foreground="#FF333333" BorderThickness="1" BorderBrush="#FF333333"/>
+        <TextBox x:Name="InputTextBox" Grid.Row="2" Grid.ColumnSpan="3" MinHeight="25"/>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0" Width="309">
+            <!-- Clear Overrides Button -->
+            <Button Content="Clear Overrides" Width="120" Height="30" Margin="0,0,10,0" Click="ClearOverrides_Click"
+                    Style="{StaticResource ModernButtonStyle}"/>
+
+            <!-- OK Button: IsDefault=true makes it react to the Return key -->
+            <Button Content="OK" Width="80" Height="30" Margin="0,0,10,0" Click="Ok_Click" IsDefault="True"
+                    Style="{StaticResource ModernButtonStyle}"/>
+
+            <!-- Cancel Button: IsCancel=true makes it react to the Escape key -->
+            <Button Content="Cancel" Width="80" Height="30" Click="Cancel_Click" IsCancel="True"
+                    Style="{StaticResource ModernButtonStyle}"/>
         </StackPanel>
     </Grid>
 </Window>

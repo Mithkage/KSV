@@ -1,14 +1,46 @@
+<!--
+File: RTS.addin
+
+Description: This manifest file registers the ReTick Solutions (RTS) Revit Add-in
+             with Autodesk Revit. It defines the application-level entry point
+             (RTS.App) which is responsible for creating the custom ribbon tab,
+             panels, and buttons for all RTS tools within the Revit UI.
+
+Function: Registers the RTS custom tools with Revit.
+
+Author: ReTick Solutions
+
+Log:
+- July 2, 2025: Initial creation of RTS.addin file.
+- July 2, 2025: Updated <Name> to "RTS Tools" and <VendorDescription> to "ReTick Solutions Pty Ltd".
+-->
 <?xml version="1.0" encoding="utf-8"?>
 <RevitAddIns>
 	<AddIn Type="Application">
-		<Name>ReTick Solutions Tools</Name>
+		<Name>RTS Tools</Name>
 		<Assembly>C:\ProgramData\Autodesk\Revit\Addins\2024\RTS.dll</Assembly>
-
 		<AddInId>A045050A-DAF0-44DC-92CF-04397059EC3D</AddInId>
-
 		<FullClassName>RTS.App</FullClassName>
-
+		<Description>
+			A comprehensive suite of custom tools for electrical building services engineers, enhancing
+			workflows related to PowerCAD data integration, Revit model processing, and custom report generation.
+		</Description>
+		<AllowLoadIntoContext>Project</AllowLoadIntoContext>
 		<VendorId>ReTick_Solutions</VendorId>
-		<VendorDescription>ReTick Solutions - Custom Revit Tools</VendorDescription>
+		<VendorDescription>ReTick Solutions Pty Ltd</VendorDescription>
 	</AddIn>
+
 </RevitAddIns>
+
+	<!-- Additional AddIn entries for IExternalCommand implementations would go here if not handled by RTS.App -->
+	<!-- For example, if you had individual command .addin entries, they would be structured like this:
+    <AddIn Type="Command">
+        <Assembly>C:\Path\To\Your\Compiled\DLL\YourCommand.dll</Assembly>
+        <AddInId>ANOTHER_UNIQUE_GUID</AddInId>
+        <FullClassName>YourNamespace.YourCommandClass</FullClassName>
+        <Text>Your Command Name</Text>
+        <Description>Description of your command.</Description>
+        <VendorId>ReTick_Solutions</VendorId>
+        <VendorText>ReTick Solutions Pty Ltd</VendorText>
+    </AddIn>
+    -->

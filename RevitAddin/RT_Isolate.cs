@@ -3,12 +3,25 @@
 // Application: Revit 2022/2024 External Command
 
 // Description: This script allows the user to input one or more comma-separated string values.
-//              It first removes any existing graphic overrides from all elements in the active view.
+//              If the input is blank/empty or cancelled, it removes all existing graphic overrides from the active view.
+//              Otherwise, it first removes any existing graphic overrides from all elements in the active view.
 //              Then, it searches the active view for elements that have a matching value
 //              in their 'RTS_ID' shared parameter or any of the 'RTS_Cable_XX' shared parameters.
 //              All elements found with a matching value will have their graphics overridden to solid red.
 //              All other visible elements in the active view will be overridden to be 40% transparent and half-tone.
 //              Elements hidden before running the command will remain hidden unless specifically targeted and made visible by Revit's graphic rules.
+
+// Log:
+// - July 3, 2025: Implemented WPF InputWindow with "OK" (default/Return key), "Cancel" (closes window),
+//                 and "Clear Overrides" buttons. Modified Execute method to handle these actions.
+//                 Updated to use separate XAML and code-behind for InputWindow.
+// - July 3, 2025: Added wildcard '*' functionality for search values.
+//                 A single '*' matches any non-empty parameter value.
+//                 '*' within a string acts as a multi-character wildcard (e.g., 'Cable-*' matches 'Cable-01', 'Cable-XYZ').
+//                 Matching is case-insensitive.
+// - July 3, 2025: Removed duplicate 'WindowAction' enum definition to resolve CS0101 error.
+//                 The 'WindowAction' enum is now solely defined in 'InputWindow.xaml.cs'.
+// - July 3, 2025: Fixed CS0103 error by correcting typo 'solidRedRedOverride' to 'solidRedOverride'.
 
 using System;
 using System.Collections.Generic;
@@ -17,9 +30,17 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System.Windows.Interop; // Required for HwndSource for WPF owner
+using System.Windows; // Required for WPF Window, RoutedEventArgs
+using System.Windows.Controls; // Required for WPF TextBox, Button, StackPanel, TextBlock
+using System.Windows.Input; // Required for KeyBinding (though IsDefault/IsCancel handle this for buttons)
+using System.Text.RegularExpressions; // Required for wildcard matching
 
 namespace RT_Isolate
 {
+    // The 'WindowAction' enum definition has been moved to 'InputWindow.xaml.cs'
+    // to avoid the CS0101 error (duplicate definition).
+    // It is still accessible here because both files are in the same 'RT_Isolate' namespace.
+
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
     public class RT_IsolateClass : IExternalCommand
@@ -60,6 +81,9 @@ namespace RT_Isolate
             new Guid("a92bb0f9-2781-4971-a3b1-9c47d62b947b")  // RTS_Cable_30
         };
 
+        // Static variable to store the last used input within the session
+        private static string _lastUserInput = string.Empty; // Initialize with empty string
+
         public Result Execute(
             ExternalCommandData commandData,
             ref string message,
@@ -76,54 +100,62 @@ namespace RT_Isolate
                 return Result.Failed;
             }
 
-            // --- Reset graphic overrides for all elements at the start ---
-            using (Transaction tResetGraphics = new Transaction(doc, "Reset View Graphic Overrides"))
+            // Action to reset all graphic overrides in the active view
+            Action resetAllGraphics = () =>
             {
-                tResetGraphics.Start();
-                try
+                using (Transaction tResetGraphics = new Transaction(doc, "Reset View Graphic Overrides"))
                 {
-                    var allElementsInView = new FilteredElementCollector(doc, activeView.Id)
-                        .WhereElementIsNotElementType()
-                        .ToList();
-
-                    foreach (Element elem in allElementsInView)
+                    tResetGraphics.Start();
+                    try
                     {
-                        // Removed CanOverrideGraphicsInView check.
-                        activeView.SetElementOverrides(elem.Id, new OverrideGraphicSettings());
+                        var allElementsInView = new FilteredElementCollector(doc, activeView.Id)
+                            .WhereElementIsNotElementType()
+                            .ToList();
+
+                        foreach (Element elem in allElementsInView)
+                        {
+                            // Reset overrides to default for each element
+                            activeView.SetElementOverrides(elem.Id, new OverrideGraphicSettings());
+                        }
                     }
+                    catch (Exception ex)
+                    {
+                        tResetGraphics.RollBack();
+                        TaskDialog.Show("RT_Isolate Warning", $"Failed to reset view graphic overrides: {ex.Message}.");
+                    }
+                    tResetGraphics.Commit();
                 }
-                catch (Exception ex)
-                {
-                    tResetGraphics.RollBack();
-                    // Keep this warning as it indicates an issue but allows the script to continue.
-                    TaskDialog.Show("RT_Isolate Warning", $"Failed to reset view graphic overrides: {ex.Message}. Attempting to proceed with isolation.");
-                }
-                tResetGraphics.Commit();
-            }
-            // --- END Reset Graphics ---
+            };
 
-
-            // Create and show the WPF input window
             string inputString = "";
+            WindowAction chosenAction = WindowAction.Cancel; // Default action if dialog is closed without explicit button click
+
             try
             {
                 InputWindow inputWindow = new InputWindow();
+                // Pass the last used input to the window for display
+                inputWindow.UserInput = _lastUserInput;
 
-                // Set the Revit main window as the owner of the WPF window
-                // This ensures the WPF window stays on top of Revit
+                // Set the Revit main window as the owner of the WPF dialog
                 new WindowInteropHelper(inputWindow).Owner = commandData.Application.MainWindowHandle;
 
+                // Show the WPF dialog
                 bool? dialogResult = inputWindow.ShowDialog();
 
-                if (dialogResult == true)
+                // Determine the action based on DialogResult and the custom ActionChosen property
+                if (dialogResult == true) // User clicked OK or Clear Overrides
                 {
-                    inputString = inputWindow.UserInput;
+                    chosenAction = inputWindow.ActionChosen;
+                    if (chosenAction == WindowAction.Ok)
+                    {
+                        inputString = inputWindow.UserInput;
+                        _lastUserInput = inputString; // Store the current input for the next run
+                    }
+                    // If ClearGraphics, inputString remains empty, and _lastUserInput is not updated
                 }
-                else
+                else // User clicked Cancel or closed the window (DialogResult is false or null)
                 {
-                    // User clicked Cancel or closed the WPF window
-                    TaskDialog.Show("RT_Isolate", "Input cancelled by user. Script cancelled.");
-                    return Result.Cancelled;
+                    chosenAction = WindowAction.Cancel;
                 }
             }
             catch (Exception ex)
@@ -133,10 +165,27 @@ namespace RT_Isolate
                 return Result.Failed;
             }
 
+            // Handle actions based on the chosen button
+            if (chosenAction == WindowAction.Cancel)
+            {
+                // If cancelled, just exit the command. No graphic reset.
+                return Result.Cancelled;
+            }
+            else if (chosenAction == WindowAction.ClearGraphics)
+            {
+                // If "Clear Overrides" was clicked, reset all graphics and inform the user.
+                resetAllGraphics();
+                TaskDialog.Show("RT_Isolate", "All graphic overrides have been cleared from the active view.");
+                return Result.Succeeded;
+            }
+
+            // If chosenAction is WindowAction.Ok, proceed with processing inputString
             if (string.IsNullOrWhiteSpace(inputString))
             {
-                TaskDialog.Show("RT_Isolate", "No values entered. Script cancelled.");
-                return Result.Cancelled;
+                // If OK was clicked but the input was blank, also reset graphics
+                resetAllGraphics();
+                TaskDialog.Show("RT_Isolate", "Input was blank. All graphic overrides have been cleared from the active view.");
+                return Result.Succeeded;
             }
 
             // Parse the input string into a list of search values
@@ -147,15 +196,18 @@ namespace RT_Isolate
 
             if (!searchValues.Any())
             {
-                TaskDialog.Show("RT_Isolate", "No valid search values parsed from input. Script cancelled.");
-                return Result.Cancelled;
+                // If after trimming and splitting, no valid search values remain,
+                // also treat this as a signal to just reset graphics.
+                resetAllGraphics();
+                TaskDialog.Show("RT_Isolate", "No valid search values provided. All graphic overrides have been cleared from the active view.");
+                return Result.Succeeded;
             }
 
             // Collect all elements in the active view for processing (excluding element types and the view itself)
             var allElementsInViewForProcessing = new FilteredElementCollector(doc, activeView.Id)
-                                                       .WhereElementIsNotElementType()
-                                                       .Where(e => e.Id != activeView.Id) // Exclude the view element itself
-                                                       .ToList();
+                                                         .WhereElementIsNotElementType()
+                                                         .Where(e => e.Id != activeView.Id) // Exclude the view element itself
+                                                         .ToList();
 
             List<ElementId> targetedElements = new List<ElementId>();
             List<ElementId> nonTargetedElements = new List<ElementId>();
@@ -189,7 +241,7 @@ namespace RT_Isolate
                         if (rtsIdParam != null && !string.IsNullOrEmpty(rtsIdParam.AsString()))
                         {
                             string paramValue = rtsIdParam.AsString();
-                            if (searchValues.Any(sv => string.Equals(sv, paramValue, StringComparison.OrdinalIgnoreCase)))
+                            if (searchValues.Any(sv => MatchesWildcard(paramValue, sv)))
                             {
                                 matchFound = true;
                             }
@@ -204,7 +256,7 @@ namespace RT_Isolate
                                 if (cableParam != null && !string.IsNullOrEmpty(cableParam.AsString()))
                                 {
                                     string paramValue = cableParam.AsString();
-                                    if (searchValues.Any(sv => string.Equals(sv, paramValue, StringComparison.OrdinalIgnoreCase)))
+                                    if (searchValues.Any(sv => MatchesWildcard(paramValue, sv)))
                                     {
                                         matchFound = true;
                                         break; // Found a match, no need to check other cable parameters for this element
@@ -214,7 +266,6 @@ namespace RT_Isolate
                         }
 
                         // Apply graphic overrides based on match status.
-                        // The CanOverrideGraphicsInView check is removed here, assuming all relevant elements are overrideable.
                         if (matchFound)
                         {
                             activeView.SetElementOverrides(elem.Id, solidRedOverride);
@@ -233,7 +284,6 @@ namespace RT_Isolate
                         }
                     }
 
-                    // Removed the final success TaskDialog.Show message.
                     tApplyOverrides.Commit();
                 }
                 catch (Exception ex)
@@ -267,6 +317,39 @@ namespace RT_Isolate
             // This exception should ideally not be hit in a valid Revit document,
             // as the solid fill pattern is a standard built-in type.
             throw new Exception("Solid fill pattern not found in the document. This is unexpected.");
+        }
+
+        /// <summary>
+        /// Checks if an input string matches a given pattern, supporting '*' as a wildcard.
+        /// The '*' wildcard matches any sequence of zero or more characters.
+        /// A pattern of a single '*' matches any non-empty input string.
+        /// Matching is case-insensitive.
+        /// </summary>
+        /// <param name="input">The string to check (e.g., a parameter value).</param>
+        /// <param name="pattern">The pattern to match against (e.g., user input with wildcards).</param>
+        /// <returns>True if the input matches the pattern, false otherwise.</returns>
+        private bool MatchesWildcard(string input, string pattern)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return false; // An empty input string cannot match any pattern (unless pattern is also empty, which is not the intent for wildcard functionality here).
+            }
+
+            // Special case: if the pattern is exactly "*", it matches any non-empty input.
+            if (pattern.Equals("*", StringComparison.OrdinalIgnoreCase))
+            {
+                return !string.IsNullOrEmpty(input);
+            }
+
+            // Escape regex special characters in the pattern, then replace unescaped '*' with '.*'
+            // Regex.Escape escapes most special characters, but we want '*' to be a wildcard,
+            // so we escape the pattern first, then replace the escaped '*' ('\*') with '.*'.
+            string regexPattern = "^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$";
+
+            // Create a Regex object for case-insensitive matching
+            Regex regex = new Regex(regexPattern, RegexOptions.IgnoreCase);
+
+            return regex.IsMatch(input);
         }
     }
 }

@@ -70,6 +70,7 @@
 	  <Content Remove="Resources\PC_Clear_Data.png" />
 	  <Content Remove="Resources\PC_Extensible.png" />
 	  <Content Remove="Resources\PC_Generate_MD.png" />
+	  <Content Remove="Resources\PC_Update.png" />
 	  <Content Remove="Resources\PC_WireData.png" />
 	  <Content Remove="Resources\RTS_Initiate.png" />
 	  <Content Remove="Resources\RTS_MapCables.png" />
@@ -106,6 +107,9 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\PC_Generate_MD.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\PC_Update.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="Resources\PC_WireData.png">
@@ -153,6 +157,7 @@
 		<PackageReference Include="DocumentFormat.OpenXml" Version="2.20.0" />
 		<PackageReference Include="EPPlus" Version="8.0.7" />
 		<PackageReference Include="System.Text.Json" Version="9.0.6" />
+		<PackageReference Include="WindowsAPICodePack-Shell" Version="1.1.1" />
 	</ItemGroup>
 
 	<Choose>

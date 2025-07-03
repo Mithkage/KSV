@@ -11,6 +11,7 @@
 // Log:
 // - July 2, 2025: Corrected FullClassName for 'RTS Reports' button to 'RTS_Reports.RTS_ReportsClass'
 //                 to match the actual class name and resolve add-in loading error.
+// - July 2, 2025: Added 'PCAD Updater' button to the 'PCAD Tools' panel.
 //
 #region Namespaces
 using Autodesk.Revit.UI;
@@ -146,6 +147,14 @@ namespace RTS
                     LargeImage = GetEmbeddedPng("PC_WireData.png") ?? defaultIcon
                 };
 
+                // 8. PC_Updater: New button for updating CSV file based on Model data
+                PushButtonData pbdPcUpdater = new PushButtonData(
+                    "CmdPcUpdater", "Update PCAD\nCSV", ExecutingAssemblyPath, "PC_Updater.PC_UpdaterClass")
+                {
+                    ToolTip = "Updates 'Cable Length' in a PowerCAD CSV export using lengths from Model Generated Data.",
+                    LargeImage = GetEmbeddedPng("PC_Updater.png") ?? defaultIcon // Assuming PC_Updater.png icon, otherwise default
+                };
+
                 // --- Revit Tools Buttons ---
 
                 // 1. RT Cable Lengths
@@ -258,7 +267,7 @@ namespace RTS
 
                 // NEW BUTTON: RTS Reports
                 PushButtonData pbdRtsReports = new PushButtonData(
-                    "CmdRtsReports", "RTS\nReports", ExecutingAssemblyPath, "RTS_Reports.RTS_ReportsClass") // CORRECTED CLASS NAME HERE
+                    "CmdRtsReports", "RTS\nReports", ExecutingAssemblyPath, "RTS_Reports.RTS_ReportsClass")
                 {
                     ToolTip = "Generates various reports from extensible storage data.",
                     LargeImage = GetEmbeddedPng("RTS_Reports.png") ?? defaultIcon // Assuming an icon named RTS_Reports.png exists, otherwise uses default
@@ -272,6 +281,7 @@ namespace RTS
                 pcadPanel.AddItem(pbdPcGenerateMd);
                 pcadPanel.AddItem(pbdPcExtensible);
                 pcadPanel.AddItem(pbdPcWireData);
+                pcadPanel.AddItem(pbdPcUpdater); // ADDED: PC_Updater Button
 
                 revitToolsPanel.AddItem(pbdRtCableLengths);
                 revitToolsPanel.AddItem(pbdRtPanelConnect);
