@@ -24,19 +24,22 @@
           "C:\\Program Files (x86)\\NuGet\\Config\\Xamarin.Offline.config"
         ],
         "originalTargetFrameworks": [
-          "net481"
+          "net48"
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
-          "net481": {
-            "targetAlias": "net481",
+          "net48": {
+            "targetAlias": "net48",
             "projectReferences": {}
           }
         },
         "warningProperties": {
+          "noWarn": [
+            "NU1903"
+          ],
           "warnAsError": [
             "NU1605"
           ]
@@ -49,8 +52,8 @@
         "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
-        "net481": {
-          "targetAlias": "net481",
+        "net48": {
+          "targetAlias": "net48",
           "dependencies": {
             "ClosedXML": {
               "target": "Package",
@@ -66,11 +69,7 @@
             },
             "System.Text.Json": {
               "target": "Package",
-              "version": "[9.0.6, )"
-            },
-            "WindowsAPICodePack-Shell": {
-              "target": "Package",
-              "version": "[1.1.1, )"
+              "version": "[6.0.9, )"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300\\RuntimeIdentifierGraph.json"

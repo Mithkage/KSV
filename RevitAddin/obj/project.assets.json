@@ -1,7 +1,7 @@
 {
   "version": 3,
   "targets": {
-    ".NETFramework,Version=v4.8.1": {
+    ".NETFramework,Version=v4.8": {
       "ClosedXML/0.102.2": {
         "type": "package",
         "dependencies": {
@@ -108,23 +108,20 @@
           "lib/net461/Irony.dll": {}
         }
       },
-      "Microsoft.Bcl.AsyncInterfaces/9.0.6": {
+      "Microsoft.Bcl.AsyncInterfaces/6.0.0": {
         "type": "package",
         "dependencies": {
           "System.Threading.Tasks.Extensions": "4.5.4"
         },
         "compile": {
-          "lib/net462/Microsoft.Bcl.AsyncInterfaces.dll": {
+          "lib/net461/Microsoft.Bcl.AsyncInterfaces.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net462/Microsoft.Bcl.AsyncInterfaces.dll": {
+          "lib/net461/Microsoft.Bcl.AsyncInterfaces.dll": {
             "related": ".xml"
           }
-        },
-        "build": {
-          "buildTransitive/net462/_._": {}
         }
       },
       "Microsoft.IO.RecyclableMemoryStream/3.0.1": {
@@ -220,27 +217,6 @@
           "lib/net461/System.IO.Packaging.dll": {
             "related": ".xml"
           }
-        }
-      },
-      "System.IO.Pipelines/9.0.6": {
-        "type": "package",
-        "dependencies": {
-          "System.Buffers": "4.5.1",
-          "System.Memory": "4.5.5",
-          "System.Threading.Tasks.Extensions": "4.5.4"
-        },
-        "compile": {
-          "lib/net462/System.IO.Pipelines.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net462/System.IO.Pipelines.dll": {
-            "related": ".xml"
-          }
-        },
-        "build": {
-          "buildTransitive/net462/_._": {}
         }
       },
       "System.Memory/4.5.5": {
@@ -455,51 +431,48 @@
           "buildTransitive/net462/_._": {}
         }
       },
-      "System.Text.Encodings.Web/9.0.6": {
+      "System.Text.Encodings.Web/6.0.0": {
         "type": "package",
         "dependencies": {
           "System.Buffers": "4.5.1",
-          "System.Memory": "4.5.5",
+          "System.Memory": "4.5.4",
           "System.Runtime.CompilerServices.Unsafe": "6.0.0"
         },
         "compile": {
-          "lib/net462/System.Text.Encodings.Web.dll": {
+          "lib/net461/System.Text.Encodings.Web.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net462/System.Text.Encodings.Web.dll": {
+          "lib/net461/System.Text.Encodings.Web.dll": {
             "related": ".xml"
           }
-        },
-        "build": {
-          "buildTransitive/net462/_._": {}
         }
       },
-      "System.Text.Json/9.0.6": {
+      "System.Text.Json/6.0.9": {
         "type": "package",
         "dependencies": {
-          "Microsoft.Bcl.AsyncInterfaces": "9.0.6",
+          "Microsoft.Bcl.AsyncInterfaces": "6.0.0",
           "System.Buffers": "4.5.1",
-          "System.IO.Pipelines": "9.0.6",
-          "System.Memory": "4.5.5",
+          "System.Memory": "4.5.4",
+          "System.Numerics.Vectors": "4.5.0",
           "System.Runtime.CompilerServices.Unsafe": "6.0.0",
-          "System.Text.Encodings.Web": "9.0.6",
+          "System.Text.Encodings.Web": "6.0.0",
           "System.Threading.Tasks.Extensions": "4.5.4",
           "System.ValueTuple": "4.5.0"
         },
         "compile": {
-          "lib/net462/System.Text.Json.dll": {
+          "lib/net461/System.Text.Json.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net462/System.Text.Json.dll": {
+          "lib/net461/System.Text.Json.dll": {
             "related": ".xml"
           }
         },
         "build": {
-          "buildTransitive/net462/System.Text.Json.targets": {}
+          "buildTransitive/netstandard2.0/System.Text.Json.targets": {}
         }
       },
       "System.Text.RegularExpressions/4.3.1": {
@@ -546,27 +519,6 @@
           "lib/net47/System.ValueTuple.dll": {
             "related": ".xml"
           }
-        }
-      },
-      "WindowsAPICodePack-Core/1.1.1": {
-        "type": "package",
-        "compile": {
-          "lib/Microsoft.WindowsAPICodePack.dll": {}
-        },
-        "runtime": {
-          "lib/Microsoft.WindowsAPICodePack.dll": {}
-        }
-      },
-      "WindowsAPICodePack-Shell/1.1.1": {
-        "type": "package",
-        "dependencies": {
-          "WindowsAPICodePack-Core": "1.1.1"
-        },
-        "compile": {
-          "lib/Microsoft.WindowsAPICodePack.Shell.dll": {}
-        },
-        "runtime": {
-          "lib/Microsoft.WindowsAPICodePack.Shell.dll": {}
         }
       },
       "XLParser/1.5.2": {
@@ -703,28 +655,23 @@
         "lib/netstandard1.6/Irony.dll"
       ]
     },
-    "Microsoft.Bcl.AsyncInterfaces/9.0.6": {
-      "sha512": "82rLw487j5jBXEi2r3WvA/cagOhcRREVRtet6izzjDMY+i392W5oNSN2KCtuIvlTpyMONEUD0MIlGAgDdsvQ/w==",
+    "Microsoft.Bcl.AsyncInterfaces/6.0.0": {
+      "sha512": "UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg==",
       "type": "package",
-      "path": "microsoft.bcl.asyncinterfaces/9.0.6",
+      "path": "microsoft.bcl.asyncinterfaces/6.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
         "LICENSE.TXT",
-        "PACKAGE.md",
         "THIRD-PARTY-NOTICES.TXT",
-        "buildTransitive/net461/Microsoft.Bcl.AsyncInterfaces.targets",
-        "buildTransitive/net462/_._",
-        "buildTransitive/net8.0/_._",
-        "buildTransitive/netcoreapp2.0/Microsoft.Bcl.AsyncInterfaces.targets",
-        "lib/net462/Microsoft.Bcl.AsyncInterfaces.dll",
-        "lib/net462/Microsoft.Bcl.AsyncInterfaces.xml",
+        "lib/net461/Microsoft.Bcl.AsyncInterfaces.dll",
+        "lib/net461/Microsoft.Bcl.AsyncInterfaces.xml",
         "lib/netstandard2.0/Microsoft.Bcl.AsyncInterfaces.dll",
         "lib/netstandard2.0/Microsoft.Bcl.AsyncInterfaces.xml",
         "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll",
         "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.xml",
-        "microsoft.bcl.asyncinterfaces.9.0.6.nupkg.sha512",
+        "microsoft.bcl.asyncinterfaces.6.0.0.nupkg.sha512",
         "microsoft.bcl.asyncinterfaces.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -987,34 +934,6 @@
         "lib/netstandard2.0/System.IO.Packaging.xml",
         "system.io.packaging.6.0.0.nupkg.sha512",
         "system.io.packaging.nuspec",
-        "useSharedDesignerContext.txt"
-      ]
-    },
-    "System.IO.Pipelines/9.0.6": {
-      "sha512": "0nlr0reXrRmkZNKifKqh2DgGhQgfkT7Qa3gQxIn/JI7/y3WDiTz67M+Sq3vFhUqcG8O5zVrpqHvIHeGPGUBsEw==",
-      "type": "package",
-      "path": "system.io.pipelines/9.0.6",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "Icon.png",
-        "LICENSE.TXT",
-        "PACKAGE.md",
-        "THIRD-PARTY-NOTICES.TXT",
-        "buildTransitive/net461/System.IO.Pipelines.targets",
-        "buildTransitive/net462/_._",
-        "buildTransitive/net8.0/_._",
-        "buildTransitive/netcoreapp2.0/System.IO.Pipelines.targets",
-        "lib/net462/System.IO.Pipelines.dll",
-        "lib/net462/System.IO.Pipelines.xml",
-        "lib/net8.0/System.IO.Pipelines.dll",
-        "lib/net8.0/System.IO.Pipelines.xml",
-        "lib/net9.0/System.IO.Pipelines.dll",
-        "lib/net9.0/System.IO.Pipelines.xml",
-        "lib/netstandard2.0/System.IO.Pipelines.dll",
-        "lib/netstandard2.0/System.IO.Pipelines.xml",
-        "system.io.pipelines.9.0.6.nupkg.sha512",
-        "system.io.pipelines.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
@@ -1443,48 +1362,42 @@
         "useSharedDesignerContext.txt"
       ]
     },
-    "System.Text.Encodings.Web/9.0.6": {
-      "sha512": "uWRgViw2yJAUyGxrzDLCc6fkzE2dZIoXxs8V6YjCujKsJuP0pnpYSlbm2/7tKd0SjBnMtwfDQhLenk3bXonVOA==",
+    "System.Text.Encodings.Web/6.0.0": {
+      "sha512": "Vg8eB5Tawm1IFqj4TVK1czJX89rhFxJo9ELqc/Eiq0eXy13RK00eubyU6TJE6y+GQXjyV5gSfiewDUZjQgSE0w==",
       "type": "package",
-      "path": "system.text.encodings.web/9.0.6",
+      "path": "system.text.encodings.web/6.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
         "LICENSE.TXT",
-        "PACKAGE.md",
         "THIRD-PARTY-NOTICES.TXT",
-        "buildTransitive/net461/System.Text.Encodings.Web.targets",
-        "buildTransitive/net462/_._",
-        "buildTransitive/net8.0/_._",
         "buildTransitive/netcoreapp2.0/System.Text.Encodings.Web.targets",
-        "lib/net462/System.Text.Encodings.Web.dll",
-        "lib/net462/System.Text.Encodings.Web.xml",
-        "lib/net8.0/System.Text.Encodings.Web.dll",
-        "lib/net8.0/System.Text.Encodings.Web.xml",
-        "lib/net9.0/System.Text.Encodings.Web.dll",
-        "lib/net9.0/System.Text.Encodings.Web.xml",
+        "buildTransitive/netcoreapp3.1/_._",
+        "lib/net461/System.Text.Encodings.Web.dll",
+        "lib/net461/System.Text.Encodings.Web.xml",
+        "lib/net6.0/System.Text.Encodings.Web.dll",
+        "lib/net6.0/System.Text.Encodings.Web.xml",
+        "lib/netcoreapp3.1/System.Text.Encodings.Web.dll",
+        "lib/netcoreapp3.1/System.Text.Encodings.Web.xml",
         "lib/netstandard2.0/System.Text.Encodings.Web.dll",
         "lib/netstandard2.0/System.Text.Encodings.Web.xml",
-        "runtimes/browser/lib/net8.0/System.Text.Encodings.Web.dll",
-        "runtimes/browser/lib/net8.0/System.Text.Encodings.Web.xml",
-        "runtimes/browser/lib/net9.0/System.Text.Encodings.Web.dll",
-        "runtimes/browser/lib/net9.0/System.Text.Encodings.Web.xml",
-        "system.text.encodings.web.9.0.6.nupkg.sha512",
+        "runtimes/browser/lib/net6.0/System.Text.Encodings.Web.dll",
+        "runtimes/browser/lib/net6.0/System.Text.Encodings.Web.xml",
+        "system.text.encodings.web.6.0.0.nupkg.sha512",
         "system.text.encodings.web.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
-    "System.Text.Json/9.0.6": {
-      "sha512": "h+ZtYTyTnTh5Ju6mHCKb3FPGx4ylJZgm9W7Y2psUnkhQRPMOIxX+TCN0ZgaR/+Yea+93XHWAaMzYTar1/EHIPg==",
+    "System.Text.Json/6.0.9": {
+      "sha512": "2j16oUgtIzl7Xtk7demG0i/v5aU/ZvULcAnJvPb63U3ZhXJ494UYcxuEj5Fs49i3XDrk5kU/8I+6l9zRCw3cJw==",
       "type": "package",
-      "path": "system.text.json/9.0.6",
+      "path": "system.text.json/6.0.9",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
         "LICENSE.TXT",
-        "PACKAGE.md",
         "THIRD-PARTY-NOTICES.TXT",
         "analyzers/dotnet/roslyn3.11/cs/System.Text.Json.SourceGeneration.dll",
         "analyzers/dotnet/roslyn3.11/cs/cs/System.Text.Json.SourceGeneration.resources.dll",
@@ -1514,34 +1427,18 @@
         "analyzers/dotnet/roslyn4.0/cs/tr/System.Text.Json.SourceGeneration.resources.dll",
         "analyzers/dotnet/roslyn4.0/cs/zh-Hans/System.Text.Json.SourceGeneration.resources.dll",
         "analyzers/dotnet/roslyn4.0/cs/zh-Hant/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/System.Text.Json.SourceGeneration.dll",
-        "analyzers/dotnet/roslyn4.4/cs/cs/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/de/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/es/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/fr/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/it/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/ja/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/ko/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/pl/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/pt-BR/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/ru/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/tr/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/zh-Hans/System.Text.Json.SourceGeneration.resources.dll",
-        "analyzers/dotnet/roslyn4.4/cs/zh-Hant/System.Text.Json.SourceGeneration.resources.dll",
-        "buildTransitive/net461/System.Text.Json.targets",
-        "buildTransitive/net462/System.Text.Json.targets",
-        "buildTransitive/net8.0/System.Text.Json.targets",
         "buildTransitive/netcoreapp2.0/System.Text.Json.targets",
+        "buildTransitive/netcoreapp3.1/System.Text.Json.targets",
         "buildTransitive/netstandard2.0/System.Text.Json.targets",
-        "lib/net462/System.Text.Json.dll",
-        "lib/net462/System.Text.Json.xml",
-        "lib/net8.0/System.Text.Json.dll",
-        "lib/net8.0/System.Text.Json.xml",
-        "lib/net9.0/System.Text.Json.dll",
-        "lib/net9.0/System.Text.Json.xml",
+        "lib/net461/System.Text.Json.dll",
+        "lib/net461/System.Text.Json.xml",
+        "lib/net6.0/System.Text.Json.dll",
+        "lib/net6.0/System.Text.Json.xml",
+        "lib/netcoreapp3.1/System.Text.Json.dll",
+        "lib/netcoreapp3.1/System.Text.Json.xml",
         "lib/netstandard2.0/System.Text.Json.dll",
         "lib/netstandard2.0/System.Text.Json.xml",
-        "system.text.json.9.0.6.nupkg.sha512",
+        "system.text.json.6.0.9.nupkg.sha512",
         "system.text.json.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -1711,32 +1608,6 @@
         "version.txt"
       ]
     },
-    "WindowsAPICodePack-Core/1.1.1": {
-      "sha512": "GoURoQuE7ea7B7q24YRTBfZbsNO7ZtwSyBHbM8zO0ynwfjAGC0bbAmVrDvZ6HbWtqqOt6QTzdmYnj2WJglb5JQ==",
-      "type": "package",
-      "path": "windowsapicodepack-core/1.1.1",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "lib/Microsoft.WindowsAPICodePack.dll",
-        "lib/Microsoft.WindowsAPICodePack.xml",
-        "windowsapicodepack-core.1.1.1.nupkg.sha512",
-        "windowsapicodepack-core.nuspec"
-      ]
-    },
-    "WindowsAPICodePack-Shell/1.1.1": {
-      "sha512": "CPFamhL3jPo8O6+ErGsLS4LK3DWP5ncxqhbzpPnYkIW9rjatunUij35iTjprbr9mlYR/5Pbguw21MwSmTOKR4g==",
-      "type": "package",
-      "path": "windowsapicodepack-shell/1.1.1",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "lib/Microsoft.WindowsAPICodePack.Shell.dll",
-        "lib/Microsoft.WindowsAPICodePack.Shell.xml",
-        "windowsapicodepack-shell.1.1.1.nupkg.sha512",
-        "windowsapicodepack-shell.nuspec"
-      ]
-    },
     "XLParser/1.5.2": {
       "sha512": "8tnUCmMbn6c/HGuHFyq1sulHym8YReTKDNXFFQk0U8nldNx6RGrwRvLh0+aQjEc7YoC3Q1ztH1npLt7dClKqjw==",
       "type": "package",
@@ -1753,12 +1624,11 @@
     }
   },
   "projectFileDependencyGroups": {
-    ".NETFramework,Version=v4.8.1": [
+    ".NETFramework,Version=v4.8": [
       "ClosedXML >= 0.102.2",
       "DocumentFormat.OpenXml >= 2.20.0",
       "EPPlus >= 8.0.7",
-      "System.Text.Json >= 9.0.6",
-      "WindowsAPICodePack-Shell >= 1.1.1"
+      "System.Text.Json >= 6.0.9"
     ]
   },
   "packageFolders": {
@@ -1786,19 +1656,22 @@
         "C:\\Program Files (x86)\\NuGet\\Config\\Xamarin.Offline.config"
       ],
       "originalTargetFrameworks": [
-        "net481"
+        "net48"
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
-        "net481": {
-          "targetAlias": "net481",
+        "net48": {
+          "targetAlias": "net48",
           "projectReferences": {}
         }
       },
       "warningProperties": {
+        "noWarn": [
+          "NU1903"
+        ],
         "warnAsError": [
           "NU1605"
         ]
@@ -1811,8 +1684,8 @@
       "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
-      "net481": {
-        "targetAlias": "net481",
+      "net48": {
+        "targetAlias": "net48",
         "dependencies": {
           "ClosedXML": {
             "target": "Package",
@@ -1828,11 +1701,7 @@
           },
           "System.Text.Json": {
             "target": "Package",
-            "version": "[9.0.6, )"
-          },
-          "WindowsAPICodePack-Shell": {
-            "target": "Package",
-            "version": "[1.1.1, )"
+            "version": "[6.0.9, )"
           }
         },
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300\\RuntimeIdentifierGraph.json"

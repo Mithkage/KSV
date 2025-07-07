@@ -1,8 +1,0 @@
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net472\RTS.csproj.AssemblyReference.cache
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net472\UserSelectionWindow.baml
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net472\UserSelectionWindow.g.cs
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net472\RTS_MarkupCompile.cache
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net472\RTS.g.resources
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net472\RTS.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net472\RTS.csproj.CoreCompileInputs.cache
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net472\RTS.sourcelink.json

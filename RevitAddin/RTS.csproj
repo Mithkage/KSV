@@ -1,239 +1,157 @@
 <Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 
+	<!-- Project Properties -->
 	<PropertyGroup>
-		<TargetFramework>net481</TargetFramework>
+		<TargetFramework>net48</TargetFramework>
 		<PlatformTarget>x64</PlatformTarget>
-		<ProjectGuid>24500748-F734-4C0E-BB02-9C6D8F8E5CC9</ProjectGuid>
 		<OutputType>Library</OutputType>
+		<LangVersion>9.0</LangVersion>
+		<UseWPF>true</UseWPF>
+		<UseWindowsForms>true</UseWindowsForms>
 		<RootNamespace>RTS</RootNamespace>
 		<AssemblyName>RTS</AssemblyName>
-		<LangVersion>9.0</LangVersion>
-		<UseWindowsForms>true</UseWindowsForms>
-		<UseWPF>true</UseWPF>
+
+		<!-- This prevents duplicate assembly attributes when an AssemblyInfo.cs file exists -->
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+		<!-- Suppress the specific NuGet vulnerability warning for System.Text.Json -->
+		<NoWarn>$(NoWarn);NU1903</NoWarn>
+
+		<!-- Define Revit API Paths Here -->
+		<Revit2022Path>D:\Program Files\Autodesk\Revit 2022\</Revit2022Path>
+		<Revit2024Path>C:\Program Files\Autodesk\Revit 2024\</Revit2024Path>
+
+		<!-- Assembly Info (used if GenerateAssemblyInfo is true) -->
 		<Company>ReTick Solutions</Company>
 		<Product>RTS Revit Add-in</Product>
 		<Description>Revit Add-in for ReTick Solutions</Description>
 		<Copyright>Copyright © ReTick Solutions 2025</Copyright>
 		<Version>1.0.0.0</Version>
 
+		<!-- Build Configurations -->
+		<Configurations>Debug;Release;Debug2022;Release2022;Release 2022</Configurations>
+		<Platforms>x64</Platforms>
+
+		<!-- Addin Folder Paths for Release Builds -->
 		<Revit2022AddinsFolder>C:\ProgramData\Autodesk\Revit\Addins\2022\</Revit2022AddinsFolder>
 		<Revit2024AddinsFolder>C:\ProgramData\Autodesk\Revit\Addins\2024\</Revit2024AddinsFolder>
-
-		<Configurations>Debug;Release;Debug2022;Release2022</Configurations>
-		<Platforms>x64</Platforms>
 	</PropertyGroup>
 
-	<PropertyGroup Condition=" '$(Configuration)'=='Debug' OR '$(Configuration)'=='Release' ">
-		<DefineConstants>$(DefineConstants);REVIT2024;TRACE</DefineConstants>
-		<DefineConstants Condition=" '$(Configuration)'=='Debug' ">$(DefineConstants);DEBUG</DefineConstants>
-	</PropertyGroup>
-	<PropertyGroup Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' ">
+	<!-- Configuration-specific Properties for Revit Version Switching -->
+	<PropertyGroup Condition=" '$(Configuration.Contains(&quot;2022&quot;))' == 'true' ">
 		<DefineConstants>$(DefineConstants);REVIT2022;TRACE</DefineConstants>
-		<DefineConstants Condition=" '$(Configuration)'=='Debug2022' ">$(DefineConstants);DEBUG</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration.Contains(&quot;2024&quot;))' == 'true' OR !'$(Configuration.Contains(&quot;2022&quot;))' ">
+		<DefineConstants>$(DefineConstants);REVIT2024;TRACE</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration.Contains(&quot;Debug&quot;))' == 'true' ">
+		<DefineConstants>$(DefineConstants);DEBUG</DefineConstants>
+		<DebugSymbols>true</DebugSymbols>
+		<DebugType>full</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration.Contains(&quot;Release&quot;))' == 'true' ">
+		<Optimize>true</Optimize>
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(Configuration)'=='Release' OR '$(Configuration)'=='Release2022'">
-		<Optimize>True</Optimize>
-	</PropertyGroup>
-
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug2022|x64'">
-	  <Optimize>True</Optimize>
-	</PropertyGroup>
-
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-	  <DefineConstants>$(DefineConstants);REVIT2024;TRACE</DefineConstants>
-	</PropertyGroup>
-
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-	  <Optimize>True</Optimize>
-	</PropertyGroup>
-
-
-	<ItemGroup>
-		<Content Include="RTS.addin">
-			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</Content>
-		<Content Include="RTS_2022.addin">
-			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</Content>
-		<Content Include="Resources\**\*.*">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</Content>
-	</ItemGroup>
-
-
-	<ItemGroup>
-	  <Content Remove="Resources\BB_Import.png" />
-	  <Content Remove="Resources\Icon.png" />
-	  <Content Remove="Resources\MD_Importer.png" />
-	  <Content Remove="Resources\PC_Clear_Data.png" />
-	  <Content Remove="Resources\PC_Extensible.png" />
-	  <Content Remove="Resources\PC_Generate_MD.png" />
-	  <Content Remove="Resources\PC_Update.png" />
-	  <Content Remove="Resources\PC_WireData.png" />
-	  <Content Remove="Resources\RTS_Initiate.png" />
-	  <Content Remove="Resources\RTS_MapCables.png" />
-	  <Content Remove="Resources\RTS_Reports.png" />
-	  <Content Remove="Resources\RTS_Schedules.png" />
-	  <Content Remove="Resources\RT_CableLengths.png" />
-	  <Content Remove="Resources\RT_Isolate.png" />
-	  <Content Remove="Resources\RT_TrayConduits.png" />
-	  <Content Remove="Resources\RT_TrayOccupancy.png" />
-	  <Content Remove="Resources\RT_UpperCase.png" />
-	  <Content Remove="Resources\RT_WireRoute.png" />
-	</ItemGroup>
-
-
-	<ItemGroup>
-	  <Compile Include="Doc\RTS_Initiate .txt" />
-	</ItemGroup>
-
-
-	<ItemGroup>
-	  <EmbeddedResource Include="Resources\BB_Import.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\Icon.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\MD_Importer.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\PC_Clear_Data.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\PC_Extensible.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\PC_Generate_MD.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\PC_Update.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\PC_WireData.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RTS_Initiate.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RTS_MapCables.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RTS_Reports.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RTS_Schedules.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RT_CableLengths.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RT_Isolate.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RT_TrayConduits.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RT_TrayOccupancy.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RT_UpperCase.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\RT_WireRoute.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	</ItemGroup>
-
-
-	<ItemGroup>
-	  <None Include="RT_TrayOccupancy.cs" />
-	</ItemGroup>
-
+	<!-- NuGet Package References -->
 	<ItemGroup>
 		<PackageReference Include="ClosedXML" Version="0.102.2" />
 		<PackageReference Include="DocumentFormat.OpenXml" Version="2.20.0" />
 		<PackageReference Include="EPPlus" Version="8.0.7" />
-		<PackageReference Include="System.Text.Json" Version="9.0.6" />
-		<PackageReference Include="WindowsAPICodePack-Shell" Version="1.1.1" />
+		<PackageReference Include="System.Text.Json" Version="6.0.9" />
 	</ItemGroup>
 
+	<!-- Revit API References - Using a Choose/When block for robustness -->
 	<Choose>
-		<When Condition=" '$(Configuration)'=='Debug' OR '$(Configuration)'=='Release' ">
+		<When Condition="'$(Configuration.Contains(&quot;2022&quot;))' == 'true'">
 			<ItemGroup>
 				<Reference Include="RevitAPI">
-					<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll</HintPath>
+					<HintPath>$(Revit2022Path)RevitAPI.dll</HintPath>
 					<Private>False</Private>
 				</Reference>
 				<Reference Include="RevitAPIUI">
-					<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPIUI.dll</HintPath>
+					<HintPath>$(Revit2022Path)RevitAPIUI.dll</HintPath>
 					<Private>False</Private>
 				</Reference>
 			</ItemGroup>
 		</When>
-		<When Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' " />
 		<Otherwise>
 			<ItemGroup>
 				<Reference Include="RevitAPI">
-					<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll</HintPath>
+					<HintPath>$(Revit2024Path)RevitAPI.dll</HintPath>
 					<Private>False</Private>
 				</Reference>
 				<Reference Include="RevitAPIUI">
-					<HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPIUI.dll</HintPath>
+					<HintPath>$(Revit2024Path)RevitAPIUI.dll</HintPath>
 					<Private>False</Private>
 				</Reference>
 			</ItemGroup>
 		</Otherwise>
 	</Choose>
 
+	<!-- Other Framework References -->
 	<ItemGroup>
 		<Reference Include="Microsoft.VisualBasic" />
-		<Reference Include="ReachFramework" />
-		<Reference Include="RevitAPI">
-		  <HintPath>D:\Program Files\Autodesk\Revit 2022\RevitAPI.dll</HintPath>
-		  <Private>False</Private>
-		</Reference>
-		<Reference Include="RevitAPIUI">
-		  <HintPath>D:\Program Files\Autodesk\Revit 2022\RevitAPIUI.dll</HintPath>
-		  <Private>False</Private>
-		</Reference>
+		<Reference Include="PresentationCore" />
+		<Reference Include="PresentationFramework" />
+		<Reference Include="System.Xaml" />
+		<Reference Include="WindowsBase" />
 	</ItemGroup>
 
-	<Target Name="CopyAddinFilesAfterBuild" AfterTargets="Build">
+	<!-- Resource Files (Icons, etc.) -->
+	<ItemGroup>
+		<EmbeddedResource Include="Resources\**\*.*" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Update="RTS.addin">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="RTS_2022.addin">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+
+	<!-- Post-Build Target: Copies files ONLY for Release configurations -->
+	<Target Name="CopyAddinFilesAfterBuild" AfterTargets="Build" Condition="'$(Configuration.Contains(&quot;Release&quot;))' == 'true'">
 		<PropertyGroup>
-			<AddinFileSource2024>$(ProjectDir)RTS.addin</AddinFileSource2024>
-			<AddinFileSource2022>$(ProjectDir)RTS_2022.addin</AddinFileSource2022>
 			<SourceResourcesDir>$(TargetDir)Resources\</SourceResourcesDir>
 		</PropertyGroup>
 
-		<MakeDir Directories="$(Revit2024AddinsFolder)Resources" Condition="Exists('$(SourceResourcesDir)') AND ('$(Configuration)'=='Debug' OR '$(Configuration)'=='Release')" />
-		<MakeDir Directories="$(Revit2022AddinsFolder)Resources" Condition="Exists('$(SourceResourcesDir)') AND ('$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022')" />
-
-		<Message Text="Output Path: $(TargetDir)" Importance="high" />
-
-		<ItemGroup Condition=" '$(Configuration)'=='Debug' OR '$(Configuration)'=='Release' ">
+		<!-- Handle Revit 2024 Deployment -->
+		<ItemGroup Condition=" '$(Configuration)'=='Release' ">
+			<AddinFileSource2024 Include="$(ProjectDir)RTS.addin" />
 			<FilesToCopy2024 Include="$(TargetDir)$(TargetName).dll" />
 			<FilesToCopy2024 Include="$(TargetDir)ClosedXML.dll" />
 			<FilesToCopy2024 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
 			<FilesToCopy2024 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
 			<FilesToCopy2024 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
 		</ItemGroup>
-		<Copy SourceFiles="@(FilesToCopy2024)" DestinationFolder="$(Revit2024AddinsFolder)" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Debug' OR '$(Configuration)'=='Release' " />
-		<Copy SourceFiles="$(AddinFileSource2024)" DestinationFiles="$(Revit2024AddinsFolder)$(TargetName).addin" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Debug' OR '$(Configuration)'=='Release' " />
-		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2024AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND ('$(Configuration)'=='Debug' OR '$(Configuration)'=='Release')" />
+		<Copy SourceFiles="@(FilesToCopy2024)" DestinationFolder="$(Revit2024AddinsFolder)" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release' " />
+		<Copy SourceFiles="@(AddinFileSource2024)" DestinationFiles="$(Revit2024AddinsFolder)$(TargetName).addin" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release' " />
+		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2024AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND '$(Configuration)'=='Release'" />
 
-		<ItemGroup Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' ">
+		<!-- Handle Revit 2022 Deployment -->
+		<ItemGroup Condition=" '$(Configuration)'=='Release2022' ">
+			<AddinFileSource2022 Include="$(ProjectDir)RTS_2022.addin" />
 			<FilesToCopy2022 Include="$(TargetDir)$(TargetName).dll" />
 			<FilesToCopy2022 Include="$(TargetDir)ClosedXML.dll" />
 			<FilesToCopy2022 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
 			<FilesToCopy2022 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
 			<FilesToCopy2022 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
 		</ItemGroup>
-		<Copy SourceFiles="@(FilesToCopy2022)" DestinationFolder="$(Revit2022AddinsFolder)" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' " />
-		<Copy SourceFiles="$(AddinFileSource2022)" DestinationFiles="$(Revit2022AddinsFolder)$(TargetName).addin" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022' " />
-		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2022AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND ('$(Configuration)'=='Debug2022' OR '$(Configuration)'=='Release2022')" />
+		<ItemGroup Condition="'$(Configuration)'=='Release 2022'">
+		  <AddinFileSource2022 Include="$(ProjectDir)RTS_2022.addin" />
+		  <FilesToCopy2022 Include="$(TargetDir)$(TargetName).dll" />
+		  <FilesToCopy2022 Include="$(TargetDir)ClosedXML.dll" />
+		  <FilesToCopy2022 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
+		  <FilesToCopy2022 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
+		  <FilesToCopy2022 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
+		</ItemGroup>
+		<Copy SourceFiles="@(FilesToCopy2022)" DestinationFolder="$(Revit2022AddinsFolder)" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release2022' " />
+		<Copy SourceFiles="@(AddinFileSource2022)" DestinationFiles="$(Revit2022AddinsFolder)$(TargetName).addin" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release2022' " />
+		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2022AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND '$(Configuration)'=='Release2022'" />
 
+		<Message Text="Successfully deployed $(TargetName) to $(Revit2024AddinsFolder) or $(Revit2022AddinsFolder)" Importance="high" />
 	</Target>
+
 </Project>

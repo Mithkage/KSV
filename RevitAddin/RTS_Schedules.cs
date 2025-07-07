@@ -167,25 +167,24 @@ namespace RTS_Schedules
             // Define the list of schedules to be created/managed.
             var allSchedules = new List<ScheduleItem>
             {
-                new ScheduleItem { Name = "RTS_Sheet List", Category = BuiltInCategory.OST_Sheets, IsSelected = false },
-                new ScheduleItem { Name = "RTS_Detail Items", Category = BuiltInCategory.OST_DetailComponents, IsSelected = false },
-                new ScheduleItem { Name = "RTS_Spaces", Category = BuiltInCategory.OST_MEPSpaces, IsSelected = false },
-                new ScheduleItem { Name = "RTS_Sample Register", Category = BuiltInCategory.INVALID, IsSelected = false },
-                new ScheduleItem { Name = "RTS_Electrical Equipment", Category = BuiltInCategory.OST_ElectricalEquipment, IsSelected = false },
-                new ScheduleItem { Name = "RTS_Lighting Fixtures", Category = BuiltInCategory.OST_LightingFixtures, IsSelected = false },
-                new ScheduleItem { Name = "RTS_Electrical Fixtures", Category = BuiltInCategory.OST_ElectricalFixtures, IsSelected = false },
-                new ScheduleItem { Name = "RTS_Cable Trays", Category = BuiltInCategory.OST_CableTray, IsSelected = false },
-                new ScheduleItem { Name = "RTS_Cable Tray Fittings", Category = BuiltInCategory.OST_CableTrayFitting, IsSelected = false },
-                new ScheduleItem { Name = "RTS_Conduits", Category = BuiltInCategory.OST_Conduit, IsSelected = false }
+                new ScheduleItem { Name = "RTS_Sc_Sheet List", Category = BuiltInCategory.OST_Sheets, IsSelected = false },
+                new ScheduleItem { Name = "RTS_Sc_Detail Items", Category = BuiltInCategory.OST_DetailComponents, IsSelected = false },
+                new ScheduleItem { Name = "RTS_Sc_Spaces", Category = BuiltInCategory.OST_MEPSpaces, IsSelected = false },
+                new ScheduleItem { Name = "RTS_Sc_Sample Register", Category = BuiltInCategory.INVALID, IsSelected = false },
+                new ScheduleItem { Name = "RTS_Sc_Electrical Equipment", Category = BuiltInCategory.OST_ElectricalEquipment, IsSelected = false },
+                new ScheduleItem { Name = "RTS_Sc_Lighting Fixtures", Category = BuiltInCategory.OST_LightingFixtures, IsSelected = false },
+                new ScheduleItem { Name = "RTS_Sc_Electrical Fixtures", Category = BuiltInCategory.OST_ElectricalFixtures, IsSelected = false },
+                new ScheduleItem { Name = "RTS_Sc_Cable Trays", Category = BuiltInCategory.OST_CableTray, IsSelected = false },
+                new ScheduleItem { Name = "RTS_Sc_Cable Tray Fittings", Category = BuiltInCategory.OST_CableTrayFitting, IsSelected = false },
+                new ScheduleItem { Name = "RTS_Sc_Conduits", Category = BuiltInCategory.OST_Conduit, IsSelected = false }
             };
 
             // Show WPF window
             ScheduleSelectionWindow ui = new ScheduleSelectionWindow(allSchedules);
             bool? dialogResult = ui.ShowDialog();
 
-            if (dialogResult == null || dialogResult == false)
+            if (dialogResult != true)
             {
-                message = "Schedule generation cancelled by user.";
                 return Result.Cancelled;
             }
 
@@ -284,8 +283,8 @@ namespace RTS_Schedules
                                 // For generic schedules not tied to a specific category (e.g., "Sample Register")
                                 // Creates a Multi-Category Schedule if InvalidElementId is used for category
                                 TaskDialog.Show("Warning", $"Schedule '{scheduleItem.Name}' is set to BuiltInCategory.INVALID. " +
-                                                           "It will be created as a Multi-Category schedule. " +
-                                                           "You may need to manually refine its categories/fields in Revit.");
+                                                            "It will be created as a Multi-Category schedule. " +
+                                                            "You may need to manually refine its categories/fields in Revit.");
                                 newSchedule = ViewSchedule.CreateSchedule(doc, ElementId.InvalidElementId);
                             }
                             else
@@ -311,8 +310,8 @@ namespace RTS_Schedules
                 catch (Exception ex)
                 {
                     string errorDetails = $"An unexpected error occurred while processing schedule: '{currentScheduleInfo?.Name ?? "N/A"}'\n\n" +
-                                          $"Error: {ex.Message}\n\n" +
-                                          $"StackTrace:\n{ex.StackTrace}";
+                                            $"Error: {ex.Message}\n\n" +
+                                            $"StackTrace:\n{ex.StackTrace}";
                     TaskDialog.Show("RTS Schedule Management Error", errorDetails);
                     message = ex.Message;
                     tx.RollBack();

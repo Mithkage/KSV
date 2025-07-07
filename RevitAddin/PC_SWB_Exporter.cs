@@ -1,17 +1,17 @@
 // File: PC_SWB_Exporter.cs
 // C# Revit 2024 Add-in for exporting PowerCAD SWB data to CSV
 // Includes Detail Items and Generic Annotations
+// Updated to include a file browser for saving.
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-// using Excel = Microsoft.Office.Interop.Excel; // Removed
 using System;
 using System.Collections.Generic;
 using System.Linq;
-// using System.Runtime.InteropServices; // Removed (Only needed for Excel COM Interop)
 using System.Text;
 using System.IO;
-using System.Globalization; // Added for robust number parsing
+using System.Globalization;
+using System.Windows.Forms; // Added for SaveFileDialog
 
 namespace PC_SWB_Exporter
 {
@@ -88,14 +88,14 @@ namespace PC_SWB_Exporter
             // Filter for Detail Items in the active document
             FilteredElementCollector detailItemCollector = new FilteredElementCollector(doc);
             List<Element> detailItems = detailItemCollector.OfCategory(BuiltInCategory.OST_DetailComponents)
-                                                   .WhereElementIsNotElementType() // Get instances, not types
-                                                   .ToList();
+                                                            .WhereElementIsNotElementType() // Get instances, not types
+                                                            .ToList();
 
             // Filter for Generic Annotations in the active document
             FilteredElementCollector genericAnnotationCollector = new FilteredElementCollector(doc);
             List<Element> genericAnnotations = genericAnnotationCollector.OfCategory(BuiltInCategory.OST_GenericAnnotation)
-                                                                .WhereElementIsNotElementType() // Get instances, not types
-                                                                .ToList();
+                                                                        .WhereElementIsNotElementType() // Get instances, not types
+                                                                        .ToList();
 
             // Combine both lists
             List<Element> allRelevantElements = new List<Element>();
@@ -455,10 +455,27 @@ namespace PC_SWB_Exporter
             } // End foreach loop for final logic
 
 
-            // --- Step 6: Write Output File (CSV Only) ---
-            string baseFileName = "PowerCAD_Export_SLD_Data";
-            string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            string csvFilePath = Path.Combine(desktopPath, baseFileName + ".csv");
+            // --- Step 6: Get File Path from User and Write Output File ---
+            string csvFilePath = "";
+            using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+            {
+                saveFileDialog.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
+                saveFileDialog.Title = "Save PowerCAD Export File";
+                saveFileDialog.FileName = "PowerCAD_Export_SLD_Data.csv"; // Default file name
+
+                // Show the dialog and check if the user clicked "Save"
+                if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    // Get the selected file path
+                    csvFilePath = saveFileDialog.FileName;
+                }
+                else
+                {
+                    // User cancelled the dialog, so we exit the command.
+                    return Result.Cancelled;
+                }
+            }
+
 
             bool csvSuccess = false;
             string csvError = null;
@@ -539,16 +556,12 @@ namespace PC_SWB_Exporter
                 csvError = $"Failed to write CSV file: {ex.GetType().Name} - {ex.Message}";
             }
 
-            // --- XLSX File Writing Section Removed ---
-
-
             // --- Final Reporting ---
             StringBuilder finalMessage = new StringBuilder();
             finalMessage.AppendLine("Export Process Completed.");
             finalMessage.AppendLine("---");
             if (csvSuccess) { finalMessage.AppendLine($"CSV export successful:\n{csvFilePath}"); }
             else { finalMessage.AppendLine($"CSV export FAILED: {csvError ?? "Unknown error"}"); }
-            // Removed XLSX reporting lines
 
             TaskDialog.Show("Export Results", finalMessage.ToString());
 
