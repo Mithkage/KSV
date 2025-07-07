@@ -22,6 +22,8 @@
 // - July 3, 2025: Removed duplicate 'WindowAction' enum definition to resolve CS0101 error.
 //                 The 'WindowAction' enum is now solely defined in 'InputWindow.xaml.cs'.
 // - July 3, 2025: Fixed CS0103 error by correcting typo 'solidRedRedOverride' to 'solidRedOverride'.
+// - July 4, 2025: Removed 'Clear Overrides' button from UI and corresponding logic.
+//                 Clearing overrides is now handled by submitting a blank input.
 
 using System;
 using System.Collections.Generic;
@@ -37,9 +39,7 @@ using System.Text.RegularExpressions; // Required for wildcard matching
 
 namespace RT_Isolate
 {
-    // The 'WindowAction' enum definition has been moved to 'InputWindow.xaml.cs'
-    // to avoid the CS0101 error (duplicate definition).
-    // It is still accessible here because both files are in the same 'RT_Isolate' namespace.
+    // The 'WindowAction' enum definition is in 'InputWindow.xaml.cs'.
 
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
@@ -143,15 +143,12 @@ namespace RT_Isolate
                 bool? dialogResult = inputWindow.ShowDialog();
 
                 // Determine the action based on DialogResult and the custom ActionChosen property
-                if (dialogResult == true) // User clicked OK or Clear Overrides
+                if (dialogResult == true) // User clicked OK
                 {
                     chosenAction = inputWindow.ActionChosen;
-                    if (chosenAction == WindowAction.Ok)
-                    {
-                        inputString = inputWindow.UserInput;
-                        _lastUserInput = inputString; // Store the current input for the next run
-                    }
-                    // If ClearGraphics, inputString remains empty, and _lastUserInput is not updated
+                    // If OK, inputString gets the user's input
+                    inputString = inputWindow.UserInput;
+                    _lastUserInput = inputString; // Store the current input for the next run
                 }
                 else // User clicked Cancel or closed the window (DialogResult is false or null)
                 {
@@ -165,24 +162,17 @@ namespace RT_Isolate
                 return Result.Failed;
             }
 
-            // Handle actions based on the chosen button
+            // Handle actions based on the chosen button or blank input
             if (chosenAction == WindowAction.Cancel)
             {
                 // If cancelled, just exit the command. No graphic reset.
                 return Result.Cancelled;
             }
-            else if (chosenAction == WindowAction.ClearGraphics)
-            {
-                // If "Clear Overrides" was clicked, reset all graphics and inform the user.
-                resetAllGraphics();
-                TaskDialog.Show("RT_Isolate", "All graphic overrides have been cleared from the active view.");
-                return Result.Succeeded;
-            }
 
             // If chosenAction is WindowAction.Ok, proceed with processing inputString
             if (string.IsNullOrWhiteSpace(inputString))
             {
-                // If OK was clicked but the input was blank, also reset graphics
+                // If OK was clicked but the input was blank, reset graphics
                 resetAllGraphics();
                 TaskDialog.Show("RT_Isolate", "Input was blank. All graphic overrides have been cleared from the active view.");
                 return Result.Succeeded;

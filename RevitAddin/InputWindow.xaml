@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Isolate Elements Input" Height="180" Width="500"
+        Title="RTS Isolate" Height="234" Width="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
@@ -59,7 +59,6 @@
         <Style TargetType="TextBox">
             <Setter Property="BorderBrush" Value="#FF00796B"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <!-- Removed CornerRadius as it's not a valid property for TextBox directly -->
             <Setter Property="Padding" Value="5"/>
             <Setter Property="Background" Value="White"/>
             <Setter Property="Foreground" Value="#FF333333"/>
@@ -71,7 +70,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="40"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -84,22 +83,17 @@
             Enter values to isolate elements:
         </TextBlock>
         <TextBlock Grid.Row="1" Grid.ColumnSpan="3" TextWrapping="Wrap" Margin="0,0,0,10" Foreground="#FF333333" FontSize="12">
-            Enter one or more values, separated by commas, to isolate elements by 'RTS_ID' or 'RTS_Cable_XX' parameters.
-            Example: 'C101, C102, Cable-A'
+            Enter one or more values, separated by commas. Use '*' for wildcards (e.g., 'Cable-*' or a single '*' for any non-empty value).
+            Elements are isolated by 'RTS_ID' or 'RTS_Cable_XX' parameters.
+            Leaving the input blank will clear all graphic overrides.
         </TextBlock>
 
-        <TextBox x:Name="InputTextBox" Grid.Row="2" Grid.ColumnSpan="3" MinHeight="25"/>
+        <TextBox x:Name="InputTextBox" Grid.Row="2" Grid.ColumnSpan="3" MinHeight="25" Margin="0,5,0,5"/>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0" Width="309">
-            <!-- Clear Overrides Button -->
-            <Button Content="Clear Overrides" Width="120" Height="30" Margin="0,0,10,0" Click="ClearOverrides_Click"
-                    Style="{StaticResource ModernButtonStyle}"/>
-
-            <!-- OK Button: IsDefault=true makes it react to the Return key -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,15">
             <Button Content="OK" Width="80" Height="30" Margin="0,0,10,0" Click="Ok_Click" IsDefault="True"
                     Style="{StaticResource ModernButtonStyle}"/>
 
-            <!-- Cancel Button: IsCancel=true makes it react to the Escape key -->
             <Button Content="Cancel" Width="80" Height="30" Click="Cancel_Click" IsCancel="True"
                     Style="{StaticResource ModernButtonStyle}"/>
         </StackPanel>
