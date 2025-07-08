@@ -1,4 +1,4 @@
-C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\RTS.addin
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\Doc\RTS.addin.txt
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\RTS_2022.addin
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\RTS.pdb
@@ -25,10 +25,12 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\System.ValueT
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\XLParser.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\RTS.csproj.AssemblyReference.cache
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\InputWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\PC_Extensible_Window.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\ReportSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\ScheduleSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UserSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\InputWindow.g.cs
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\PC_Extensible_Window.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\ReportSelectionWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\ScheduleSelectionWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UserSelectionWindow.g.cs

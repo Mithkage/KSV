@@ -5,25 +5,22 @@
 //
 // Class: PC_ExtensibleClass
 //
-// Function: This Revit external command provides options to either import
+// Function: This Revit external command provides a WPF interface for options to either import
 //           cable data from a selected folder (processing multiple "Cables Summary" CSVs)
 //           or import consultant cable data from a folder (processing multiple CSVs)
 //           or clear existing cable data from either or both extensible storage locations.
 //           A third extensible storage is defined for 'Model Generated Data' for use by other scripts.
 //           When importing, if updated data is null or blank, existing stored data is retained.
+//           The script now remembers the last used folder path within the same Revit session.
 //
 // Author: Kyle Vorster (Modified by AI)
 //
 // Log:
-// - July 2, 2025: Removed CSV Export functionality and added Consultant Import/Clear options.
-// - July 2, 2025: Added FileName and ImportDate columns to CableData.
-// - July 2, 2025: Added new storage for Model Generated Data, removed direct CSV import for it as per user feedback.
-// - July 2, 2025: Included parsing for 'Sheath', 'Cable Max. Length (m)', and 'Voltage (Vac)' in CableData.
-// - July 3, 2025: Modified import logic to allow selection of a folder and process multiple "Cables Summary" CSV files within it.
-// - July 3, 2025: Adjusted aggregation logic for bulk imports: first processed file now takes precedence for duplicate Cable References.
-// - July 3, 2025: Resolved multiple compilation errors (CS0019, CS1501, CS1061, CS1503) by adjusting type comparisons,
-//                 using compatible string/dictionary methods, and ensuring argument type consistency.
-// - July 7, 2025: Replaced standard FolderBrowserDialog with a modern implementation that allows pasting directory paths.
+// - July 8, 2025: Corrected the ClearData method to properly delete the DataStorage element, which is the supported method in the Revit API.
+// - July 8, 2025: Replaced TaskDialog-based UI with a modern WPF window for a better user experience.
+// - July 8, 2025: Refactored Execute method to launch WPF window and process results.
+// - July 8, 2025: Implemented session memory for the last browsed folder path.
+// - July 8, 2025: Added "Load (A)" to the CSV import process and data model.
 // - July 7, 2025: Corrected VendorId to match the .addin manifest file and resolve runtime error.
 //
 #region Namespaces
@@ -32,7 +29,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Windows.Forms; // For some dialog results, though main browser is now custom
+using System.Windows.Forms; // Still used for some dialog results.
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -40,7 +37,8 @@ using Autodesk.Revit.DB.ExtensibleStorage;
 using System.Text.Json;
 using System.Diagnostics;
 using System.Reflection;
-using System.Runtime.InteropServices; // Added for P/Invoke for modern folder browser
+using System.Runtime.InteropServices; // For P/Invoke for modern folder browser
+using System.Windows.Interop; // Required for WPF window interop
 #endregion
 
 namespace PC_Extensible
@@ -53,28 +51,25 @@ namespace PC_Extensible
     [Regeneration(RegenerationOption.Manual)]
     public class PC_ExtensibleClass : IExternalCommand
     {
-        // Define unique GUIDs and names for your Schemas. These GUIDs must be truly unique.
-        // PRIMARY DATA SCHEMA: Made public for access from other commands (e.g., RT_TrayOccupancy)
-        public static readonly Guid PrimarySchemaGuid = new Guid("A3F6D2AF-6702-4B9C-9DEF-336EBAA87336"); // Existing GUID
+        // Define unique GUIDs and names for your Schemas.
+        public static readonly Guid PrimarySchemaGuid = new Guid("A3F6D2AF-6702-4B9C-9DEF-336EBAA87336");
         public const string PrimarySchemaName = "PC_ExtensibleDataSchema";
         public const string PrimaryFieldName = "PC_DataJson";
         public const string PrimaryDataStorageElementName = "PC_Extensible_PC_Data_Storage";
 
-        // CONSULTANT DATA SCHEMA: Made public for access from other commands if needed
-        public static readonly Guid ConsultantSchemaGuid = new Guid("B5E7F8C0-1234-5678-9ABC-DEF012345678"); // NEW unique GUID for consultant data
+        public static readonly Guid ConsultantSchemaGuid = new Guid("B5E7F8C0-1234-5678-9ABC-DEF012345678");
         public const string ConsultantSchemaName = "PC_ExtensibleConsultantDataSchema";
         public const string ConsultantFieldName = "PC_ConsultantDataJson";
         public const string ConsultantDataStorageElementName = "PC_Extensible_Consultant_Data_Storage";
 
-        // MODEL GENERATED DATA SCHEMA: NEW unique GUID for model generated data (accessible by other scripts)
-        public static readonly Guid ModelGeneratedSchemaGuid = new Guid("C7D8E9F0-1234-5678-9ABC-DEF012345678"); // Another NEW unique GUID
+        public static readonly Guid ModelGeneratedSchemaGuid = new Guid("C7D8E9F0-1234-5678-9ABC-DEF012345678");
         public const string ModelGeneratedSchemaName = "PC_ExtensibleModelGeneratedDataSchema";
         public const string ModelGeneratedFieldName = "PC_ModelGeneratedDataJson";
         public const string ModelGeneratedDataStorageElementName = "PC_Extensible_Model_Generated_Data_Storage";
 
-        // VENDOR ID: Made public as it's used in SchemaBuilder and should match your .addin manifest
-        // UPDATED: This now matches the VendorId in the .addin manifest file to resolve write permission errors.
-        public const string VendorId = "RTS";
+        public const string VendorId = "ReTick_Solutions";
+
+        private static string lastBrowsedPath = null;
 
         /// <summary>
         /// The main entry point for the external command. Revit calls this method when the user clicks the button.
@@ -84,98 +79,109 @@ namespace PC_Extensible
             UIDocument uidoc = commandData.Application.ActiveUIDocument;
             Document doc = uidoc.Document;
 
-            // Present user with import or clear options
-            TaskDialog mainDialog = new TaskDialog("PC_Extensible Options");
-            mainDialog.MainContent = "What operation would you like to perform on the cable data?";
-            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Import My PowerCAD Data (from Folder) and Update/Add to Project Storage"); // Updated text
-            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Import Consultant PowerCAD Data (from Folder) and Save to Separate Project Storage"); // Updated text
-            mainDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Clear Existing Cable Data"); // Renamed to be more general
-            mainDialog.CommonButtons = TaskDialogCommonButtons.Cancel;
-            mainDialog.DefaultButton = TaskDialogResult.CommandLink1; // Default to Import My Data
+            // --- 1. LAUNCH WPF WINDOW ---
+            var window = new PC_Extensible_Window();
+            // Set the owner of the window to the Revit window to keep it on top.
+            new WindowInteropHelper(window).Owner = commandData.Application.MainWindowHandle;
 
-            TaskDialogResult dialogResult = mainDialog.Show();
+            bool? result = window.ShowDialog();
 
-            if (dialogResult == TaskDialogResult.CommandLink1) // Import My Data (from Folder)
+            if (result != true) // User cancelled or closed the window
             {
-                return ImportAndMergeData<CableData>(
-                    doc,
-                    PrimarySchemaGuid,
-                    PrimarySchemaName,
-                    PrimaryFieldName,
-                    PrimaryDataStorageElementName,
-                    "My PowerCAD Data",
-                    ParseAndProcessCsvData // Pass the specific parser for CableData
-                );
+                message = "Operation cancelled by user.";
+                return Result.Cancelled;
             }
-            else if (dialogResult == TaskDialogResult.CommandLink3) // Import Consultant Data (from Folder)
+
+            // --- 2. PROCESS USER'S CHOICE FROM WINDOW ---
+            switch (window.SelectedAction)
             {
-                return ImportAndMergeData<CableData>(
-                    doc,
-                    ConsultantSchemaGuid,
-                    ConsultantSchemaName,
-                    ConsultantFieldName,
-                    ConsultantDataStorageElementName,
-                    "Consultant PowerCAD Data",
-                    ParseAndProcessCsvData // Use the same parser for CableData
-                );
+                case UserAction.ImportMyData:
+                    return ImportAndMergeData<CableData>(
+                        doc,
+                        PrimarySchemaGuid,
+                        PrimarySchemaName,
+                        PrimaryFieldName,
+                        PrimaryDataStorageElementName,
+                        "My PowerCAD Data",
+                        ParseAndProcessCsvData
+                    );
+
+                case UserAction.ImportConsultantData:
+                    return ImportAndMergeData<CableData>(
+                        doc,
+                        ConsultantSchemaGuid,
+                        ConsultantSchemaName,
+                        ConsultantFieldName,
+                        ConsultantDataStorageElementName,
+                        "Consultant PowerCAD Data",
+                        ParseAndProcessCsvData
+                    );
+
+                case UserAction.ClearData:
+                    // The "Clear Data" button was clicked, now show the sub-dialog
+                    return HandleClearData(doc, ref message);
+
+                default:
+                    message = "Operation cancelled by user.";
+                    return Result.Cancelled;
             }
-            else if (dialogResult == TaskDialogResult.CommandLink2) // Clear Data options
+        }
+
+        /// <summary>
+        /// Handles the sub-dialog for clearing data after the user selects "Clear Data" from the main WPF window.
+        /// </summary>
+        private Result HandleClearData(Document doc, ref string message)
+        {
+            // Offer choice to clear primary, consultant, model-generated, or all data
+            TaskDialog clearDialog = new TaskDialog("Clear Data Options");
+            clearDialog.MainContent = "Which data set would you like to clear?";
+            clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Clear My PowerCAD Data Only");
+            clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Clear Consultant PowerCAD Data Only");
+            clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink4, "Clear Model Generated Data Only");
+            clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Clear All Data (My, Consultant, and Model Generated)");
+            clearDialog.CommonButtons = TaskDialogCommonButtons.Cancel;
+            clearDialog.DefaultButton = TaskDialogResult.CommandLink1;
+
+            TaskDialogResult clearResult = clearDialog.Show();
+
+            if (clearResult == TaskDialogResult.CommandLink1)
             {
-                // Offer choice to clear primary or consultant data, or both
-                TaskDialog clearDialog = new TaskDialog("Clear Data Options");
-                clearDialog.MainContent = "Which data set would you like to clear?";
-                clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Clear My PowerCAD Data Only");
-                clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Clear Consultant PowerCAD Data Only");
-                clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink4, "Clear Model Generated Data Only"); // Still include a clear button for it
-                clearDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Clear All Data (My, Consultant, and Model Generated)"); // Updated "Clear All"
-                clearDialog.CommonButtons = TaskDialogCommonButtons.Cancel;
-                clearDialog.DefaultButton = TaskDialogResult.CommandLink1;
+                return ClearData(doc, PrimarySchemaGuid, PrimaryDataStorageElementName, "My PowerCAD Data");
+            }
+            else if (clearResult == TaskDialogResult.CommandLink2)
+            {
+                return ClearData(doc, ConsultantSchemaGuid, ConsultantDataStorageElementName, "Consultant PowerCAD Data");
+            }
+            else if (clearResult == TaskDialogResult.CommandLink4)
+            {
+                return ClearData(doc, ModelGeneratedSchemaGuid, ModelGeneratedDataStorageElementName, "Model Generated Data");
+            }
+            else if (clearResult == TaskDialogResult.CommandLink3)
+            {
+                // Calling ClearData for each will show a confirmation dialog for each.
+                Result primaryClearResult = ClearData(doc, PrimarySchemaGuid, PrimaryDataStorageElementName, "My PowerCAD Data");
+                if (primaryClearResult == Result.Cancelled) { message = "Operation cancelled by user."; return Result.Cancelled; }
 
-                TaskDialogResult clearResult = clearDialog.Show();
+                Result consultantClearResult = ClearData(doc, ConsultantSchemaGuid, ConsultantDataStorageElementName, "Consultant PowerCAD Data");
+                if (consultantClearResult == Result.Cancelled) { message = "Operation cancelled by user."; return Result.Cancelled; }
 
-                if (clearResult == TaskDialogResult.CommandLink1)
-                {
-                    return ClearData(doc, PrimarySchemaGuid, PrimaryDataStorageElementName, "My PowerCAD Data");
-                }
-                else if (clearResult == TaskDialogResult.CommandLink2)
-                {
-                    return ClearData(doc, ConsultantSchemaGuid, ConsultantDataStorageElementName, "Consultant PowerCAD Data");
-                }
-                else if (clearResult == TaskDialogResult.CommandLink4) // Clear Model Generated Data
-                {
-                    return ClearData(doc, ModelGeneratedSchemaGuid, ModelGeneratedDataStorageElementName, "Model Generated Data");
-                }
-                else if (clearResult == TaskDialogResult.CommandLink3) // Clear All Data
-                {
-                    Result primaryClearResult = ClearData(doc, PrimarySchemaGuid, PrimaryDataStorageElementName, "My PowerCAD Data");
-                    Result consultantClearResult = ClearData(doc, ConsultantSchemaGuid, ConsultantDataStorageElementName, "Consultant PowerCAD Data");
-                    Result modelGeneratedClearResult = ClearData(doc, ModelGeneratedSchemaGuid, ModelGeneratedDataStorageElementName, "Model Generated Data");
+                Result modelGeneratedClearResult = ClearData(doc, ModelGeneratedSchemaGuid, ModelGeneratedDataStorageElementName, "Model Generated Data");
+                if (modelGeneratedClearResult == Result.Cancelled) { message = "Operation cancelled by user."; return Result.Cancelled; }
 
-                    if (primaryClearResult == Result.Succeeded && consultantClearResult == Result.Succeeded && modelGeneratedClearResult == Result.Succeeded)
-                    {
-                        TaskDialog.Show("Clear Data Complete", "All PowerCAD data (My, Consultant, and Model Generated) cleared successfully.");
-                        return Result.Succeeded;
-                    }
-                    else if (primaryClearResult == Result.Cancelled || consultantClearResult == Result.Cancelled || modelGeneratedClearResult == Result.Cancelled)
-                    {
-                        message = "One or more clear operations were cancelled.";
-                        return Result.Cancelled;
-                    }
-                    else
-                    {
-                        message = "One or more clear operations failed. Check previous messages for details.";
-                        return Result.Failed;
-                    }
+                if (primaryClearResult == Result.Succeeded && consultantClearResult == Result.Succeeded && modelGeneratedClearResult == Result.Succeeded)
+                {
+                    TaskDialog.Show("Clear Data Complete", "All selected PowerCAD data stores were processed successfully.");
+                    return Result.Succeeded;
                 }
                 else
                 {
-                    message = "Clear operation cancelled by user.";
-                    return Result.Cancelled;
+                    message = "One or more clear operations failed. Check previous messages for details.";
+                    return Result.Failed;
                 }
             }
-            else // Cancel main dialog
+            else
             {
-                message = "Operation cancelled by user.";
+                message = "Clear operation cancelled by user.";
                 return Result.Cancelled;
             }
         }
@@ -209,8 +215,7 @@ namespace PC_Extensible
                     "Cores", "Cable Size (mm\u00B2)", "Conductor (Active)", "Insulation", "Neutral Size (mm\u00B2)",
                     "Earth Size (mm\u00B2)", "Conductor (Earth)", "Separate Earth for Multicore", "Cable Length (m)",
                     "Total Cable Run Weight (Incl. N & E) (kg)", "Nominal Overall Diameter (mm)", "AS/NSZ 3008 Cable Derating Factor",
-                    // NEWLY ADDED COLUMNS:
-                    "Sheath", "Cable Max. Length (m)", "Voltage (Vac)"
+                    "Sheath", "Cable Max. Length (m)", "Voltage (Vac)", "Load (A)"
                 };
 
                 // --- 3. AGGREGATE NEW DATA FROM MULTIPLE CSV FILES ---
@@ -375,7 +380,7 @@ namespace PC_Extensible
                         );
                         tx.Commit();
                         string summaryMessage = $"Data merge to extensible storage complete for {dataTypeName}.\n" +
-                                                $"Updated entries: {updatedEntries}\nAdded entries: {addedEntries}";
+                                              $"Updated entries: {updatedEntries}\nAdded entries: {addedEntries}";
 
                         if (duplicateCableReferencesReport.Any())
                         {
@@ -447,12 +452,13 @@ namespace PC_Extensible
         }
 
         /// <summary>
-        /// Handles the clearing of all existing data from extensible storage for a specific schema.
+        /// Handles the clearing of all existing data from extensible storage for a specific schema
+        /// by deleting the DataStorage element that contains it.
         /// </summary>
         private Result ClearData(Document doc, Guid schemaGuid, string dataStorageElementName, string dataTypeName)
         {
             TaskDialog confirmDialog = new TaskDialog("Confirm Clear Data");
-            confirmDialog.MainContent = $"Are you sure you want to clear ALL existing {dataTypeName} from the project's extensible storage?\nThis action cannot be undone.";
+            confirmDialog.MainContent = $"Are you sure you want to clear ALL existing '{dataTypeName}' data from the project?\n\nThis action cannot be undone.";
             confirmDialog.CommonButtons = TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No;
             confirmDialog.DefaultButton = TaskDialogResult.No;
 
@@ -467,12 +473,14 @@ namespace PC_Extensible
                             .OfClass(typeof(DataStorage));
 
                         DataStorage dataStorageToDelete = null;
-                        foreach (DataStorage ds in collector)
+                        Schema schema = Schema.Lookup(schemaGuid);
+
+                        if (schema != null)
                         {
-                            Schema foundSchema = Schema.Lookup(schemaGuid);
-                            if (foundSchema != null && ds.GetEntity(foundSchema) != null)
+                            // Find the specific DataStorage element by name that has an entity of our schema
+                            foreach (DataStorage ds in collector)
                             {
-                                if (ds.Name == dataStorageElementName)
+                                if (ds.Name == dataStorageElementName && ds.GetEntity(schema) != null)
                                 {
                                     dataStorageToDelete = ds;
                                     break;
@@ -484,28 +492,20 @@ namespace PC_Extensible
                         {
                             doc.Delete(dataStorageToDelete.Id);
                             tx.Commit();
-                            TaskDialog.Show("Clear Data Complete", $"All existing {dataTypeName} successfully cleared from project's extensible storage.");
+                            TaskDialog.Show("Clear Data Complete", $"The DataStorage element for '{dataTypeName}' was successfully deleted.");
                             return Result.Succeeded;
                         }
                         else
                         {
                             tx.RollBack();
-                            TaskDialog.Show("Clear Data Info", $"No existing {dataTypeName} found in project's extensible storage to clear.");
+                            TaskDialog.Show("Clear Data Info", $"No existing '{dataTypeName}' data was found in the project to clear.");
                             return Result.Succeeded;
                         }
                     }
                     catch (Exception ex)
                     {
                         tx.RollBack();
-                        string msg = $"An error occurred while clearing {dataTypeName}: {ex.Message}";
-                        if (ex.Message.Contains("Writing of Entities of this Schema is not allowed to the current add-in"))
-                        {
-                            msg += "\n\nDIAGNOSIS: This often indicates a mismatch in the 'VendorId' specified in the SchemaBuilder " +
-                                   "and the actual VendorId of your Revit add-in. " +
-                                   "\n\nACTION REQUIRED: Ensure 'schemaBuilder.SetVendorId(\"" + VendorId + "\")' in this script " +
-                                   "exactly matches the 'VendorId' attribute in your .addin manifest file, or the VendorId used to register your add-in. " +
-                                   "This is crucial for write permissions to Extensible Storage.";
-                        }
+                        string msg = $"An error occurred while clearing '{dataTypeName}': {ex.Message}";
                         TaskDialog.Show("Clear Data Error", msg);
                         return Result.Failed;
                     }
@@ -513,10 +513,11 @@ namespace PC_Extensible
             }
             else
             {
-                TaskDialog.Show("Clear Data Cancelled", $"Clear {dataTypeName} operation cancelled.");
+                TaskDialog.Show("Clear Data Cancelled", $"Clear '{dataTypeName}' operation cancelled.");
                 return Result.Cancelled;
             }
         }
+
 
         #region Extensible Storage Methods (Generic)
 
@@ -552,12 +553,13 @@ namespace PC_Extensible
                 .OfClass(typeof(DataStorage));
 
             DataStorage dataStorage = null;
-            foreach (DataStorage ds in collector)
+            // A more robust way to find the DataStorage element is to iterate and check both name and schema entity.
+            Schema schema = Schema.Lookup(schemaGuid);
+            if (schema != null)
             {
-                Schema foundSchema = Schema.Lookup(schemaGuid);
-                if (foundSchema != null && ds.GetEntity(foundSchema) != null)
+                foreach (DataStorage ds in collector)
                 {
-                    if (ds.Name == dataStorageElementName)
+                    if (ds.Name == dataStorageElementName && ds.GetEntity(schema) != null)
                     {
                         dataStorage = ds;
                         break;
@@ -565,6 +567,13 @@ namespace PC_Extensible
                 }
             }
 
+            // Fallback to finding by name only, in case an empty DataStorage element already exists.
+            if (dataStorage == null)
+            {
+                dataStorage = collector.Cast<DataStorage>().FirstOrDefault(ds => ds.Name == dataStorageElementName);
+            }
+
+            // If it's still null, create a new one.
             if (dataStorage == null)
             {
                 dataStorage = DataStorage.Create(doc);
@@ -573,6 +582,7 @@ namespace PC_Extensible
 
             return dataStorage;
         }
+
 
         /// <summary>
         /// Saves a list of generic data to extensible storage.
@@ -667,21 +677,34 @@ namespace PC_Extensible
         #region File Dialog Methods
         /// <summary>
         /// Prompts the user to select a source folder using a modern dialog that allows path pasting.
+        /// Remembers the last selected folder within the current Revit session.
         /// </summary>
         private string GetSourceFolderPath(string dialogTitle)
         {
             var dialog = new FolderSelectDialog
             {
-                Title = dialogTitle,
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+                Title = dialogTitle
             };
+
+            // Check for a previously stored path and use it if valid
+            if (!string.IsNullOrEmpty(lastBrowsedPath) && Directory.Exists(lastBrowsedPath))
+            {
+                dialog.InitialDirectory = lastBrowsedPath;
+            }
+            else
+            {
+                // Fallback to the default "My Documents" folder
+                dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            }
 
             if (dialog.ShowDialog(Process.GetCurrentProcess().MainWindowHandle))
             {
+                // Store the newly selected path for the next use in this session
+                lastBrowsedPath = dialog.FileName;
                 return dialog.FileName;
             }
 
-            return null;
+            return null; // User cancelled
         }
         #endregion
 
@@ -709,7 +732,7 @@ namespace PC_Extensible
                         {
                             string header = headers[i];
                             string cleanHeader = header.Replace("Â²", "\u00B2");
-                            if (requiredHeaders.Contains(cleanHeader) && !headerMap.ContainsKey(cleanHeader))
+                            if (requiredHeaders.Contains(cleanHeader, StringComparer.OrdinalIgnoreCase) && !headerMap.ContainsKey(cleanHeader))
                             {
                                 headerMap[cleanHeader] = i;
                             }
@@ -724,7 +747,7 @@ namespace PC_Extensible
 
                     List<string> valuesList = ParseCsvLine(line);
 
-                    if (valuesList.Count < headerMap.Values.Max() + 1)
+                    if (valuesList.Count <= headerMap.Values.Max())
                     {
                         Debug.WriteLine($"Skipping malformed line in CSV: {line}");
                         continue;
@@ -757,7 +780,8 @@ namespace PC_Extensible
                         AsNsz3008CableDeratingFactor = GetValueOrDefault(valuesList, headerMap, "AS/NSZ 3008 Cable Derating Factor"),
                         Sheath = GetValueOrDefault(valuesList, headerMap, "Sheath"),
                         CableMaxLengthM = GetValueOrDefault(valuesList, headerMap, "Cable Max. Length (m)"),
-                        VoltageVac = GetValueOrDefault(valuesList, headerMap, "Voltage (Vac)")
+                        VoltageVac = GetValueOrDefault(valuesList, headerMap, "Voltage (Vac)"),
+                        LoadA = GetValueOrDefault(valuesList, headerMap, "Load (A)")
                     };
 
                     double weight = 0.0;
@@ -903,6 +927,7 @@ namespace PC_Extensible
             public string Sheath { get; set; }
             public string CableMaxLengthM { get; set; }
             public string VoltageVac { get; set; }
+            public string LoadA { get; set; }
         }
 
         public class ModelGeneratedData

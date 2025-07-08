@@ -103,7 +103,7 @@
 		<EmbeddedResource Include="Resources\**\*.*" />
 	</ItemGroup>
 	<ItemGroup>
-	  <None Update="RTS.addin">
+	  <None Update="Doc\RTS.addin.txt">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="RTS_2022.addin">
