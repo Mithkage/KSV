@@ -1,4 +1,6 @@
-C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2022\net48\Doc\RTS.addin.txt
+<<<<<<< HEAD
+=======
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2022\net48\RTS.addin
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2022\net48\RTS_2022.addin
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2022\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2022\net48\RTS.pdb
@@ -23,14 +25,13 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2022\net48\System.Text
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2022\net48\System.Threading.Tasks.Extensions.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2022\net48\System.ValueTuple.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2022\net48\XLParser.dll
+>>>>>>> parent of b045e16 (Stable code with RSGx report update)
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.csproj.AssemblyReference.cache
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\InputWindow.baml
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\PC_Extensible_Window.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\ReportSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\ScheduleSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UserSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\InputWindow.g.cs
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\PC_Extensible_Window.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\ReportSelectionWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\ScheduleSelectionWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UserSelectionWindow.g.cs
@@ -39,6 +40,3 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.g.resou
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.GeneratedMSBuildEditorConfig.editorconfig
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.csproj.CoreCompileInputs.cache
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.sourcelink.json
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.csproj.Up2Date
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.dll
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.pdb

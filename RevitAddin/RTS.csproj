@@ -103,12 +103,15 @@
 		<EmbeddedResource Include="Resources\**\*.*" />
 	</ItemGroup>
 	<ItemGroup>
-	  <None Update="Doc\RTS.addin.txt">
+	  <None Update="RTS.addin">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="RTS_2022.addin">
+	  <None Update="Addin\RTS_2022.addin">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="App\" />
 	</ItemGroup>
 
 	<!-- Post-Build Target: Copies files ONLY for Release configurations -->

@@ -1,0 +1,42 @@
+<!--
+File: RTS.addin
+
+Description: This manifest file registers the ReTick Solutions (RTS) Revit Add-in
+             with Autodesk Revit. It defines the application-level entry point
+             (RTS.App) which is responsible for creating the custom ribbon tab,
+             panels, and buttons for all RTS tools within the Revit UI.
+
+Function: Registers the RTS custom tools with Revit.
+
+Author: ReTick Solutions
+
+Log:
+- July 2, 2025: Initial creation of RTS.addin file.
+- July 2, 2025: Updated <Name> to "RTS Tools" and <VendorDescription> to "ReTick Solutions Pty Ltd".
+-->
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+	<AddIn Type="Application">
+		<Name>RTS</Name>
+		<Assembly>RTS.dll</Assembly>
+		<!-- UPDATED: A new, unique GUID to prevent conflicts with other add-ins. -->
+		<AddInId>E8A2D6C0-2B3D-4E5F-8A9B-C0D1E2F3A4B5</AddInId>
+		<FullClassName>RTS.App</FullClassName>
+		<VendorId>RTS</VendorId>
+		<VendorDescription>ReTick Solutions, www.reticksolutions.com</VendorDescription>
+	</AddIn>
+</RevitAddIns>
+
+
+<!-- Additional AddIn entries for IExternalCommand implementations would go here if not handled by RTS.App -->
+	<!-- For example, if you had individual command .addin entries, they would be structured like this:
+    <AddIn Type="Command">
+        <Assembly>C:\Path\To\Your\Compiled\DLL\YourCommand.dll</Assembly>
+        <AddInId>ANOTHER_UNIQUE_GUID</AddInId>
+        <FullClassName>YourNamespace.YourCommandClass</FullClassName>
+        <Text>Your Command Name</Text>
+        <Description>Description of your command.</Description>
+        <VendorId>ReTick_Solutions</VendorId>
+        <VendorText>ReTick Solutions Pty Ltd</VendorText>
+    </AddIn>
+    -->

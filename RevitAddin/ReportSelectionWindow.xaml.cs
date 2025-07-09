@@ -16,33 +16,15 @@
  * Date       | Version | Author | Description
  * -----------|---------|--------|----------------------------------------------------------------------------------------------------
  * 2025-07-04 | 1.0.0   | Gemini | Initial implementation to address column and data mixing in RSGx report.
- * |         |         |        | - Introduced explicit ordering for RSGxCableData properties in ExportDataToCsvGeneric.
- * |         |         |        | - Added `orderedPropertiesToExport` to ensure CSV column order matches defined headers.
- * |         |         |        | - Included a check for missing properties in RSGxCableData to enhance robustness.
+ * |         |         | - Introduced explicit ordering for RSGxCableData properties in ExportDataToCsvGeneric.
+ * |         |         | - Added `orderedPropertiesToExport` to ensure CSV column order matches defined headers.
+ * |         |         | - Included a check for missing properties in RSGxCableData to enhance robustness.
  * 2025-07-04 | 1.0.1   | Gemini | Added file header comments and a change log as requested.
- * |         |         |        | - Included detailed description of file purpose and function.
+ * |         |         | - Included detailed description of file purpose and function.
  * 2025-07-07 | 1.1.0   | Gemini | Replaced WindowsAPICodePack folder browser with standard System.Windows.Forms.FolderBrowserDialog.
- * |         |         |        | - This removes the final dependency on the conflicting library to resolve build and runtime errors.
- * |         |         |        | - Added a Win32Window helper class to properly parent the dialog to the Revit window.
+ * |         |         | - This removes the final dependency on the conflicting library to resolve build and runtime errors.
+ * |         |         | - Added a Win32Window helper class to properly parent the dialog to the Revit window.
  * 2025-07-07 | 1.1.1   | Gemini | Resolved ambiguous reference error for IWin32Window by specifying the System.Windows.Forms namespace.
- * 2025-07-08 | 1.2.0   | Gemini | Updated RSGx Cable Schedule generation logic based on user feedback.
- * |         |         |        | - Relabeled 'Cable Type' header to 'Cores' and mapped it to the 'Cores' data field.
- * |         |         |        | - Implemented conditional logic for 'Fire Rating' based on the cable's 'Type' property.
- * |         |         |        | - Implemented conditional logic for 'Update Summary' based on cable length differences.
- * |         |         |        | - Removed 'Installation Configuration' column from the report.
- * 2025-07-08 | 1.3.0   | Gemini | Enhanced RSGx report data formatting.
- * |         |         |        | - 'Maximum Length' is now rounded down to the nearest integer.
- * |         |         |        | - 'Cable Description' is now a concatenation of key cable properties, omitting nulls.
- * 2025-07-08 | 1.4.0   | Gemini | Refined RSGx report data formatting.
- * |         |         |        | - Appended "mm²" unit to 'Active Cable Size' in the 'Cable Description'.
- * |         |         |        | - Set 'Voltage Rating' to null if 'Destination Device (ID)' is not available.
- * 2025-07-08 | 1.5.0   | Gemini | Added "Load (A)" column to the RSGx Cable Schedule report.
- * |         |         |        | - Data is sourced from the new LoadA property in the primary data store.
- * 2025-07-08 | 1.6.0   | Gemini | Added Maximum Demand (MD) comparison to the "Update Summary" field.
- * |         |         |        | - Compares "Load (A)" between primary and consultant data.
- * 2025-07-08 | 1.7.0   | Gemini | Added "Number of Earth Cables" column to the RSGx report.
- * |         |         |        | - Column inserted before "Earth Size (mm2)".
- * 2025-07-08 | 1.8.0   | Gemini | Removed the "No." column (related to neutral cables) from the RSGx report.
  */
 
 #region Namespaces
@@ -54,10 +36,10 @@ using System.Text;
 using System.Windows;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using PC_Extensible;
 using System.Text.RegularExpressions;
 using System.Windows.Forms; // For FolderBrowserDialog
-using System.Windows.Interop; // For WindowInteropHelper
+using System.Windows.Interop;
+using RTS.Commands; // For WindowInteropHelper
 #endregion
 
 namespace RTS_Reports
@@ -168,82 +150,18 @@ namespace RTS_Reports
                     string destinationDeviceID = primaryInfo?.To ?? consultantInfo?.To ?? "N/A";
                     string rsgxRouteLength = primaryInfo?.CableLength ?? "N/A";
                     string djvDesignLength = consultantInfo?.CableLength ?? "N/A";
-
                     string cableLengthDifference = "N/A";
                     if (double.TryParse(rsgxRouteLength, out double rsgxLen) && double.TryParse(djvDesignLength, out double djvLen))
                     {
                         cableLengthDifference = (rsgxLen - djvLen).ToString("F1");
                     }
-
                     string cableSizeChangeYN = "N/A";
                     if (double.TryParse(rsgxRouteLength, out rsgxLen) && double.TryParse(djvDesignLength, out djvLen))
                     {
                         cableSizeChangeYN = (rsgxLen == djvLen) ? "N" : "Y";
                     }
-
                     string earthIncludedRaw = primaryInfo?.SeparateEarthForMulticore;
                     string earthIncludedFormatted = string.Equals(earthIncludedRaw, "No", StringComparison.OrdinalIgnoreCase) ? "Yes" : "No";
-
-                    string fireRatingValue = "";
-                    if (primaryInfo?.CableType != null && primaryInfo.CableType.IndexOf("Fire", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        fireRatingValue = "WS52W";
-                    }
-
-                    var summaryParts = new List<string>();
-                    if (double.TryParse(cableLengthDifference, out double diff))
-                    {
-                        if (diff > 0) summaryParts.Add("Length increased.");
-                        else if (diff < 0) summaryParts.Add("Length decreased.");
-                        else summaryParts.Add("Length consistent.");
-                    }
-
-                    string primaryLoadStr = primaryInfo?.LoadA;
-                    string consultantLoadStr = consultantInfo?.LoadA;
-                    if (double.TryParse(primaryLoadStr, out double primaryLoad) && double.TryParse(consultantLoadStr, out double consultantLoad))
-                    {
-                        if (primaryLoad < consultantLoad) summaryParts.Add("MD decreased");
-                        else if (primaryLoad > consultantLoad) summaryParts.Add("MD increased");
-                        else summaryParts.Add("MD un-changed");
-                    }
-                    else
-                    {
-                        summaryParts.Add("N/A");
-                    }
-                    string updateSummaryValue = string.Join(" | ", summaryParts.Where(s => !string.IsNullOrEmpty(s)));
-
-
-                    string maxLengthPermissible = primaryInfo?.CableMaxLengthM ?? "N/A";
-                    if (double.TryParse(maxLengthPermissible, out double maxLen))
-                    {
-                        maxLengthPermissible = Math.Floor(maxLen).ToString();
-                    }
-                    else
-                    {
-                        maxLengthPermissible = "N/A";
-                    }
-
-                    string voltageRating = "0.6/1kV";
-                    if (destinationDeviceID == "N/A")
-                    {
-                        voltageRating = ""; // Set to null/empty
-                    }
-
-                    var descriptionParts = new List<string>();
-                    string activeCableSize = primaryInfo?.ActiveCableSize ?? "N/A";
-                    string cores = primaryInfo?.Cores ?? "N/A";
-                    string type = primaryInfo?.CableType ?? "N/A";
-                    string sheath = primaryInfo?.Sheath ?? "N/A";
-                    string insulation = primaryInfo?.Insulation ?? "N/A";
-
-                    if (!string.IsNullOrEmpty(activeCableSize) && activeCableSize != "N/A") descriptionParts.Add($"{activeCableSize}mm²");
-                    if (!string.IsNullOrEmpty(cores) && cores != "N/A") descriptionParts.Add(cores);
-                    if (!string.IsNullOrEmpty(voltageRating) && voltageRating != "N/A") descriptionParts.Add(voltageRating);
-                    if (!string.IsNullOrEmpty(type) && type != "N/A") descriptionParts.Add(type);
-                    if (!string.IsNullOrEmpty(sheath) && sheath != "N/A") descriptionParts.Add(sheath);
-                    if (!string.IsNullOrEmpty(insulation) && insulation != "N/A") descriptionParts.Add(insulation);
-                    if (!string.IsNullOrEmpty(fireRatingValue) && fireRatingValue != "N/A") descriptionParts.Add(fireRatingValue);
-                    string cableDescriptionValue = string.Join(" | ", descriptionParts);
 
                     reportData.Add(new RSGxCableData
                     {
@@ -254,27 +172,27 @@ namespace RTS_Reports
                         RSGxRouteLengthM = rsgxRouteLength,
                         DJVDesignLengthM = djvDesignLength,
                         CableLengthDifferenceM = cableLengthDifference,
-                        MaxLengthPermissibleForCableSizeM = maxLengthPermissible,
-                        ActiveCableSizeMM2 = activeCableSize,
+                        MaxLengthPermissibleForCableSizeM = primaryInfo?.CableMaxLengthM ?? "N/A",
+                        ActiveCableSizeMM2 = primaryInfo?.ActiveCableSize ?? "N/A",
                         NoOfSets = primaryInfo?.NumberOfActiveCables ?? "N/A",
                         NeutralCableSizeMM2 = primaryInfo?.NeutralCableSize ?? "N/A",
-                        Cores = cores,
+                        No = primaryInfo?.NumberOfNeutralCables ?? "N/A",
+                        CableType = primaryInfo?.CableType ?? "N/A",
                         ConductorType = primaryInfo?.ConductorActive ?? "N/A",
                         CableSizeChangeFromDesignYN = cableSizeChangeYN,
                         PreviousDesignSize = consultantInfo?.ActiveCableSize ?? "N/A",
                         EarthIncludedYesNo = earthIncludedFormatted,
-                        NumberOfEarthCables = primaryInfo?.NumberOfEarthCables ?? "N/A",
                         EarthSizeMM2 = primaryInfo?.EarthCableSize ?? "N/A",
                         Voltage = primaryInfo?.VoltageVac ?? "N/A",
-                        VoltageRating = voltageRating,
-                        Type = type,
-                        SheathConstruction = sheath,
-                        InsulationConstruction = insulation,
-                        FireRating = fireRatingValue,
-                        LoadA = primaryInfo?.LoadA ?? "N/A",
-                        CableDescription = cableDescriptionValue,
+                        VoltageRating = "0.6/1kV",
+                        Type = primaryInfo?.CableType ?? "N/A",
+                        SheathConstruction = primaryInfo?.Sheath ?? "N/A",
+                        InsulationConstruction = primaryInfo?.Insulation ?? "N/A",
+                        FireRating = "WS52W",
+                        InstallationConfiguration = "N/A",
+                        CableDescription = "N/A",
                         Comments = modelInfo?.Comment ?? "N/A",
-                        UpdateSummary = updateSummaryValue
+                        UpdateSummary = "N/A"
                     });
                 }
 
@@ -373,10 +291,10 @@ namespace RTS_Reports
                     "Row Number", "Cable Tag", "Origin Device (ID)", "Destination Device (ID)",
                     "RSGx Route Length (m)", "DJV Design Length (m)", "Cable Length Difference (m)",
                     "Maximum Length permissible for Cable Size (m)", "Active Cable Size (mm²)", "No. of Sets",
-                    "Neutral Cable Size (mm²)", "Cores", "Conductor Type",
+                    "Neutral Cable Size (mm²)", "No.", "Cable Type", "Conductor Type",
                     "Cable size Change from Design (Y/N)", "Previous Design Size", "Earth Included (Yes / No)",
-                    "Number of Earth Cables", "Earth Size (mm2)", "Voltage", "Voltage Rating", "Type", "Sheath Construction",
-                    "Insulation Construction", "Fire Rating", "Load (A)",
+                    "Earth Size (mm2)", "Voltage", "Voltage Rating", "Type", "Sheath Construction",
+                    "Insulation Construction", "Fire Rating", "Installation Configuration",
                     "Cable Description", "Comments", "Update Summary"
                 });
 
@@ -384,10 +302,10 @@ namespace RTS_Reports
                     "RowNumber", "CableTag", "OriginDeviceID", "DestinationDeviceID",
                     "RSGxRouteLengthM", "DJVDesignLengthM", "CableLengthDifferenceM",
                     "MaxLengthPermissibleForCableSizeM", "ActiveCableSizeMM2", "NoOfSets",
-                    "NeutralCableSizeMM2", "Cores", "ConductorType",
+                    "NeutralCableSizeMM2", "No", "CableType", "ConductorType",
                     "CableSizeChangeFromDesignYN", "PreviousDesignSize", "EarthIncludedYesNo",
-                    "NumberOfEarthCables", "EarthSizeMM2", "Voltage", "VoltageRating", "Type", "SheathConstruction",
-                    "InsulationConstruction", "FireRating", "LoadA",
+                    "EarthSizeMM2", "Voltage", "VoltageRating", "Type", "SheathConstruction",
+                    "InsulationConstruction", "FireRating", "InstallationConfiguration",
                     "CableDescription", "Comments", "UpdateSummary"
                 };
 
@@ -443,12 +361,12 @@ namespace RTS_Reports
             public string ActiveCableSizeMM2 { get; set; } = "";
             public string NoOfSets { get; set; } = "";
             public string NeutralCableSizeMM2 { get; set; } = "";
-            public string Cores { get; set; } = "";
+            public string No { get; set; } = "";
+            public string CableType { get; set; } = "";
             public string ConductorType { get; set; } = "";
             public string CableSizeChangeFromDesignYN { get; set; } = "";
             public string PreviousDesignSize { get; set; } = "";
             public string EarthIncludedYesNo { get; set; } = "";
-            public string NumberOfEarthCables { get; set; } = "";
             public string EarthSizeMM2 { get; set; } = "";
             public string Voltage { get; set; } = "";
             public string VoltageRating { get; set; } = "";
@@ -456,7 +374,7 @@ namespace RTS_Reports
             public string SheathConstruction { get; set; } = "";
             public string InsulationConstruction { get; set; } = "";
             public string FireRating { get; set; } = "";
-            public string LoadA { get; set; } = "";
+            public string InstallationConfiguration { get; set; } = "";
             public string CableDescription { get; set; } = "";
             public string Comments { get; set; } = "";
             public string UpdateSummary { get; set; } = "";
