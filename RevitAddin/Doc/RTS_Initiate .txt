@@ -1,0 +1,240 @@
+﻿// ### PREPROCESSOR DIRECTIVES MUST BE AT THE VERY TOP ###
+#if REVIT2024 || REVIT2023 || REVIT2022
+#define USE_FORGE_TYPE_ID // For general ForgeTypeId usage (Parameter types, Group types, Unit types)
+#else
+#error "Revit compilation symbol (e.g., REVIT2024, REVIT2023, REVIT2022) not defined in project build settings."
+#endif
+
+#region Namespaces
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Autodesk.Revit.ApplicationServices;
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using System.Diagnostics;
+
+#if USE_FORGE_TYPE_ID
+using ForgeTypeId = Autodesk.Revit.DB.ForgeTypeId;
+#endif
+#endregion
+
+namespace RTS.Doc
+{
+    public class SharedParameterData
+    {
+        public string Guid { get; }
+        public string Name { get; }
+        public string DataType { get; }
+        public int GroupId { get; }
+        public bool Visible { get; }
+        public string Description { get; }
+        public bool UserModifiable { get; }
+
+        public SharedParameterData(string guid, string name, string dataType, int groupId, bool visible, string description, bool userModifiable)
+        { Guid = guid; Name = name; DataType = dataType; GroupId = groupId; Visible = visible; Description = description; UserModifiable = userModifiable; }
+
+        public ForgeTypeId GetRevitDataType()
+        {
+#if USE_FORGE_TYPE_ID
+            switch (DataType.ToUpper())
+            {
+                case "LENGTH": return SpecTypeId.Length;
+                case "TEXT": return SpecTypeId.String.Text;
+                case "YESNO": return SpecTypeId.Boolean.YesNo;
+                case "MATERIAL": return SpecTypeId.Reference.Material;
+                case "ELECTRICAL_ILLUMINANCE": return SpecTypeId.Illuminance;
+                case "DISTANCE": return SpecTypeId.Length;
+                case "NUMBER": return SpecTypeId.Number;
+                case "ELECTRICAL_TEMPERATURE": return SpecTypeId.Number;
+                default: return SpecTypeId.String.Text;
+            }
+#else
+            throw new NotSupportedException("ForgeTypeId not available for this Revit version path.");
+#endif
+        }
+
+        // ### NEW METHOD: Return BuiltInParameterGroup ###
+        public BuiltInParameterGroup GetRevitBIPGroup()
+        {
+            if (GroupId == 8) return BuiltInParameterGroup.PG_ELECTRICAL;
+            return BuiltInParameterGroup.PG_DATA; // Default group
+        }
+
+        // Keep the ForgeTypeId version for now, though we won't use it in AddParameter
+        public ForgeTypeId GetRevitGroup()
+        {
+#if USE_FORGE_TYPE_ID
+            if (GroupId == 8) return GroupTypeId.Electrical;
+            return GroupTypeId.Data;
+#else
+            throw new NotSupportedException("ForgeTypeId not available for this Revit version path.");
+#endif
+        }
+    }
+
+    class FamilyLoadOptions : IFamilyLoadOptions
+    {
+        public bool OnFamilyFound(bool familyInUse, out bool overwriteParameterValues) { overwriteParameterValues = true; return true; }
+        public bool OnSharedFamilyFound(Family sharedFamily, bool familyInUse, out FamilySource source, out bool overwriteParameterValues) { source = FamilySource.Family; overwriteParameterValues = true; return true; }
+    }
+
+    [Transaction(TransactionMode.Manual)]
+    public class RTS_InitiateClass : IExternalCommand
+    {
+        private static readonly List<SharedParameterData> AllParameters = new List<SharedParameterData>
+        {
+            new SharedParameterData("8f31d68f-60c9-4ec6-a7ff-78a6e3bdaab6", "PC_PowerCAD", "YESNO", 8, true, "Indicates if the component is relevant for PowerCAD.", true),
+        };
+
+        private const string SharedParameterGroupName = "RTS_Params";
+        private const string RequiredSharedParameterSubstring = "RTS_Shared Parameters";
+
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            UIApplication uiapp = commandData.Application;
+            UIDocument uidoc = uiapp.ActiveUIDocument;
+            Application app = uiapp.Application;
+            Document doc = uidoc.Document;
+
+            ExternalDefinition pcPowerCadDefinition = null;
+            SharedParameterData pcPowerCadParam = null;
+            Guid pcPowerCadGuid = Guid.Empty;
+
+            try
+            {
+                // --- Step 1 & 2: Get Param & SPF Definition (No Changes) ---
+                pcPowerCadParam = AllParameters.FirstOrDefault(p => p.Name == "PC_PowerCAD");
+                if (pcPowerCadParam == null) { message = "PC_PowerCAD definition not found internally."; TaskDialog.Show("Error", message); return Result.Failed; }
+                pcPowerCadGuid = new Guid(pcPowerCadParam.Guid);
+
+                string userSpfPath = app.SharedParametersFilename;
+                if (string.IsNullOrEmpty(userSpfPath) || !File.Exists(userSpfPath)) { message = $"No Shared Parameter File is configured... Please select one containing '{RequiredSharedParameterSubstring}'."; TaskDialog.Show("Configuration Required", message); return Result.Failed; }
+                string configuredSpfName = Path.GetFileName(userSpfPath);
+                if (!configuredSpfName.ToUpper().Contains(RequiredSharedParameterSubstring.ToUpper())) { message = $"Configured SPF ('{configuredSpfName}') does not contain '{RequiredSharedParameterSubstring}'. Please select the correct file."; TaskDialog.Show("Incorrect SPF Configured", message); return Result.Failed; }
+
+                DefinitionFile sharedFile;
+                try { sharedFile = app.OpenSharedParameterFile(); if (sharedFile == null) throw new Exception($"Could not open the configured SPF: {userSpfPath}"); }
+                catch (Exception ex) { message = $"Error accessing SPF: {ex.Message}"; TaskDialog.Show("SPF Error", message); return Result.Failed; }
+
+                pcPowerCadDefinition = FindDefinitionByGuid(sharedFile, pcPowerCadGuid);
+                if (pcPowerCadDefinition != null) { /* ... Validate ... */ } else { /* ... Create ... */ }
+                if (pcPowerCadDefinition == null) { throw new Exception("Failed to get/create definition."); }
+
+                // --- Step 3: Filter Families (No Changes) ---
+                FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(Family));
+                List<Family> detailItemFamilies = new List<Family>();
+                ElementId detailCategoryId = new ElementId(BuiltInCategory.OST_DetailComponents);
+                foreach (Element elem in collector)
+                {
+                    if (elem is Family family && family.FamilyCategory != null && family.FamilyCategory.Id == detailCategoryId)
+                    {
+                        if (family.IsEditable) detailItemFamilies.Add(family);
+                        else Debug.WriteLine($" -- Skipping read-only Detail Item family: {family.Name}");
+                    }
+                }
+                if (!detailItemFamilies.Any()) { TaskDialog.Show("Info", "No editable, loaded Detail Item families found to update."); return Result.Succeeded; }
+
+                // --- Step 4: Process Families (### MODIFIED AddParameter CALL ###) ---
+                int successCount = 0; int failCount = 0; List<string> failedFamilies = new List<string>();
+                IFamilyLoadOptions loadOptions = new FamilyLoadOptions();
+
+                foreach (Family family in detailItemFamilies)
+                {
+                    Document familyDoc = null;
+                    try
+                    {
+                        Debug.WriteLine($"Processing Family: {family.Name}");
+                        familyDoc = doc.EditFamily(family);
+                        if (familyDoc == null) { failCount++; failedFamilies.Add($"{family.Name} (Could not open)"); continue; }
+
+                        FamilyManager familyManager = familyDoc.FamilyManager;
+                        var existingParams = familyManager.Parameters.Cast<FamilyParameter>().ToList();
+                        FamilyParameter existingGuidParam = existingParams.FirstOrDefault(p => p.GUID != null && p.GUID.Equals(pcPowerCadGuid));
+                        FamilyParameter existingNameParam = existingParams.FirstOrDefault(p => p.Definition.Name.Equals(pcPowerCadParam.Name, StringComparison.OrdinalIgnoreCase));
+
+                        if (existingGuidParam != null)
+                        {
+                            Debug.WriteLine($" -- Parameter with correct GUID already exists in {family.Name}. Reloading.");
+                            familyDoc.LoadFamily(doc, loadOptions);
+                            successCount++;
+                        }
+                        else if (existingNameParam != null)
+                        {
+                            Debug.WriteLine($" -- FAILED: Parameter named '{pcPowerCadParam.Name}' exists but with a different/null GUID in {family.Name}.");
+                            failCount++;
+                            failedFamilies.Add($"{family.Name} (Name conflict - existing parameter is not the correct shared one)");
+                        }
+                        else
+                        {
+                            using (Transaction famTrans = new Transaction(familyDoc, $"Add {pcPowerCadParam.Name}"))
+                            {
+                                famTrans.Start();
+                                Debug.WriteLine($" -- Attempting to add '{pcPowerCadParam.Name}' as TYPE parameter using BuiltInParameterGroup.");
+                                // ### MODIFIED CALL: Use BIPGroup and 'false' (Type Parameter) ###
+                                FamilyParameter familyParam = familyManager.AddParameter(
+                                    pcPowerCadDefinition,
+                                    pcPowerCadParam.GetRevitBIPGroup(), // Use BuiltInParameterGroup
+                                    false);                           // Try as TYPE parameter
+                                famTrans.Commit();
+
+                                if (familyParam != null)
+                                {
+                                    Debug.WriteLine($" -- Added parameter to {family.Name}. Reloading.");
+                                    familyDoc.LoadFamily(doc, loadOptions);
+                                    successCount++;
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($" -- FAILED to add parameter to {family.Name} (AddParameter returned null).");
+                                    failCount++;
+                                    failedFamilies.Add($"{family.Name} (AddParameter returned null)");
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($" -- EXCEPTION processing {family.Name}: {ex.ToString()}");
+                        failCount++;
+                        failedFamilies.Add($"{family.Name} (Exception: {ex.Message})");
+                    }
+                    finally { familyDoc?.Close(false); }
+                }
+
+                // --- Step 5: Report Results (No Changes) ---
+                string report = $"Processed {detailItemFamilies.Count} Detail Item families.\n";
+                report += $"Successfully updated/verified: {successCount}\n";
+                report += $"Failed: {failCount}\n";
+                if (failedFamilies.Any()) { report += "\nFailed families:\n - " + string.Join("\n - ", failedFamilies); }
+                TaskDialog.Show("Family Update Report", report);
+
+                return failCount == 0 ? Result.Succeeded : Result.Failed;
+            }
+            catch (Exception ex)
+            {
+                message = $"A critical error occurred: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}";
+                Debug.WriteLine($"CRITICAL ERROR: {ex.ToString()}");
+                TaskDialog.Show("Critical Error", message);
+                return Result.Failed;
+            }
+        }
+
+        private ExternalDefinition FindDefinitionByGuid(DefinitionFile file, Guid targetGuid)
+        {
+            foreach (DefinitionGroup group in file.Groups)
+            {
+                foreach (Definition def in group.Definitions)
+                {
+                    if (def is ExternalDefinition extDef && extDef.GUID == targetGuid)
+                    {
+                        return extDef;
+                    }
+                }
+            }
+            return null;
+        }
+    }
+}

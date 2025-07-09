@@ -1,31 +1,3 @@
-<!--
-//
-// File:          RTS.csproj
-//
-// Project:       RTS Revit Add-in
-//
-// Description:   This is the main MSBuild project file for the RTS Revit Add-in.
-//                It defines project properties, dependencies, and build configurations.
-//                Key features of this configuration include:
-//                - Multi-targeting for Revit 2022 (.NET Framework 4.8) and Revit 2024 (.NET).
-//                - Conditional referencing of the correct RevitAPI.dll and RevitAPIUI.dll based on the build configuration.
-//                - NuGet package management for external libraries like ClosedXML and System.Text.Json.
-//                - A post-build event that automatically copies the add-in and its dependencies
-//                  to the appropriate Revit Addins folder for seamless deployment during release builds.
-//
-// Author:        Kyle Vorster (Modified by AI)
-//
-// Log:
-// 2025-07-09:    Added this descriptive header and change log.
-// 2025-07-09:    Added properties for assembly signing directly in the PropertyGroup,
-//                as this is an SDK-style project.
-// 2025-07-09:    Updated CopyAddinFilesAfterBuild target to include all NuGet package
-//                dependencies for proper deployment.
-// 2025-07-09:    Added 'Condition="Exists(...)"' to file copy operations for EPPlus.System.Drawing.dll
-//                and System.Net.Http.dll to prevent MSB3030 errors if these files are not
-//                directly in the target directory (e.g., framework assemblies or transitive dependencies).
-//
--->
 <Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 
 	<!-- Project Properties -->
@@ -56,13 +28,6 @@
 		<Copyright>Copyright © ReTick Solutions 2025</Copyright>
 		<Version>1.0.0.0</Version>
 
-		<!-- Assembly Signing Properties (for SDK-style projects) -->
-		<!-- Set 'true' to sign the assembly. -->
-		<SignAssembly>true</SignAssembly>
-		<!-- Specify the path to your strong name key file (.snk). -->
-		<!-- Ensure this file exists in your project directory or provide a full path. -->
-		<AssemblyOriginatorKeyFile>RTSKey.snk</AssemblyOriginatorKeyFile>
-
 		<!-- Build Configurations -->
 		<Configurations>Debug;Release;Debug2022;Release2022;Release 2022</Configurations>
 		<Platforms>x64</Platforms>
@@ -70,7 +35,6 @@
 		<!-- Addin Folder Paths for Release Builds -->
 		<Revit2022AddinsFolder>C:\ProgramData\Autodesk\Revit\Addins\2022\</Revit2022AddinsFolder>
 		<Revit2024AddinsFolder>C:\ProgramData\Autodesk\Revit\Addins\2024\</Revit2024AddinsFolder>
-		<Title>RTS App</Title>
 	</PropertyGroup>
 
 	<!-- Configuration-specific Properties for Revit Version Switching -->
@@ -91,12 +55,10 @@
 
 	<!-- NuGet Package References -->
 	<ItemGroup>
-		<PackageReference Include="ClosedXML" Version="0.105.0" />
+		<PackageReference Include="ClosedXML" Version="0.102.2" />
+		<PackageReference Include="DocumentFormat.OpenXml" Version="2.20.0" />
 		<PackageReference Include="EPPlus" Version="8.0.7" />
-		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-		<PackageReference Include="System.IO.Packaging" Version="9.0.7" />
-		<PackageReference Include="System.Net.Http" Version="4.3.4" />
-		<PackageReference Include="System.Text.Json" Version="9.0.7" />
+		<PackageReference Include="System.Text.Json" Version="6.0.9" />
 	</ItemGroup>
 
 	<!-- Revit API References - Using a Choose/When block for robustness -->
@@ -141,17 +103,12 @@
 		<EmbeddedResource Include="Resources\**\*.*" />
 	</ItemGroup>
 	<ItemGroup>
-		<None Update="Addin\RTS.addin">
-			  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Addin\RTS_2022.addin">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-	</ItemGroup>
-	<ItemGroup>
-		<Folder Include="Services\" />
-		<Folder Include="ViewModels\" />
-		<Folder Include="Models\" />
+	  <None Update="Doc\RTS.addin.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="RTS_2022.addin">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
 	</ItemGroup>
 
 	<!-- Post-Build Target: Copies files ONLY for Release configurations -->
@@ -162,20 +119,11 @@
 
 		<!-- Handle Revit 2024 Deployment -->
 		<ItemGroup Condition=" '$(Configuration)'=='Release' ">
-			<AddinFileSource2024 Include="$(ProjectDir)Addin\RTS.addin" />
+			<AddinFileSource2024 Include="$(ProjectDir)RTS.addin" />
 			<FilesToCopy2024 Include="$(TargetDir)$(TargetName).dll" />
-			<!-- Include all NuGet package dependencies here -->
 			<FilesToCopy2024 Include="$(TargetDir)ClosedXML.dll" />
 			<FilesToCopy2024 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
-			<FilesToCopy2024 Include="$(TargetDir)EPPlus.dll" />
-			<!-- Conditionally copy EPPlus.Interfaces.dll and EPPlus.System.Drawing.dll -->
-			<FilesToCopy2024 Include="$(TargetDir)EPPlus.Interfaces.dll" Condition="Exists('$(TargetDir)EPPlus.Interfaces.dll')" />
-			<FilesToCopy2024 Include="$(TargetDir)EPPlus.System.Drawing.dll" Condition="Exists('$(TargetDir)EPPlus.System.Drawing.dll')" />
-			<FilesToCopy2024 Include="$(TargetDir)Newtonsoft.Json.dll" />
 			<FilesToCopy2024 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
-			<!-- Conditionally copy System.Net.Http.dll -->
-			<FilesToCopy2024 Include="$(TargetDir)System.Net.Http.dll" Condition="Exists('$(TargetDir)System.Net.Http.dll')" />
-			<FilesToCopy2024 Include="$(TargetDir)System.Text.Json.dll" />
 			<FilesToCopy2024 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
 		</ItemGroup>
 		<Copy SourceFiles="@(FilesToCopy2024)" DestinationFolder="$(Revit2024AddinsFolder)" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release' " />
@@ -183,26 +131,25 @@
 		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2024AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND '$(Configuration)'=='Release'" />
 
 		<!-- Handle Revit 2022 Deployment -->
-		<ItemGroup Condition=" '$(Configuration)'=='Release2022' OR '$(Configuration)'=='Release 2022' ">
-			<AddinFileSource2022 Include="$(ProjectDir)Addin\RTS_2022.addin" />
+		<ItemGroup Condition=" '$(Configuration)'=='Release2022' ">
+			<AddinFileSource2022 Include="$(ProjectDir)RTS_2022.addin" />
 			<FilesToCopy2022 Include="$(TargetDir)$(TargetName).dll" />
-			<!-- Include all NuGet package dependencies here -->
 			<FilesToCopy2022 Include="$(TargetDir)ClosedXML.dll" />
 			<FilesToCopy2022 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
-			<FilesToCopy2022 Include="$(TargetDir)EPPlus.dll" />
-			<!-- Conditionally copy EPPlus.Interfaces.dll and EPPlus.System.Drawing.dll -->
-			<FilesToCopy2022 Include="$(TargetDir)EPPlus.Interfaces.dll" Condition="Exists('$(TargetDir)EPPlus.Interfaces.dll')" />
-			<FilesToCopy2022 Include="$(TargetDir)EPPlus.System.Drawing.dll" Condition="Exists('$(TargetDir)EPPlus.System.Drawing.dll')" />
-			<FilesToCopy2022 Include="$(TargetDir)Newtonsoft.Json.dll" />
 			<FilesToCopy2022 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
-			<!-- Conditionally copy System.Net.Http.dll -->
-			<FilesToCopy2022 Include="$(TargetDir)System.Net.Http.dll" Condition="Exists('$(TargetDir)System.Net.Http.dll')" />
-			<FilesToCopy2022 Include="$(TargetDir)System.Text.Json.dll" />
 			<FilesToCopy2022 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
 		</ItemGroup>
-		<Copy SourceFiles="@(FilesToCopy2022)" DestinationFolder="$(Revit2022AddinsFolder)" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release2022' OR '$(Configuration)'=='Release 2022' " />
-		<Copy SourceFiles="@(AddinFileSource2022)" DestinationFiles="$(Revit2022AddinsFolder)$(TargetName).addin" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release2022' OR '$(Configuration)'=='Release 2022' " />
-		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2022AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND ('$(Configuration)'=='Release2022' OR '$(Configuration)'=='Release 2022')" />
+		<ItemGroup Condition="'$(Configuration)'=='Release 2022'">
+		  <AddinFileSource2022 Include="$(ProjectDir)RTS_2022.addin" />
+		  <FilesToCopy2022 Include="$(TargetDir)$(TargetName).dll" />
+		  <FilesToCopy2022 Include="$(TargetDir)ClosedXML.dll" />
+		  <FilesToCopy2022 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
+		  <FilesToCopy2022 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
+		  <FilesToCopy2022 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
+		</ItemGroup>
+		<Copy SourceFiles="@(FilesToCopy2022)" DestinationFolder="$(Revit2022AddinsFolder)" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release2022' " />
+		<Copy SourceFiles="@(AddinFileSource2022)" DestinationFiles="$(Revit2022AddinsFolder)$(TargetName).addin" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release2022' " />
+		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2022AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND '$(Configuration)'=='Release2022'" />
 
 		<Message Text="Successfully deployed $(TargetName) to $(Revit2024AddinsFolder) or $(Revit2022AddinsFolder)" Importance="high" />
 	</Target>
