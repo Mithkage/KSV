@@ -26,7 +26,7 @@
           }
         }
       },
-      "DocumentFormat.OpenXml/2.20.0": {
+      "DocumentFormat.OpenXml/2.19.0": {
         "type": "package",
         "frameworkAssemblies": [
           "System",
@@ -552,14 +552,14 @@
         "nuget-logo.png"
       ]
     },
-    "DocumentFormat.OpenXml/2.20.0": {
-      "sha512": "+oFMsEppo/W6KpGTRXaJl2jTFYn9zeon4FaZuDoCijQ1/0JaPENaCef7d4Y3f8v116eKhVBwd4Ya+/NDglxkjw==",
+    "DocumentFormat.OpenXml/2.19.0": {
+      "sha512": "BLFqodowHZHR/A/sKU/6e+63J5ONWDdv8hEuSZOUiBfGFuVmsG9P3o+LMSq+dajNWE1q+lqVSa1H5FuhLX8/fA==",
       "type": "package",
-      "path": "documentformat.openxml/2.20.0",
+      "path": "documentformat.openxml/2.19.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "documentformat.openxml.2.20.0.nupkg.sha512",
+        "documentformat.openxml.2.19.0.nupkg.sha512",
         "documentformat.openxml.nuspec",
         "icon.png",
         "lib/net35/DocumentFormat.OpenXml.dll",
@@ -1626,7 +1626,7 @@
   "projectFileDependencyGroups": {
     ".NETFramework,Version=v4.8": [
       "ClosedXML >= 0.102.2",
-      "DocumentFormat.OpenXml >= 2.20.0",
+      "DocumentFormat.OpenXml >= 2.19.0",
       "EPPlus >= 8.0.7",
       "System.Text.Json >= 6.0.9"
     ]
@@ -1693,7 +1693,7 @@
           },
           "DocumentFormat.OpenXml": {
             "target": "Package",
-            "version": "[2.20.0, )"
+            "version": "[2.19.0, )"
           },
           "EPPlus": {
             "target": "Package",
