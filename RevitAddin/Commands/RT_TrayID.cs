@@ -1,44 +1,45 @@
 ﻿// File: RT_TrayID.cs
 // Application: Revit 2022 External Command
 // Description: This script identifies cable tray elements (horizontal, vertical, or sloped) that have values
-//              in any of the RTS_Cable_XX shared parameters (RTS_Cable_01 to RTS_Cable_30).
-//              For each identified cable tray, it generates a unique ID based on a prefix, a type suffix,
-//              its reference level name, bottom elevation (in mm), and a sequential unique number.
-//              This generated ID is then assigned to the 'RTS_ID' shared parameter.
-//              This version also iterates through Detail Components, and where their RTS_ID matches
-//              a cable tray's RTS_ID, it populates the Detail Item's RTS_Cable_XX parameters
-//              with the corresponding Cable Tray's cable values, shifting values up to fill gaps.
-//              This script is intended to be compiled as a Revit Add-in.
-//              This version includes:
-//              - Processing of cable trays regardless of their orientation (horizontal, vertical, or sloped).
-//              - Sorting of cable trays to prioritize those occupying lower-indexed RTS_Cable_XX parameters first,
-//                     then by their values, and finally by all subsequent RTS_Cable_XX values to ensure continuity.
-//              - Refined retrieval of bottom elevation using cable tray's absolute Z-coordinate, height parameter,
-//                and associated level's elevation. The elevation component in the ID is always a positive value
-//                representing the bottom elevation in millimeters relative to the project's internal origin.
-//              - Improved and more robust retrieval of the reference level name.
-//              - Application of the unique 4-digit number based on identical consecutive RTS_Cable_XX parameter values
-//                or sequential numbering for trays without values.
-//              - Addition of a prefix derived from the 5th character of the first available RTS_Cable_XX parameter.
-//              - Validation of the prefix character: if not alphabetic, it defaults to 'T'.
-//              - Addition of a 3-character type suffix based on the cable tray's type name ("FR" -> "FLS", "ESS" -> "ESS", else "DFT").
-//              - Writes the unique 4-digit identifier to the 'Branch Number' shared parameter.
-//              - Ensures the bottom elevation part of the RTS_ID is always 4 characters long, padded with leading zeros,
-//                and represents a positive value.
-//              - UPDATED: Handles cable trays without cable values by assigning an 'X' prefix and continuing Branch Numbering
-//                         from the last used Branch Number + 1000, then incrementing sequentially for connected trays without values.
-//              - NEW: Iterates through Detail Components, and now also Cable Tray Fittings, Conduits, and Conduit Fittings,
-//                     matches them by RTS_ID to cable trays, and populates their RTS_Cable_XX parameters,
-//                     shifting values to fill gaps. **RTS_ID is NOT generated for these elements.**
+//              in any of the RTS_Cable_XX shared parameters (RTS_Cable_01 to RTS_Cable_30).
+//              For each identified cable tray, it generates a unique ID based on a prefix, a type suffix,
+//              its reference level name, bottom elevation (in mm), and a sequential unique number.
+//              This generated ID is then assigned to the 'RTS_ID' shared parameter.
+//              This version also iterates through Detail Components, and where their RTS_ID matches
+//              a cable tray's RTS_ID, it populates the Detail Item's RTS_Cable_XX parameters
+//              with the corresponding Cable Tray's cable values, shifting values up to fill gaps.
+//              This script is intended to be compiled as a Revit Add-in.
+//              This version includes:
+//              - Processing of cable trays regardless of their orientation (horizontal, vertical, or sloped).
+//              - Sorting of cable trays to prioritize those occupying lower-indexed RTS_Cable_XX parameters first,
+//                then by their values, and finally by all subsequent RTS_Cable_XX values to ensure continuity.
+//              - Refined retrieval of bottom elevation using cable tray's absolute Z-coordinate, height parameter,
+//                and associated level's elevation. The elevation component in the ID is always a positive value
+//                representing the bottom elevation in millimeters relative to the project's internal origin.
+//              - Improved and more robust retrieval of the reference level name.
+//              - Application of the unique 4-digit number based on identical consecutive RTS_Cable_XX parameter values
+//                or sequential numbering for trays without values.
+//              - Addition of a prefix derived from the 5th character of the first available RTS_Cable_XX parameter.
+//              - Validation of the prefix character: if not alphabetic, it defaults to 'T'.
+//              - Addition of a 3-character type suffix based on the cable tray's type name ("FR" -> "FLS", "ESS" -> "ESS", else "DFT").
+//              - Writes the unique 4-digit identifier to the 'Branch Number' shared parameter.
+//              - Ensures the bottom elevation part of the RTS_ID is always 4 characters long, padded with leading zeros,
+//                and represents a positive value.
+//              - UPDATED: Handles cable trays without cable values by assigning an 'X' prefix and continuing Branch Numbering
+//                         from the last used Branch Number + 1000, then incrementing sequentially for connected trays without values.
+//              - NEW: Iterates through Detail Components, and now also Cable Tray Fittings, Conduits, and Conduit Fittings,
+//                     matches them by RTS_ID to cable trays, and populates their RTS_Cable_XX parameters,
+//                     shifting values to fill gaps. **RTS_ID is NOT generated for these elements.**
 //
 // RTS_ID Format: [Prefix]-[TypeSuffix]-[LevelAbbr]-[ElevationMM]-[UniqueSuffix]
-// Example ID:    P-FLS-L01-4285-0001
-//   - Prefix (P):        Derived from the 5th character of the first populated RTS_Cable_XX parameter (e.g., if RTS_Cable_01 = "CABLE-POWER-MAIN", 'P' is used). Defaults to 'X' if no cable values or non-alphabetic character.
-//   - TypeSuffix (FLS):  3-character abbreviation based on Cable Tray Type Name (e.g., "FR" in type name becomes "FLS", "ESS" becomes "ESS", otherwise "DFT").
-//   - LevelAbbr (L01):   First 3 characters of the associated Reference Level name (e.g., "Level 01" becomes "L01"). Padded with '?' if shorter than 3.
-//   - ElevationMM (4285): Bottom elevation of the cable tray in millimeters, rounded to the nearest integer. This value is always positive and padded with leading zeros to 4 digits.
-//   - UniqueSuffix (0001): A sequential 4-digit number. Increments for each unique set of RTS_Cable_XX values. For trays without values, it starts at 1000 + last counter and increments.
+// Example ID:    P-FLS-L01-4285-0001
+//    - Prefix (P):        Derived from the 5th character of the first populated RTS_Cable_XX parameter (e.g., if RTS_Cable_01 = "CABLE-POWER-MAIN", 'P' is used). Defaults to 'X' if no cable values or non-alphabetic character.
+//    - TypeSuffix (FLS):  3-character abbreviation based on Cable Tray Type Name (e.g., "FR" in type name becomes "FLS", "ESS" becomes "ESS", otherwise "DFT").
+//    - LevelAbbr (L01):   First 3 characters of the associated Reference Level name (e.g., "Level 01" becomes "L01"). Padded with '?' if shorter than 3.
+//    - ElevationMM (4285): Bottom elevation of the cable tray in millimeters, rounded to the nearest integer. This value is always positive and padded with leading zeros to 4 digits.
+//    - UniqueSuffix (0001): A sequential 4-digit number. Increments for each unique set of RTS_Cable_XX values. For trays without values, it starts at 1000 + last counter and increments.
 
+#region Namespaces
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,6 +49,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical; // Required for Conduit/ConduitFitting
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
+#endregion
 
 namespace RTS.Commands
 {
@@ -209,7 +211,8 @@ namespace RTS.Commands
                     }
                     else
                     {
-                        sortedCableTraysWithValues = Enumerable.Empty<Element>().OrderBy(e => e.Id.IntegerValue); // Empty sequence
+                        // REVERTED: Used .IntegerValue to resolve CS1061
+                        sortedCableTraysWithValues = Enumerable.Empty<Element>().OrderBy(e => e.Id.IntegerValue);
                     }
 
                     int updatedCableTrayCount = 0;
@@ -368,8 +371,8 @@ namespace RTS.Commands
                             else
                             {
                                 // This should ideally not happen if RTS_ID is truly unique
-                                System.Diagnostics.Debug.WriteLine($"Warning: Duplicate RTS_ID '{newRtsId}' generated for Cable Tray {elem.Id}. Overwriting cable values in map.");
-                                cableTrayRtsIdToCableValuesMap[newRtsId] = currentCableTrayValues;
+                                System.Diagnostics.Debug.WriteLine($"Warning: Duplicate RTS_ID '{newRtsId}' generated for Cable Tray {elem.Id} (no values). Overwriting cable values in map.");
+                                cableTrayRtsIdToCableValuesMap[newRtsId] = new List<string>(); // Ensure it's empty
                             }
                         }
                         else
@@ -399,7 +402,8 @@ namespace RTS.Commands
                                 {
                                     levelId = e.LevelId;
                                 }
-                                return levelId.IntegerValue; // Sort by level ID
+                                // REVERTED: Used .IntegerValue to resolve CS1061
+                                return levelId.IntegerValue;
                             })
                             .ThenBy(e =>
                             {
@@ -594,7 +598,7 @@ namespace RTS.Commands
                                             if (elementCableParam.AsString() != cableTrayValues[cableValueIndex])
                                             {
                                                 elementCableParam.Set(cableTrayValues[cableValueIndex]);
-                                                System.Diagnostics.Debug.WriteLine($"  - Set RTS_Cable_{i + 1:D2} on {currentElement.Category.Name} {currentElement.Id} to: '{cableTrayValues[cableValueIndex]}'");
+                                                System.Diagnostics.Debug.WriteLine($"  - Set RTS_Cable_{i + 1:D2} on {currentElement.Category.Name} {currentElement.Id} to: '{cableTrayValues[cableValueIndex]}'");
                                             }
                                             cableValueIndex++;
                                         }
@@ -604,13 +608,13 @@ namespace RTS.Commands
                                             if (!string.IsNullOrEmpty(elementCableParam.AsString()))
                                             {
                                                 elementCableParam.Set(string.Empty); // Clear existing value
-                                                System.Diagnostics.Debug.WriteLine($"  - Cleared RTS_Cable_{i + 1:D2} on {currentElement.Category.Name} {currentElement.Id}");
+                                                System.Diagnostics.Debug.WriteLine($"  - Cleared RTS_Cable_{i + 1:D2} on {currentElement.Category.Name} {currentElement.Id}");
                                             }
                                         }
                                     }
                                     else
                                     {
-                                        System.Diagnostics.Debug.WriteLine($"  - Warning: {currentElement.Category.Name} {currentElement.Id} missing writeable RTS_Cable_{i + 1:D2} parameter.");
+                                        System.Diagnostics.Debug.WriteLine($"  - Warning: {currentElement.Category.Name} {currentElement.Id} missing writeable RTS_Cable_{i + 1:D2} parameter.");
                                     }
                                 }
                                 otherElementsUpdatedCount++;

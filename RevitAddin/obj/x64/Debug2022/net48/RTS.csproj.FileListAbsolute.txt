@@ -1,5 +1,4 @@
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\Addin\RTS_2022.addin
-C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\Doc\RTS.addin.txt
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\RTS.pdb
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\ClosedXML.dll

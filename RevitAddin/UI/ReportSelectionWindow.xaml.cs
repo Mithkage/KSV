@@ -1,12 +1,12 @@
 ﻿//-----------------------------------------------------------------------------
 // <copyright file="ReportSelectionWindow.xaml.cs" company="RTS Reports">
-//     Copyright (c) RTS Reports. All rights reserved.
+//      Copyright (c) RTS Reports. All rights reserved.
 // </copyright>
 // <summary>
-//     This file contains the interaction logic for the ReportSelectionWindow.xaml.
-//     It handles user selections for various report types and orchestrates
-//     the data recall from Revit's extensible storage and subsequent export
-//     to CSV format, particularly for the RSGx Cable Schedule.
+//      This file contains the interaction logic for the ReportSelectionWindow.xaml.
+//      It handles user selections for various report types and orchestrates
+//      the data recall from Revit's extensible storage and subsequent export
+//      to CSV format, particularly for the RSGx Cable Schedule.
 // </summary>
 //-----------------------------------------------------------------------------
 
@@ -15,65 +15,67 @@
  *
  * Date       | Version | Author | Description
  * ===========|=========|========|====================================================================================================
- * 2025-07-04 | 1.0.0   | Gemini | Initial implementation to address column and data mixing in RSGx report.
+ * 2025-07-04 | 1.0.0    | Gemini | Initial implementation to address column and data mixing in RSGx report.
  * |         |        | - Introduced explicit ordering for RSGxCableData properties in ExportDataToCsvGeneric.
  * |         |        | - Added `orderedPropertiesToExport` to ensure CSV column order matches defined headers.
  * |         |        | - Included a check for missing properties in RSGxCableData to enhance robustness.
- * 2025-07-04 | 1.0.1   | Gemini | Added file header comments and a change log as requested.
+ * 2025-07-04 | 1.0.1    | Gemini | Added file header comments and a change log as requested.
  * |         |        | - Included detailed description of file purpose and function.
- * 2025-07-07 | 1.1.0   | Gemini | Replaced WindowsAPICodePack folder browser with standard System.Windows.Forms.FolderBrowserDialog.
+ * 2025-07-07 | 1.1.0    | Gemini | Replaced WindowsAPICodePack folder browser with standard System.Windows.Forms.FolderBrowserDialog.
  * |         |        | - This removes the final dependency on the conflicting library to resolve build and runtime errors.
  * |         |        | - Added a Win32Window helper class to properly parent the dialog to the Revit window.
- * 2025-07-07 | 1.1.1   | Gemini | Resolved ambiguous reference error for IWin32Window by specifying the System.Windows.Forms namespace.
- * 2025-07-08 | 1.2.0   | Gemini | Updated RSGx Cable Schedule generation logic based on user feedback.
+ * 2025-07-07 | 1.1.1    | Gemini | Resolved ambiguous reference error for IWin32Window by specifying the System.Windows.Forms namespace.
+ * 2025-07-08 | 1.2.0    | Gemini | Updated RSGx Cable Schedule generation logic based on user feedback.
  * |         |        | - Relabeled 'Cable Type' header to 'Cores' and mapped it to the 'Cores' data field.
  * |         |        | - Implemented conditional logic for 'Fire Rating' based on the cable's 'Type' property.
  * |         |        | - Implemented conditional logic for 'Update Summary' based on cable length differences.
  * |         |        | - Removed 'Installation Configuration' column from the report.
- * 2025-07-08 | 1.3.0   | Gemini | Enhanced RSGx report data formatting.
+ * 2025-07-08 | 1.3.0    | Gemini | Enhanced RSGx report data formatting.
  * |         |        | - 'Maximum Length' is now rounded down to the nearest integer.
  * |         |        | - 'Cable Description' is now a concatenation of key cable properties, omitting nulls.
- * 2025-07-08 | 1.4.0   | Gemini | Refined RSGx report data formatting.
+ * 2025-07-08 | 1.4.0    | Gemini | Refined RSGx report data formatting.
  * |         |        | - Appended "mm²" unit to 'Active Cable Size' in the 'Cable Description'.
  * |         |        | - Set 'Voltage Rating' to null if 'Destination Device (ID)' is not available.
- * 2025-07-08 | 1.5.0   | Gemini | Added "Load (A)" column to the RSGx Cable Schedule report.
+ * 2025-07-08 | 1.5.0    | Gemini | Added "Load (A)" column to the RSGx Cable Schedule report.
  * |         |        | - Data is sourced from the new LoadA property in the primary data store.
- * 2025-07-08 | 1.6.0   | Gemini | Added Maximum Demand (MD) comparison to the "Update Summary" field.
+ * 2025-07-08 | 1.6.0    | Gemini | Added Maximum Demand (MD) comparison to the "Update Summary" field.
  * |         |        | - Compares "Load (A)" between primary and consultant data.
- * 2025-07-08 | 1.7.0   | Gemini | Added "Number of Earth Cables" column to the RSGx report.
+ * 2025-07-08 | 1.7.0    | Gemini | Added "Number of Earth Cables" column to the RSGx report.
  * |         |        | - Column inserted before "Earth Size (mm2)".
- * 2025-07-08 | 1.8.0   | Gemini | Removed the "No." column (related to neutral cables) from the RSGx report.
- * 2025-07-10 | 1.9.0   | Gemini | Updated RSGx report sorting logic.
+ * 2025-07-08 | 1.8.0    | Gemini | Removed the "No." column (related to neutral cables) from the RSGx report.
+ * 2025-07-10 | 1.9.0    | Gemini | Updated RSGx report sorting logic.
  * |         |        | - Removed the general alphabetical re-ordering of all cable references.
  * |         |        | - Report now sorts primarily by Cable Reference order from Primary Storage.
  * |         |        | - Cable References found only in Consultant Storage (or Model Generated)
  * |         |        |   are moved to the end, sorted alphabetically by Cable Reference.
- * 2025-07-10 | 2.0.0   | Gemini | Refined RSGx report data generation logic.
+ * 2025-07-10 | 2.0.0    | Gemini | Refined RSGx report data generation logic.
  * |         |        | - Removed actual 'Comments' data, keeping the column as empty.
  * |         |        | - Implemented conditional logic: if 'Cores' is "N/A", then 'Voltage Rating'
  * |         |        |   and 'Cable Description' are also set to "N/A".
- * 2025-07-10 | 2.0.1   | Gemini | Fixed CS0103 error for 'activeCableSize' by declaring it in a broader scope.
+ * 2025-07-10 | 2.0.1    | Gemini | Fixed CS0103 error for 'activeCableSize' by declaring it in a broader scope.
  * |         |        | - Also applied this fix to 'type', 'sheath', and 'insulation' for consistency.
- * 2025-07-10 | 2.1.0   | Gemini | Added new button handler for "RSGx Cable Summary (XLSX)" report.
+ * 2025-07-10 | 2.1.0    | Gemini | Added new button handler for "RSGx Cable Summary (XLSX)" report.
  * |         |        | - Integrated call to `PC_Generate_MDClass.Execute` for Excel generation.
- * 2025-07-10 | 2.1.1   | Gemini | Corrected `using` directive for `PC_Generate_MDClass`.
+ * 2025-07-10 | 2.1.1    | Gemini | Corrected `using` directive for `PC_Generate_MDClass`.
  * |         |        | - Changed `using RTS;` to `using PC_Generate_MD;` to resolve CS0246 error.
- * 2025-07-10 | 2.1.2   | Gemini | Corrected instantiation of PC_Generate_MDClass.
+ * 2025-07-10 | 2.1.2    | Gemini | Corrected instantiation of PC_Generate_MDClass.
  * |         |        | - Removed incorrect `using PC_Generate_MD;` directive.
  * |         |        | - Changed `new PC_Generate_MD.PC_Generate_MDClass()` to `new PC_Generate_MDClass()`.
- * 2025-07-10 | 2.2.0   | Gemini | Updated "Cable size Change from Design (Y/N)" logic for RSGx report.
+ * 2025-07-10 | 2.2.0    | Gemini | Updated "Cable size Change from Design (Y/N)" logic for RSGx report.
  * |         |        | - Now compares Primary "Active Cable Size (mm²)" with Consultant "Active Cable Size (mm²)".
  * |         |        | - Renamed "Previous Design Size" column to "DJV Active Cable Size (mm²)" and reordered.
- * 2025-07-10 | 2.3.0   | Gemini | Further refined RSGx report column order and naming.
+ * 2025-07-10 | 2.3.0    | Gemini | Further refined RSGx report column order and naming.
  * |         |        | - Moved "DJV Active Cable Size (mm²)" to appear after "RSGx Active Cable Size (mm²)".
  * |         |        | - Renamed "Active Cable Size (mm²)" to "RSGx Active Cable Size (mm²)".
- * 2025-07-10 | 2.4.0   | Gemini | Reordered RSGx report columns.
+ * 2025-07-10 | 2.4.0    | Gemini | Reordered RSGx report columns.
  * |         |        | - Moved "Cable size Change from Design (Y/N)" to appear after "DJV Active Cable Size (mm²)".
- * 2025-07-10 | 2.5.0   | Gemini | Updated "Earth Included (Yes / No)" column logic.
+ * 2025-07-10 | 2.5.0    | Gemini | Updated "Earth Included (Yes / No)" column logic.
  * |         |        | - Now outputs "Y" or "N" instead of "Yes" or "No".
- * 2025-07-10 | 2.6.0   | Gemini | Renamed "Earth Included (Yes / No)" column header to "Earth Included (Y/N)".
- * 2025-07-10 | 2.7.0   | Gemini | Updated "Type" column in RSGx report.
+ * 2025-07-10 | 2.6.0    | Gemini | Renamed "Earth Included (Yes / No)" column header to "Earth Included (Y/N)".
+ * 2025-07-10 | 2.7.0    | Gemini | Updated "Type" column in RSGx report.
  * |         |        | - Appended ", LSZH" if the value is not "N/A".
+ * 2025-07-15 | 2.8.0    | Gemini | Updated namespace from 'RTS_Reports' to 'RTS.UI' to align with project structure.
+ * 2025-07-15 | 2.9.0    | Gemini | Corrected using directive for PC_ExtensibleClass to match its actual namespace.
  */
 
 #region Namespaces
@@ -89,10 +91,10 @@ using System.Text.RegularExpressions;
 using System.Windows.Forms; // For FolderBrowserDialog
 using System.Windows.Interop; // For WindowInteropHelper
 using RTS.Commands; // Corrected using directive for PC_Generate_MDClass
-using PC_Extensible;
+using PC_Extensible; // UPDATED: Corrected using directive for PC_ExtensibleClass
 #endregion
 
-namespace RTS_Reports
+namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
 {
     /// <summary>
     /// Interaction logic for ReportSelectionWindow.xaml

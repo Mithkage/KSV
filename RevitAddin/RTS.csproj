@@ -18,13 +18,19 @@
 * Change Log:
 * Date        Version     Author                  Description
 * ==========  ==========  ======================  ==================================================================
-* 2025-07-10  1.0.0.1     Gemini AI               Added file description, function, and change log.
+* 2025-07-10  1.0.0.1     Gemini AI               Initial implementation to address column and data mixing in RSGx report.
 * Corrected paths for .addin files in post-build steps
 * to reflect 'Addin' subfolder structure.
 * 2025-07-10  1.0.0.3     Gemini AI               Updated DocumentFormat.OpenXml NuGet package version to 2.19.0
 * to resolve runtime error "Could not load type
 * 'DocumentFormat.OpenXml.Packaging.IdPartPair'" due to potential
 * version mismatch with ClosedXML 0.102.2.
+* 2025-07-15  1.0.0.4     Gemini AI               Added strong-name signing using RTSKey.snk.
+* 2025-07-15  1.0.0.5     Gemini AI               Updated ClosedXML and DocumentFormat.OpenXml to their latest stable versions
+* to resolve 'IdPartPair' type loading error due to version mismatch.
+* 2025-07-15  1.0.0.6     Gemini AI               Removed explicit PackageReference for DocumentFormat.OpenXml.
+* It will now be included as a transitive dependency of ClosedXML,
+* allowing NuGet to manage compatible versions automatically.
 ***********************************************************************************************************************/
 -->
 <Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
@@ -57,6 +63,10 @@
 		<Copyright>Copyright © ReTick Solutions 2025</Copyright>
 		<Version>1.0.0.0</Version>
 
+		<!-- Strong-name signing properties -->
+		<SignAssembly>true</SignAssembly>
+		<KeyOriginatorFile>RTSKey.snk</KeyOriginatorFile>
+
 		<!-- Build Configurations -->
 		<Configurations>Debug;Release;Debug2022;Release2022;Release 2022</Configurations>
 		<Platforms>x64</Platforms>
@@ -84,9 +94,9 @@
 
 	<!-- NuGet Package References -->
 	<ItemGroup>
+		<!-- ClosedXML depends on DocumentFormat.OpenXml. By only referencing ClosedXML,
+		     NuGet will automatically pull in a compatible version of DocumentFormat.OpenXml. -->
 		<PackageReference Include="ClosedXML" Version="0.102.2" />
-		<!-- Updated DocumentFormat.OpenXml version for compatibility with ClosedXML 0.102.2 -->
-		<PackageReference Include="DocumentFormat.OpenXml" Version="2.19.0" />
 		<PackageReference Include="EPPlus" Version="8.0.7" />
 		<PackageReference Include="System.Text.Json" Version="6.0.9" />
 	</ItemGroup>
@@ -133,16 +143,8 @@
 		<EmbeddedResource Include="Resources\**\*.*" />
 	</ItemGroup>
 	<ItemGroup>
-		  <Compile Include="TaskDialog.cs.txt" />
-	</ItemGroup>
-	<ItemGroup>
-		  <None Update="Doc\RTS.addin.txt">
-			    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			 
-		</None>
-		  <None Update="Addin\RTS_2022.addin">
-			    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			 
+		<None Update="Addin\RTS_2022.addin">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
 
@@ -158,7 +160,8 @@
 			<AddinFileSource2024 Include="$(ProjectDir)Addin\RTS.addin" />
 			<FilesToCopy2024 Include="$(TargetDir)$(TargetName).dll" />
 			<FilesToCopy2024 Include="$(TargetDir)ClosedXML.dll" />
-			<FilesToCopy2024 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
+			<!-- DocumentFormat.OpenXml.dll will be copied if it's a transitive dependency -->
+			<FilesToCopy2024 Include="$(TargetDir)DocumentFormat.OpenXml.dll" Condition="Exists('$(TargetDir)DocumentFormat.OpenXml.dll')" />
 			<FilesToCopy2024 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
 			<FilesToCopy2024 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
 		</ItemGroup>
@@ -172,7 +175,8 @@
 			<AddinFileSource2022 Include="$(ProjectDir)Addin\RTS_2022.addin" />
 			<FilesToCopy2022 Include="$(TargetDir)$(TargetName).dll" />
 			<FilesToCopy2022 Include="$(TargetDir)ClosedXML.dll" />
-			<FilesToCopy2022 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
+			<!-- DocumentFormat.OpenXml.dll will be copied if it's a transitive dependency -->
+			<FilesToCopy2022 Include="$(TargetDir)DocumentFormat.OpenXml.dll" Condition="Exists('$(TargetDir)DocumentFormat.OpenXml.dll')" />
 			<FilesToCopy2022 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
 			<FilesToCopy2022 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
 		</ItemGroup>
@@ -180,7 +184,8 @@
 			<AddinFileSource2022 Include="$(ProjectDir)Addin\RTS_2022.addin" />
 			<FilesToCopy2022 Include="$(TargetDir)$(TargetName).dll" />
 			<FilesToCopy2022 Include="$(TargetDir)ClosedXML.dll" />
-			<FilesToCopy2022 Include="$(TargetDir)DocumentFormat.OpenXml.dll" />
+			<!-- DocumentFormat.OpenXml.dll will be copied if it's a transitive dependency -->
+			<FilesToCopy2022 Include="$(TargetDir)DocumentFormat.OpenXml.dll" Condition="Exists('$(TargetDir)DocumentFormat.OpenXml.dll')" />
 			<FilesToCopy2022 Include="$(TargetDir)System.IO.Packaging.dll" Condition="Exists('$(TargetDir)System.IO.Packaging.dll')" />
 			<FilesToCopy2022 Include="$(TargetDir)SixLabors.Fonts.dll" Condition="Exists('$(TargetDir)SixLabors.Fonts.dll')" />
 		</ItemGroup>

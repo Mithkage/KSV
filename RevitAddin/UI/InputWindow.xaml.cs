@@ -15,12 +15,13 @@
 // 2025-07-04: Added file description, script function description, and change log.
 // 2025-07-04: Removed ClearGraphics WindowAction and associated button click handler
 //             as the functionality is now handled by submitting a blank input.
+// 2025-07-15: Updated namespace from 'RT_Isolate' to 'RTS.UI'.
 //
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input; // Required for Keyboard.Focus
 
-namespace RT_Isolate
+namespace RTS.UI // UPDATED: Changed from 'RT_Isolate' to 'RTS.UI'
 {
     /// <summary>
     /// Defines the possible actions chosen by the user in the input window.

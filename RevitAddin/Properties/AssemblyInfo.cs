@@ -22,9 +22,7 @@ using System.Runtime.InteropServices;
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM.
 // This is generally not the same as your AddInId for Revit.
-// You can generate a new GUID in Visual Studio (Tools > Create GUID).
-// Corrected line: The GUID must be a string literal.
-[assembly: Guid("33100BBE-4C33-4E31-883D-F63EFE4C378F")] // Consider generating a new unique GUID for your project
+[assembly: Guid("33100BBE-4C33-4E31-883D-F63EFE4C378F")] 
 
 // Version information for an assembly consists of the following four values:
 //

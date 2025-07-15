@@ -6,27 +6,28 @@
 // Class: RT_TrayOccupancyClass
 //
 // Function: This Revit external command now reads cable data directly from
-//           extensible storage (managed by PC_Extensible). It then scans the active Revit
-//           model for Cable Trays with specific parameters, calculates total cable weight
-//           and occupancy for each tray using conditional logic, reports on missing cables,
-//           determines minimum tray size, and exports that data to a second CSV. Finally,
-//           it calculates the total run length for each unique cable across all trays and
-//           fittings, exports that to a third CSV, and updates/merges this calculated data
-//           into the Model Generated Data extensible storage based on Cable Reference.
+//           extensible storage (managed by PC_Extensible). It then scans the active Revit
+//           model for Cable Trays with specific parameters, calculates total cable weight
+//           and occupancy for each tray using conditional logic, reports on missing cables,
+//           determines minimum tray size, and exports that data to a second CSV. Finally,
+//           it calculates the total run length for each unique cable across all trays and
+//           fittings, exports that to a third CSV, and updates/merges this calculated data
+//           into the Model Generated Data extensible storage based on Cable Reference.
 //
 // Author: Kyle Vorster
 //
 // Date: June 13, 2024 (Updated July 1, 2025 - Reads from Extensible Storage, Fixed Dictionary Key)
-//       July 2, 2025 - Improved CleanCableReference logic for better parsing.
-//       July 2, 2025 - Modified UpdateRevitParameters to update Cable_XX parameters on Conduits,
-//                      Conduit Fittings, and Cable Tray Fittings.
-//       July 2, 2025 - Resolved CS1061 error by updating method call to generic RecallDataFromExtensibleStorage<T>.
-//       July 2, 2025 - Updated ExportDataToCsv to include FileName and ImportDate.
-//       July 2, 2025 - Added logic to save calculated Cable Lengths data to Model Generated Data extensible storage.
-//       July 2, 2025 - Excluded Variance from data written to ModelGeneratedData storage.
-//       July 2, 2025 - Fixed "An item with the same key has already been added" error in CollectCableLengthsData
-//                      by handling duplicate CableReference keys when creating lookup dictionary.
-//       July 2, 2025 - Implemented update/merge logic for saving data to Model Generated Data extensible storage.
+//       July 2, 2025 - Improved CleanCableReference logic for better parsing.
+//       July 2, 2025 - Modified UpdateRevitParameters to update Cable_XX parameters on Conduits,
+//                      Conduit Fittings, and Cable Tray Fittings.
+//       July 2, 2025 - Resolved CS1061 error by updating method call to generic RecallDataFromExtensibleStorage<T>.
+//       July 2, 2025 - Updated ExportDataToCsv to include FileName and ImportDate.
+//       July 2, 2025 - Added logic to save calculated Cable Lengths data to Model Generated Data extensible storage.
+//       July 2, 2025 - Excluded Variance from data written to ModelGeneratedData storage.
+//       July 2, 2025 - Fixed "An item with the same key has already been added" error in CollectCableLengthsData
+//                      by handling duplicate CableReference keys when creating lookup dictionary.
+//       July 15, 2025 - Updated ElementId.IntegerValue to ElementId.Value to resolve CS0618 warnings.
+//       July 15, 2025 - Reverted ElementId.Value to ElementId.IntegerValue to resolve CS1061 error.
 //
 #region Namespaces
 using System;
@@ -40,7 +41,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System.Reflection;
-using PC_Extensible; 
+using PC_Extensible;
 #endregion
 
 namespace RTS.Commands
@@ -68,9 +69,9 @@ namespace RTS.Commands
                 PC_ExtensibleClass pcExtensible = new PC_ExtensibleClass();
                 List<PC_ExtensibleClass.CableData> cleanedData = pcExtensible.RecallDataFromExtensibleStorage<PC_ExtensibleClass.CableData>(
                     doc,
-                    PC_ExtensibleClass.PrimarySchemaGuid,       // Pass the primary schema GUID
-                    PC_ExtensibleClass.PrimarySchemaName,       // Pass the primary schema name
-                    PC_ExtensibleClass.PrimaryFieldName,        // Pass the primary field name
+                    PC_ExtensibleClass.PrimarySchemaGuid,        // Pass the primary schema GUID
+                    PC_ExtensibleClass.PrimarySchemaName,        // Pass the primary schema name
+                    PC_ExtensibleClass.PrimaryFieldName,         // Pass the primary field name
                     PC_ExtensibleClass.PrimaryDataStorageElementName // Pass the primary data storage element name
                 );
 
@@ -273,8 +274,8 @@ namespace RTS.Commands
             {
                 var line = new List<string>
                 {
-                    row.FileName,       // New data field
-                    row.ImportDate,     // New data field
+                    row.FileName,        // New data field
+                    row.ImportDate,      // New data field
                     row.CableReference, row.From, row.To, row.CableType, row.CableCode,
                     row.CableConfiguration, row.Cores, row.NumberOfActiveCables, row.ActiveCableSize,
                     row.ConductorActive, row.Insulation, row.NumberOfNeutralCables, row.NeutralCableSize,
@@ -443,7 +444,7 @@ namespace RTS.Commands
             // However, the trays themselves hold 'Cable Reference', so we'll use FirstOrDefault for lookup later.
             var cableDataDict = cableScheduleData
            .Where(c => !string.IsNullOrEmpty(c.To)) // Ensure 'To' is not null/empty for dictionary key
-                   .ToDictionary(c => c.To, c => c); // This dictionary is not directly used for lookup of CableReference from trays.
+                    .ToDictionary(c => c.To, c => c); // This dictionary is not directly used for lookup of CableReference from trays.
 
             var standardTraySizes = new List<int> { 100, 150, 300, 450, 600, 900, 1000 };
 
@@ -566,8 +567,8 @@ namespace RTS.Commands
             {
                 BuiltInCategory.OST_CableTray,
                 BuiltInCategory.OST_CableTrayFitting, // Include Cable Tray Fittings
-                BuiltInCategory.OST_Conduit,            // Include Conduits
-                BuiltInCategory.OST_ConduitFitting     // Include Conduit Fittings
+                BuiltInCategory.OST_Conduit,          // Include Conduits
+                BuiltInCategory.OST_ConduitFitting    // Include Conduit Fittings
             };
             var categoryFilter = new ElementMulticategoryFilter(categories);
 
@@ -713,7 +714,7 @@ namespace RTS.Commands
                 foreach (Element element in elementsToUpdate) // Iterate through all relevant elements
                 {
                     // Special handling for Cable Trays: Update their specific RT_ parameters
-                    if (element.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTray)
+                    if (element.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTray) // REVERTED: Used .IntegerValue to resolve CS1061
                     {
                         Parameter rtsIdParam = element.get_Parameter(rtsIdGuid);
                         if (rtsIdParam != null && rtsIdParam.HasValue)
@@ -778,7 +779,11 @@ namespace RTS.Commands
                             if (i < cablesToAssign.Count)
                             {
                                 // Assign the cable reference
-                                cableParam.Set(cablesToAssign[i]);
+                                // Only set if the value is different to avoid unnecessary modifications
+                                if (cableParam.AsString() != cablesToAssign[i])
+                                {
+                                    cableParam.Set(cablesToAssign[i]);
+                                }
                             }
                             else
                             {
@@ -793,6 +798,7 @@ namespace RTS.Commands
                 }
 
                 tx.Commit();
+                TaskDialog.Show("RT_TrayOccupancy", "Cable Tray data processed and updated successfully.");
             }
         }
 

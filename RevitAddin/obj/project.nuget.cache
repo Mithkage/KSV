@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "9pw1IO148zw=",
+  "dgSpecHash": "digE1I2Uhw8=",
   "success": true,
   "projectFilePath": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\kyles\\.nuget\\packages\\closedxml\\0.102.2\\closedxml.0.102.2.nupkg.sha512",
-    "C:\\Users\\kyles\\.nuget\\packages\\documentformat.openxml\\2.19.0\\documentformat.openxml.2.19.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\documentformat.openxml\\2.16.0\\documentformat.openxml.2.16.0.nupkg.sha512",
     "C:\\Users\\kyles\\.nuget\\packages\\epplus\\8.0.7\\epplus.8.0.7.nupkg.sha512",
     "C:\\Users\\kyles\\.nuget\\packages\\epplus.interfaces\\8.0.0\\epplus.interfaces.8.0.0.nupkg.sha512",
     "C:\\Users\\kyles\\.nuget\\packages\\excelnumberformat\\1.1.0\\excelnumberformat.1.1.0.nupkg.sha512",

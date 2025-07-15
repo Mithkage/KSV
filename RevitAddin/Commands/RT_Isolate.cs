@@ -13,34 +13,35 @@
 
 // Log:
 // - July 3, 2025: Implemented WPF InputWindow with "OK" (default/Return key), "Cancel" (closes window),
-//                 and "Clear Overrides" buttons. Modified Execute method to handle these actions.
-//                 Updated to use separate XAML and code-behind for InputWindow.
+//                and "Clear Overrides" buttons. Modified Execute method to handle these actions.
+//                Updated to use separate XAML and code-behind for InputWindow.
 // - July 3, 2025: Added wildcard '*' functionality for search values.
-//                 A single '*' matches any non-empty parameter value.
-//                 '*' within a string acts as a multi-character wildcard (e.g., 'Cable-*' matches 'Cable-01', 'Cable-XYZ').
-//                 Matching is case-insensitive.
+//                A single '*' matches any non-empty parameter value.
+//                '*' within a string acts as a multi-character wildcard (e.g., 'Cable-*' matches 'Cable-01', 'Cable-XYZ').
+//                Matching is case-insensitive.
 // - July 3, 2025: Removed duplicate 'WindowAction' enum definition to resolve CS0101 error.
-//                 The 'WindowAction' enum is now solely defined in 'InputWindow.xaml.cs'.
+//                The 'WindowAction' enum is now solely defined in 'InputWindow.xaml.cs'.
 // - July 3, 2025: Fixed CS0103 error by correcting typo 'solidRedRedOverride' to 'solidRedOverride'.
 // - July 4, 2025: Removed 'Clear Overrides' button from UI and corresponding logic.
-//                 Clearing overrides is now handled by submitting a blank input.
+//                Clearing overrides is now handled by submitting a blank input.
+// - July 15, 2025: Updated 'using' statement for InputWindow to reflect new namespace RTS.UI.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using System.Windows.Interop; // Required for HwndSource for WPF owner
+using RTS.UI; // UPDATED: Changed from 'RT_Isolate' to 'RTS.UI'
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows; // Required for WPF Window, RoutedEventArgs
 using System.Windows.Controls; // Required for WPF TextBox, Button, StackPanel, TextBlock
 using System.Windows.Input; // Required for KeyBinding (though IsDefault/IsCancel handle this for buttons)
-using System.Text.RegularExpressions;
-using RT_Isolate;
+using System.Windows.Interop; // Required for HwndSource for WPF owner
 
 namespace RTS.Commands
 {
-    // The 'WindowAction' enum definition is in 'InputWindow.xaml.cs'.
+    // The 'WindowAction' enum definition is now in 'RTS.UI.InputWindow.xaml.cs'.
 
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]

@@ -16,12 +16,13 @@
 // Log:
 // - July 2, 2025: Consolidated command execution to launch ReportSelectionWindow.
 //                 Renamed file from RTS_ReportsClass.cs to RTS_Reports.cs.
+// - July 15, 2025: Updated using directive for ReportSelectionWindow to RTS.UI.
 //
 #region Namespaces
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using RTS_Reports;
+using RTS.UI; // UPDATED: Corrected using directive for ReportSelectionWindow
 using System;
 #endregion
 

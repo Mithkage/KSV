@@ -169,7 +169,7 @@ namespace RTS.Commands // Namespace to organize the code, reflecting the file na
                 {
                     string lookupValue = null;
                     // Check if it's a Detail Item and get its specific "PC_SWB To" value
-                    if (item.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DetailComponents)
+                    if (item.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DetailComponents) // REVERTED: Used .IntegerValue to resolve CS1061
                     {
                         Parameter pcSwbToParam = item.get_Parameter(_pcSwbToGuidForDetailItems);
                         if (pcSwbToParam?.HasValue ?? false)
@@ -178,13 +178,13 @@ namespace RTS.Commands // Namespace to organize the code, reflecting the file na
                         }
                     }
                     // *** ADD LOGIC HERE FOR GENERIC ANNOTATIONS IF NEEDED ***
-                    // else if (item.Category.Id.IntegerValue == (int)BuiltInCategory.OST_GenericAnnotation)
+                    // else if (item.Category.Id.IntegerValue == (int)BuiltInCategory.OST_GenericAnnotation) // REVERTED: Use .IntegerValue here too
                     // {
                     //      // Get the relevant lookup parameter for Generic Annotations
                     //      // Parameter genericLookupParam = item.get_Parameter(your_generic_annotation_guid);
                     //      // if (genericLookupParam?.HasValue ?? false)
                     //      // {
-                    //      //      lookupValue = genericLookupParam.AsString();
+                    //      //       lookupValue = genericLookupParam.AsString();
                     //      // }
                     // }
 

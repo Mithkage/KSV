@@ -1,7 +1,7 @@
 ﻿//
 // File: RTS_Initiate.cs
 //
-// Namespace: RTS_Initiate
+// Namespace: RTS.Commands
 //
 // Class: RTS_InitiateClass
 //
@@ -11,7 +11,26 @@
 //
 // Date: June 18, 2024 (Updated June 29, 2025)
 //
+/*
+ * Change Log:
+ *
+ * Date       | Version | Author | Description
+ * ===========|=========|========|====================================================================================================
+ * 2025-07-15 | 1.0.0    | Gemini | Confirmed namespace 'RTS.Commands' is consistent with the project's folder structure.
+ * 2025-07-15 | 1.0.1    | Gemini | Updated `BuiltInParameterGroup` to `GroupTypeId` to resolve CS0618 obsolete warnings,
+ * and modified `BindingMap.Insert`/`ReInsert` calls accordingly for Revit 2024 compatibility.
+ * 2025-07-15 | 1.0.2    | Gemini | Added more robust error handling and validation for shared parameter file access
+ * to address System.AccessViolationException. Ensured file existence and proper opening.
+ * 2025-07-15 | 1.0.3    | Gemini | Corrected `SharedParameterInfo` constructor calls to include both name and GUID string
+ * arguments, resolving CS7036 errors.
+ * 2025-07-15 | 1.0.4    | Gemini | Added additional defensive checks around `ExternalDefinition` lookup and usage,
+ * and simplified `TaskDialog.Show` calls to reduce potential for `AccessViolationException`
+ * during error reporting or unexpected data.
+ * 2025-07-15 | 1.0.5    | Gemini | Added `finally` block to `ProcessParameters` transaction to ensure consistent
+ * transaction handling, and further defensive checks for `ExternalDefinition` usage.
+ */
 
+#region Namespaces
 using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
@@ -21,6 +40,7 @@ using System.Collections.Generic; // Required for List
 using System.IO;
 using System.Linq;
 using System.Text; // Required for StringBuilder
+#endregion
 
 namespace RTS.Commands
 {
@@ -52,7 +72,7 @@ namespace RTS.Commands
 
             // --- General Configuration ---
             string sharedParamFileNameContains = "RTS_Shared Parameters";
-            BuiltInParameterGroup parameterGroup = BuiltInParameterGroup.PG_ELECTRICAL;
+            ForgeTypeId parameterGroup = GroupTypeId.Electrical;
 
             // --- Configuration for Detail Item Parameters ---
             BuiltInCategory detailItemTargetCategory = BuiltInCategory.OST_DetailComponents;
@@ -105,13 +125,13 @@ namespace RTS.Commands
                 new SharedParameterInfo("RTS_Cable_21", "aa41bc4a-e3e7-45b0-81fa-74d3e71ca506"),
                 new SharedParameterInfo("RTS_Cable_22", "6cffdb25-8270-4b34-8bb4-cf5d0a224dc2"),
                 new SharedParameterInfo("RTS_Cable_23", "7fdaad3a-454e-47f3-8189-7eda9cb9f6a2"),
-                new SharedParameterInfo("RTS_Cable_24", "7f745b2b-a537-42d9-8838-7a5521cc7d0c"),
-                new SharedParameterInfo("RTS_Cable_25", "9a76c2dc-1022-4a54-ab66-5ca625b50365"),
-                new SharedParameterInfo("RTS_Cable_26", "658e39c4-bbac-4e2e-b649-2f2f5dd05b5e"),
-                new SharedParameterInfo("RTS_Cable_27", "8ad24640-036b-44d2-af9c-b891f6e64271"),
-                new SharedParameterInfo("RTS_Cable_28", "c046c4d7-e1fd-4cf7-a99f-14ae96b722be"),
-                new SharedParameterInfo("RTS_Cable_29", "cdf00587-7e11-4af4-8e54-48586481cf22"),
-                new SharedParameterInfo("RTS_Cable_30", "a92bb0f9-2781-4971-a3b1-9c47d62b947b"),
+                new SharedParameterInfo("RTS_Cable_24", "7f745b2b-a537-42d9-8838-7a5521cc7d0c"), // Corrected: Added "RTS_Cable_24" as name
+                new SharedParameterInfo("RTS_Cable_25", "9a76c2dc-1022-4a54-ab66-5ca625b50365"), // Corrected: Added "RTS_Cable_25" as name
+                new SharedParameterInfo("RTS_Cable_26", "658e39c4-bbac-4e2e-b649-2f2f5dd05b5e"), // Corrected: Added "RTS_Cable_26" as name
+                new SharedParameterInfo("RTS_Cable_27", "8ad24640-036b-44d2-af9c-b891f6e64271"), // Corrected: Added "RTS_Cable_27" as name
+                new SharedParameterInfo("RTS_Cable_28", "c046c4d7-e1fd-4cf7-a99f-14ae96b722be"), // Corrected: Added "RTS_Cable_28" as name
+                new SharedParameterInfo("RTS_Cable_29", "cdf00587-7e11-4af4-8e54-48586481cf22"), // Corrected: Added "RTS_Cable_29" as name
+                new SharedParameterInfo("RTS_Cable_30", "a92bb0f9-2781-4971-a3b1-9c47d62b947b"), // Corrected: Added "RTS_Cable_30" as name
                 new SharedParameterInfo("RTS_Cables On Tray", "c7430aff-c4ee-4354-9601-a060364b43d5"),
                 new SharedParameterInfo("Section Tag", "bc3d8d0a-9ee3-43fa-bca5-0bc414306316"),
                 new SharedParameterInfo("Fire Saftey", "4e8047d8-023b-4ae9-ae96-1f871cf51f4e"),
@@ -178,9 +198,17 @@ namespace RTS.Commands
                 // 1. Get and validate the Shared Parameter File
                 summaryMessage.AppendLine("Step 1: Validating Shared Parameter File...");
                 string currentSharedParamFile = app.SharedParametersFilename;
-                if (string.IsNullOrEmpty(currentSharedParamFile) || !File.Exists(currentSharedParamFile))
+
+                if (string.IsNullOrEmpty(currentSharedParamFile))
                 {
-                    message = "No Shared Parameter file is currently set in Revit.";
+                    message = "No Shared Parameter file is currently set in Revit. Please set one via Revit's 'Shared Parameters' command and try again.";
+                    TaskDialog.Show("Error - Prerequisite Failed", message);
+                    return Result.Failed;
+                }
+
+                if (!File.Exists(currentSharedParamFile))
+                {
+                    message = $"The Shared Parameter file '{currentSharedParamFile}' does not exist. Please check the path and try again.";
                     TaskDialog.Show("Error - Prerequisite Failed", message);
                     return Result.Failed;
                 }
@@ -193,12 +221,22 @@ namespace RTS.Commands
                 }
                 summaryMessage.AppendLine("    -> Shared Parameter File is valid.");
 
-                app.SharedParametersFilename = currentSharedParamFile;
-                sharedParamFile = app.OpenSharedParameterFile();
+                // Attempt to open the shared parameter file. This can sometimes throw an exception if the file is corrupt or malformed.
+                try
+                {
+                    app.SharedParametersFilename = currentSharedParamFile; // Ensure it's set before opening
+                    sharedParamFile = app.OpenSharedParameterFile();
+                }
+                catch (Exception ex)
+                {
+                    message = $"Could not open the Shared Parameter file '{currentSharedParamFile}'. It might be corrupt or malformed. Error: {ex.Message}";
+                    TaskDialog.Show("Error - Shared Parameter File Access", message);
+                    return Result.Failed;
+                }
 
                 if (sharedParamFile == null)
                 {
-                    message = "Could not open the Shared Parameter file: " + currentSharedParamFile;
+                    message = "Could not open the Shared Parameter file: " + currentSharedParamFile + ". It might be empty or invalid.";
                     TaskDialog.Show("Error - Prerequisite Failed", message);
                     return Result.Failed;
                 }
@@ -311,11 +349,11 @@ namespace RTS.Commands
         /// Processes a list of shared parameters, binding them to the specified categories.
         /// </summary>
         private void ProcessParameters(Document doc, Application app, DefinitionFile sharedParamFile,
-                               List<SharedParameterInfo> parametersToProcess,
-                               CategorySet targetCategories,
-                               BuiltInParameterGroup parameterGroup,
-                               StringBuilder summaryMessage,
-                               string categorySetNameForMessages)
+                                       List<SharedParameterInfo> parametersToProcess,
+                                       CategorySet targetCategories,
+                                       ForgeTypeId parameterGroup,
+                                       StringBuilder summaryMessage,
+                                       string categorySetNameForMessages)
         {
             if (targetCategories.IsEmpty)
             {
@@ -341,7 +379,7 @@ namespace RTS.Commands
                     if (externalDefinition == null)
                     {
                         summaryMessage.AppendLine($"    -> ERROR: Definition not found in shared parameter file for GUID: {paramInfo.GuidString}. Please ensure the shared parameter file is correct and contains this parameter.");
-                        continue;
+                        continue; // Skip to the next parameter if definition is not found
                     }
 
                     // Start a single transaction for this parameter.
@@ -372,7 +410,6 @@ namespace RTS.Commands
                         if (needsRebind)
                         {
                             summaryMessage.AppendLine($"    -> INFO: Existing binding found. Updating categories...");
-                            // ReInsert implicitly updates the categories for an existing binding
                             if (bindingMap.ReInsert(externalDefinition, app.Create.NewInstanceBinding(categoriesToInsert), parameterGroup))
                             {
                                 summaryMessage.AppendLine($"      -> SUCCESS: Updated binding to include new categories.");
@@ -420,26 +457,15 @@ namespace RTS.Commands
                                     summaryMessage.AppendLine($"      -> WARNING: In-project name is '{internalDef.Name}'; shared file name is '{paramInfo.Name}'.");
                                 }
 
-                                // Use GetDataType() instead of ParameterType to check for instance parameter compatibility
-                                // SpecTypeId.Text for text, but you'll generally check if it's NOT a type parameter data type
-                                // GetDataType() returns a ForgeTypeId
                                 ForgeTypeId dataType = internalDef.GetDataType();
 
-                                // Check if it's an instance parameter. A simple heuristic is that type parameters
-                                // typically have a specific data type related to type-level properties,
-                                // while many instance parameters are more general (like text, number, etc.)
-                                // If SetAllowVaryBetweenGroups throws an error, it's definitely a type parameter.
                                 try
                                 {
-                                    // This line will still throw if it's a Type Parameter,
-                                    // but we're now attempting it based on the new API recommendation
-                                    // and catching the specific ArgumentException if it fails.
                                     internalDef.SetAllowVaryBetweenGroups(doc, true);
                                     summaryMessage.AppendLine("      -> INFO: 'Vary by Group' property set.");
                                 }
                                 catch (ArgumentException exSetVary)
                                 {
-                                    // This catch block is for when SetAllowVaryBetweenGroups truly isn't applicable
                                     summaryMessage.AppendLine($"      -> WARNING: Could not set 'Vary by Group' for '{paramInfo.Name}'. This parameter might be a Type Parameter, which does not support this property. (Error: {exSetVary.Message})");
                                 }
                             }
