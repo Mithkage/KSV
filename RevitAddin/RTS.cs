@@ -1,3 +1,23 @@
+//
+// File: RTS.cs
+//
+// Namespace: RTS
+//
+// Class: App
+//
+// Function: This is the main application class for the RTS Revit add-in. It handles
+//           the OnStartup and OnShutdown events, and is responsible for creating the
+//           custom ribbon tab ("RTS") and all associated panels and buttons that
+//           launch the various tools.
+//
+// Author: Kyle Vorster
+// Company: ReTick Solutions (RTS)
+//
+// Log:
+// - July 16, 2025: Added standard file header comment.
+// - July 16, 2025: Added the 'Link Manager' button to the 'Revit Tools' panel.
+//
+
 #region Namespaces
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
@@ -69,7 +89,6 @@ namespace RTS
             // --- PCAD Tools Buttons ---
 
             // 1. PC SWB Exporter
-            // Path: RTS.Commands.PC_SWB_Exporter.PC_SWB_ExporterClass
             PushButtonData pbdPcSwbExporter = new PushButtonData("CmdPcSwbExporter", "Export\nSWB Data", ExecutingAssemblyPath, "RTS.Commands.PC_SWB_ExporterClass")
             {
                 ToolTip = "Exports data for PowerCAD SWB import.",
@@ -77,7 +96,6 @@ namespace RTS
             };
 
             // 2. PC SWB Importer
-            // Path: RTS.Commands.PC_SWB_Importer.PC_SWB_ImporterClass
             PushButtonData pbdPcSwbImporter = new PushButtonData("CmdPcSwbImporter", "Import\nSWB Data", ExecutingAssemblyPath, "RTS.Commands.PC_SWB_ImporterClass")
             {
                 ToolTip = "Imports cable data from a PowerCAD SWB CSV export file into filtered Detail Item parameters.",
@@ -85,7 +103,6 @@ namespace RTS
             };
 
             // 3. Import Cable Summary Data
-            // Path: RTS.Commands.PC_Cable_Importer.PC_Cable_ImporterClass
             PushButtonData pbdPcCableImporter = new PushButtonData("CmdPcCableImporter", "Import Cable\nSummary", ExecutingAssemblyPath, "RTS.Commands.PC_Cable_ImporterClass")
             {
                 ToolTip = "Imports Cable Summary data from PowerCAD into SLD.",
@@ -93,7 +110,6 @@ namespace RTS
             };
 
             // 4. PC Clear Data
-            // Path: RTS.Commands.PC_Clear_Data.PC_Clear_DataClass
             PushButtonData pbdPcClearData = new PushButtonData("CmdPcClearData", "Clear PCAD\nData", ExecutingAssemblyPath, "RTS.Commands.PC_Clear_DataClass")
             {
                 ToolTip = "Clears specific PowerCAD-related parameters from Detail Items where PC_PowerCAD is 'Yes'.",
@@ -101,7 +117,6 @@ namespace RTS
             };
 
             // 5. PC Generate MD Report
-            // Path: RTS.Commands.PC_Generate_MD.PC_Generate_MDClass
             PushButtonData pbdPcGenerateMd = new PushButtonData("CmdPcGenerateMd", "Generate\nMD Report", ExecutingAssemblyPath, "RTS.Commands.PC_Generate_MDClass")
             {
                 ToolTip = "Generates an Excel report with Cover Page, Authority, and Submains data.",
@@ -109,7 +124,6 @@ namespace RTS
             };
 
             // 6. PC_Extensible: Process & Save Cable Data
-            // UPDATED PATH: PC_Extensible.PC_ExtensibleClass (removed RTS.Addin.Commands sub-namespaces)
             PushButtonData pbdPcExtensible = new PushButtonData("CmdPcExtensible", "Process & Save\nCable Data", ExecutingAssemblyPath, "PC_Extensible.PC_ExtensibleClass")
             {
                 ToolTip = "Processes the Cleaned Cable Schedule and saves its data to project extensible storage.",
@@ -117,7 +131,6 @@ namespace RTS
             };
 
             // 7. PC_WireData: Update Electrical Wires
-            // Path: RTS.Commands.PC_WireData.PC_WireDataClass
             PushButtonData pbdPcWireData = new PushButtonData("CmdPcWireData", "Update Electrical\nWires", ExecutingAssemblyPath, "RTS.Commands.PC_WireDataClass")
             {
                 ToolTip = "Reads cleaned cable data from extensible storage and updates electrical wires in the model.",
@@ -125,7 +138,6 @@ namespace RTS
             };
 
             // 8. PC_Updater: Update CSV file
-            // Path: RTS.Commands.PC_Updater.PC_UpdaterClass
             PushButtonData pbdPcUpdater = new PushButtonData("CmdPcUpdater", "Update PCAD\nCSV", ExecutingAssemblyPath, "RTS.Commands.PC_UpdaterClass")
             {
                 ToolTip = "Updates 'Cable Length' in a PowerCAD CSV export using lengths from Model Generated Data.",
@@ -135,7 +147,6 @@ namespace RTS
             // --- Revit Tools Buttons ---
 
             // 1. RT Cable Lengths
-            // Path: RTS.Commands.RTCableLengths.RTCableLengthsCommand
             PushButtonData pbdRtCableLengths = new PushButtonData("CmdRTCableLengths", "Update Cable\nLengths", ExecutingAssemblyPath, "RTS.Commands.RTCableLengthsCommand")
             {
                 ToolTip = "Calculates and updates 'PC_Cable Length' on Detail Items based on 'PC_SWB To' and summed lengths of Conduits/Cable Trays.",
@@ -143,7 +154,6 @@ namespace RTS
             };
 
             // 2. RT Panel Connect
-            // Path: RTS.Commands.RT_PanelConnect.RT_PanelConnectClass
             PushButtonData pbdRtPanelConnect = new PushButtonData("CmdRtPanelConnect", "Connect\nPanels", ExecutingAssemblyPath, "RTS.Commands.RT_PanelConnectClass")
             {
                 ToolTip = "Powers electrical panels by connecting them to their source panel based on a CSV file.",
@@ -151,7 +161,6 @@ namespace RTS
             };
 
             // 3. RT Tray Occupancy
-            // UPDATED PATH: RTS.Commands.RT_TrayOccupancyClass (removed redundant 'RT_TrayOccupancy' sub-namespace)
             PushButtonData pbdRtTrayOccupancy = new PushButtonData("CmdRtTrayOccupancy", "Process\nTray Data", ExecutingAssemblyPath, "RTS.Commands.RT_TrayOccupancyClass")
             {
                 ToolTip = "Parses a PowerCAD cable schedule to extract and clean data for export.",
@@ -159,7 +168,6 @@ namespace RTS
             };
 
             // 4. RT Tray ID
-            // Path: RTS.Commands.RT_TrayIDClass
             PushButtonData pbdRtTrayId = new PushButtonData("CmdRtTrayId", "Update Tray\nIDs", ExecutingAssemblyPath, "RTS.Commands.RT_TrayIDClass")
             {
                 ToolTip = "Generates and updates unique IDs for cable tray elements.",
@@ -167,7 +175,6 @@ namespace RTS
             };
 
             // 5. RT Tray Conduits
-            // UPDATED PATH: RTS.Commands.RT_TrayConduitsClass (removed redundant 'RT_TrayConduits' sub-namespace)
             PushButtonData pbdRtTrayConduits = new PushButtonData("CmdRtTrayConduits", "Create Tray\nConduits", ExecutingAssemblyPath, "RTS.Commands.RT_TrayConduitsClass")
             {
                 ToolTip = "Models conduits along cable trays based on cable data.",
@@ -175,7 +182,6 @@ namespace RTS
             };
 
             // 6. RT Uppercase
-            // UPDATED PATH: RTS.Commands.RT_UpperCaseClass (removed redundant 'RT_UpperCase' sub-namespace)
             PushButtonData pbdRtUppercase = new PushButtonData("CmdRtUppercase", "Uppercase\nText", ExecutingAssemblyPath, "RTS.Commands.RT_UpperCaseClass")
             {
                 ToolTip = "Converts view names, sheet names, sheet numbers, and specific sheet parameters to uppercase, with exceptions.",
@@ -183,7 +189,6 @@ namespace RTS
             };
 
             // 7. RT Wire Route
-            // Path: RTS.Commands.RT_WireRoute.RT_WireRouteClass
             PushButtonData pbdRtWireRoute = new PushButtonData("CmdRtWireRoute", "Wire\nRoute", ExecutingAssemblyPath, "RTS.Commands.RT_WireRouteClass")
             {
                 ToolTip = "Routes electrical wires through conduits based on matching RTS_ID.",
@@ -191,17 +196,22 @@ namespace RTS
             };
 
             // 8. RT_Isolate
-            // Path: RTS.Commands.RT_IsolateClass
             PushButtonData pbdRtIsolate = new PushButtonData("CmdRtIsolate", "Isolate by\nID/Cable", ExecutingAssemblyPath, "RTS.Commands.RT_IsolateClass")
             {
                 ToolTip = "Isolates elements in the active view based on 'RTS_ID' or 'RTS_Cable_XX' parameter values.",
                 LargeImage = GetEmbeddedPng("RT_Isolate.png") ?? defaultIcon
             };
 
+            // 9. Link Manager
+            PushButtonData pbdLinkManager = new PushButtonData("CmdLinkManager", "Link\nManager", ExecutingAssemblyPath, "RTS.Commands.LinkManagerCommand")
+            {
+                ToolTip = "Opens a window to manage Revit links and their associated metadata.",
+                LargeImage = GetEmbeddedPng("LinkManager.png") ?? defaultIcon
+            };
+
             // --- Misc Tools Buttons ---
 
             // 1. Import BB Cable Lengths
-            // Path: RTS.Commands.BB_Import.BB_CableLengthImport
             PushButtonData pbdBbImport = new PushButtonData("CmdBbCableLengthImport", "Import\n BB Lengths", ExecutingAssemblyPath, "RTS.Commands.BB_CableLengthImport")
             {
                 ToolTip = "Imports Bluebeam cable measurements into SLD components.",
@@ -209,7 +219,6 @@ namespace RTS
             };
 
             // 2. MD Importer - Update Detail Item Loads from Excel
-            // Path: RTS.Commands.MD_Importer.MD_ImporterClass
             PushButtonData pbdMdImporter = new PushButtonData("CmdMdExcelUpdater", "Update SWB\nLoads (Excel)", ExecutingAssemblyPath, "RTS.Commands.MD_ImporterClass")
             {
                 ToolTip = "Updates 'PC_SWB Load' parameter for Detail Items from an Excel file ('TB_Submains' table) based on the 'PC_SWB To' parameter.",
@@ -219,7 +228,6 @@ namespace RTS
             // --- RTS Setup Panel Buttons ---
 
             // 1. RTS Initiate Parameters
-            // Path: RTS.Commands.RTS_InitiateClass
             PushButtonData pbdRtsInitiate = new PushButtonData("CmdRtsInitiate", "Initiate\nRTS Params", ExecutingAssemblyPath, "RTS.Commands.RTS_InitiateClass")
             {
                 ToolTip = "Ensures required RTS Shared Parameters (like PC_PowerCAD) are added to the project.",
@@ -227,7 +235,6 @@ namespace RTS
             };
 
             // 2. RTS Map Cables
-            // Path: RTS.Commands.RTS_MapCables.RTS_MapCablesClass
             PushButtonData pbdRtsMapCables = new PushButtonData("CmdRtsMapCables", "Map\nCables", ExecutingAssemblyPath, "RTS.Commands.RTS_MapCablesClass")
             {
                 ToolTip = "Maps RTS parameters with client parameters using a CSV mapping file.",
@@ -235,7 +242,6 @@ namespace RTS
             };
 
             // 3. RTS Generate Schedules
-            // Path: RTS.Addin.Commands.RTS_Schedules.RTS_SchedulesClass
             PushButtonData pbdRtsGenerateSchedules = new PushButtonData("CmdRtsGenerateSchedules", "Generate\nSchedules", ExecutingAssemblyPath, "RTS.Addin.Commands.RTS_Schedules.RTS_SchedulesClass")
             {
                 ToolTip = "Deletes and recreates a standard set of project schedules.",
@@ -243,7 +249,6 @@ namespace RTS
             };
 
             // 4. RTS Reports
-            // Path: RTS.Addin.Commands.RTS_Reports.ShowReportsWindowCommand
             PushButtonData pbdRtsReports = new PushButtonData("CmdRtsReports", "RTS\nReports", ExecutingAssemblyPath, "RTS.Addin.Commands.RTS_Reports.ShowReportsWindowCommand")
             {
                 ToolTip = "Generates various reports from extensible storage data.",
@@ -268,6 +273,7 @@ namespace RTS
             revitToolsPanel.AddItem(pbdRtUppercase);
             revitToolsPanel.AddItem(pbdRtWireRoute);
             revitToolsPanel.AddItem(pbdRtIsolate);
+            revitToolsPanel.AddItem(pbdLinkManager); // Added the new button here
 
             miscPanel.AddItem(pbdBbImport);
             miscPanel.AddItem(pbdMdImporter);

@@ -41,3 +41,7 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2022\net48\XLParser.dl
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.csproj.Up2Date
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.pdb
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\LinkManagerWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\LinkManagerWindow.g.cs
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\InitiateParametersWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\InitiateParametersWindow.g.cs

@@ -23,12 +23,16 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\System.Thread
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\System.ValueTuple.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\XLParser.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\RTS.csproj.AssemblyReference.cache
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\InitiateParametersWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\InputWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\LinkManagerWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\PC_Extensible_Window.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\ReportSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\ScheduleSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\UserSelectionWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\InitiateParametersWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\InputWindow.g.cs
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\LinkManagerWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\PC_Extensible_Window.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\ReportSelectionWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\ScheduleSelectionWindow.g.cs

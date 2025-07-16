@@ -147,6 +147,9 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Resources\Models\" />
+	</ItemGroup>
 
 	<!-- Post-Build Target: Copies files ONLY for Release configurations -->
 	<Target Name="CopyAddinFilesAfterBuild" AfterTargets="Build" Condition="'$(Configuration.Contains(&quot;Release&quot;))' == 'true'">

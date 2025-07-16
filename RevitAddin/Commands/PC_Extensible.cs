@@ -13,7 +13,8 @@
 //           When importing, if updated data is null or blank, existing stored data is retained.
 //           The script now remembers the last used folder path within the same Revit session.
 //
-// Author: Kyle Vorster (Modified by AI)
+// Author: Kyle Vorster 
+// Company: ReTick Solutions (RTS)
 //
 // Log:
 // - July 8, 2025: Corrected the ClearData method to properly delete the DataStorage element, which is the supported method in the Revit API.
