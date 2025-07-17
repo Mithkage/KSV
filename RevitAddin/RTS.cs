@@ -273,7 +273,7 @@ namespace RTS
             revitToolsPanel.AddItem(pbdRtUppercase);
             revitToolsPanel.AddItem(pbdRtWireRoute);
             revitToolsPanel.AddItem(pbdRtIsolate);
-            revitToolsPanel.AddItem(pbdLinkManager); // Added the new button here
+            revitToolsPanel.AddItem(pbdLinkManager); 
 
             miscPanel.AddItem(pbdBbImport);
             miscPanel.AddItem(pbdMdImporter);

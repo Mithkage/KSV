@@ -1,4 +1,6 @@
 ﻿//
+// --- FILE: LinkManager.cs ---
+//
 // File: LinkManager.cs
 //
 // Namespace: RTS.Commands
@@ -15,6 +17,7 @@
 // Company: ReTick Solutions (RTS)
 //
 // Log:
+// - July 17, 2025: Updated to correctly set the Revit window as the owner for the WPF dialog.
 // - July 16, 2025: Initial creation of the command to launch the Link Manager WPF window.
 //
 
@@ -23,6 +26,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RTS.UI; // The namespace for your WPF window
 using System;
+using System.Windows.Interop; // Required for WindowInteropHelper
 
 namespace RTS.Commands
 {
@@ -56,6 +60,14 @@ namespace RTS.Commands
                 // Instantiate the LinkManagerWindow, passing the active document to its constructor.
                 // This window is defined in the RTS.UI namespace.
                 LinkManagerWindow linkManagerWindow = new LinkManagerWindow(doc);
+
+                // *** UPDATE: Set the owner of the WPF window to be the main Revit window. ***
+                // This is the correct way to launch a modal WPF dialog in Revit. It ensures
+                // the window stays on top of Revit and behaves correctly.
+                WindowInteropHelper wih = new WindowInteropHelper(linkManagerWindow)
+                {
+                    Owner = uiApp.MainWindowHandle
+                };
 
                 // Show the window as a modal dialog. This means the user cannot interact with
                 // Revit until the window is closed.

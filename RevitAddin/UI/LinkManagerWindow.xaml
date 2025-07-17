@@ -1,19 +1,37 @@
+<!--
+FILE: LinkManagerWindow.xaml (UPDATED)
+
+Function: This file defines the user interface for the Revit Link Manager WPF window.
+          It includes the DataGrid for displaying Revit link metadata, filtering controls,
+          and action buttons for import, export, and bulk editing. Link-specific actions
+          are now handled by a right-click context menu.
+
+Change Log:
+- July 19, 2025: Refactored DataGrid.RowStyle into a separate resource to resolve persistent XAML compiler error MC6007.
+- July 19, 2025: Corrected ContextMenu bindings to resolve XAML compiler error MC6007.
+- July 19, 2025: Fixed XAML compile error by removing invalid Style attribute from the column header filter button.
+- July 19, 2025: Implemented a right-click context menu on DataGrid rows for link-specific actions.
+- July 19, 2025: Removed dedicated "Relink" and "Unload/Reload" buttons from the main action panel.
+- July 19, 2025: Implemented dropdown filters in DataGrid column headers.
+- July 18, 2025: Added conditional formatting, tooltips, and new status columns.
+-->
 <Window x:Class="RTS.UI.LinkManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Revit Link Manager" Height="722" Width="1597" 
+        Title="Revit Link Manager" Height="722" Width="1733" 
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
         Topmost="True"
         Background="#FFE0F2F1"
-        MinWidth="900" MinHeight="450">
+        MinWidth="900" MinHeight="450"
+        Icon="pack://application:,,,/Resources/RTS_Icon.png">
 
     <!-- Resource Dictionary for Styles -->
     <Window.Resources>
-        <!-- Modern Button Style from your example -->
+        <!-- Modern Button Style -->
         <Style x:Key="ModernButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="#FF26A69A"/>
             <Setter Property="Foreground" Value="White" />
@@ -30,9 +48,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border CornerRadius="8" Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}">
+                        <Border CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -46,13 +62,8 @@
                 <Trigger Property="IsPressed" Value="True">
                     <Setter Property="Background" Value="#FF00897B"/>
                     <Setter Property="BorderBrush" Value="#FF00695C"/>
-                    <Setter Property="Effect">
-                        <Setter.Value>
-                            <DropShadowEffect Color="#FF616161" Direction="270" ShadowDepth="1" BlurRadius="2" Opacity="0.6" />
-                        </Setter.Value>
-                    </Setter>
                 </Trigger>
-                 <Trigger Property="IsEnabled" Value="False">
+                <Trigger Property="IsEnabled" Value="False">
                     <Setter Property="Background" Value="#FFBDBDBD"/>
                     <Setter Property="Foreground" Value="#FF757575"/>
                     <Setter Property="BorderBrush" Value="#FF9E9E9E"/>
@@ -60,7 +71,7 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Style for DataGrid Headers -->
+        <!-- DataGrid Styles -->
         <Style TargetType="{x:Type DataGridColumnHeader}">
             <Setter Property="Background" Value="#FF00897B"/>
             <Setter Property="Foreground" Value="White"/>
@@ -68,8 +79,6 @@
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
         </Style>
-        
-        <!-- Style for DataGrid Cells -->
         <Style TargetType="{x:Type DataGridCell}">
             <Setter Property="Padding" Value="5"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -81,6 +90,111 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- Conditional Formatting Styles -->
+        <Style x:Key="ReviztoStatusCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ReviztoStatus}" Value="Not Matched">
+                    <Setter Property="Background" Value="#FFF08080"/>
+                    <Setter Property="ToolTip" Value="This link is in Revit but not found in the imported Revizto data."/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReviztoStatus}" Value="Missing">
+                    <Setter Property="Background" Value="#FFFFA07A"/>
+                    <Setter Property="ToolTip" Value="This link is in the Revizto data but not currently loaded in Revit."/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReviztoStatus}" Value="Placeholder">
+                    <Setter Property="Background" Value="#FFFFFFE0"/>
+                    <Setter Property="ToolTip" Value="This is a manually added placeholder entry."/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReviztoStatus}" Value="Matched">
+                    <Setter Property="Background" Value="#FF90EE90"/>
+                    <Setter Property="ToolTip" Value="This link is in Revit and matched with Revizto data."/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="DisciplineCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedDiscipline}" Value="Unconfirmed">
+                    <Setter Property="Background" Value="#FFD3D3D3"/>
+                    <Setter Property="ToolTip" Value="Discipline is unconfirmed. Please update."/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="CoordinatesCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedCoordinates}" Value="Unconfirmed">
+                    <Setter Property="Background" Value="#FFD3D3D3"/>
+                    <Setter Property="ToolTip" Value="Coordinate system is unconfirmed. Please update."/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="VersionStatusCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding VersionStatus}" Value="Newer local file">
+                    <Setter Property="Background" Value="#FFFFD700"/>
+                    <Setter Property="ToolTip" Value="The local file is newer than the loaded Revit link. Consider reloading."/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding VersionStatus}" Value="Check BIM 360">
+                    <Setter Property="Background" Value="#FFADD8E6"/>
+                    <Setter Property="ToolTip" Value="Requires BIM 360 integration to check latest version."/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding VersionStatus}" Value="N/A (File not found)">
+                    <Setter Property="Background" Value="#FFF08080"/>
+                    <Setter Property="ToolTip" Value="The linked file could not be found locally."/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding VersionStatus}" Value="N/A (Unloaded)">
+                    <Setter Property="Background" Value="#FFD3D3D3"/>
+                    <Setter Property="ToolTip" Value="Link is unloaded, version status is not applicable."/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Header Filter Style -->
+        <Style x:Key="ColumnHeaderFilterStyle" TargetType="{x:Type DataGridColumnHeader}" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type DataGridColumnHeader}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter Grid.Column="0" Content="{TemplateBinding Content}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="5,0"/>
+                            <Button Grid.Column="1" Click="ColumnHeader_Click" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,5,0">
+                                <Path Data="M0,0 L4,4 L8,0 Z" Fill="White" />
+                            </Button>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- DataGrid Row Style with ContextMenu -->
+        <Style x:Key="DataGridRowContextMenuStyle" TargetType="DataGridRow">
+            <Setter Property="ContextMenu">
+                <Setter.Value>
+                    <!-- Set the DataContext of the whole menu to the row's DataContext. This simplifies the bindings below. -->
+                    <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                        <MenuItem Header="Open Linked File" Click="OpenLinkedFile_Click" IsEnabled="{Binding HasValidPath}"/>
+                        <MenuItem Header="Open Containing Folder" Click="OpenContainingFolder_Click" IsEnabled="{Binding HasValidPath}"/>
+                        <Separator/>
+                        <MenuItem Header="Relink..." Click="Relink_Click" IsEnabled="{Binding IsRevitLink}"/>
+                        <MenuItem Header="{Binding UnloadReloadHeader}" Click="UnloadReload_Click" IsEnabled="{Binding IsRevitLink}"/>
+                        <MenuItem Header="Remove Link" Click="RemoveLink_Click" IsEnabled="{Binding IsRevitLink}"/>
+                        <Separator/>
+                        <MenuItem Header="Copy Link Name" Click="CopyLinkName_Click"/>
+                        <MenuItem Header="Copy Link Path" Click="CopyLinkPath_Click" IsEnabled="{Binding HasValidPath}"/>
+                    </ContextMenu>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#FFB2DFDB"/>
+                    <Setter Property="Foreground" Value="Black"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
     </Window.Resources>
 
     <!-- Main Layout Grid -->
@@ -91,76 +205,59 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header Text -->
-        <TextBlock Grid.Row="0" Text="Project Link Configuration"
-                   FontSize="18" FontWeight="SemiBold" Margin="0,0,0,20"
-                   HorizontalAlignment="Center" Foreground="#FF333333"/>
+        <!-- Header -->
+        <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,10">
+            <Image Source="pack://application:,,,/Resources/RTS_Icon.png" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <TextBlock FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#FF333333" Text="RTS Link Manager"/>
+        </DockPanel>
 
-        <!-- DataGrid to display links -->
+        <!-- DataGrid -->
         <DataGrid Grid.Row="1" x:Name="LinksDataGrid" 
-                  AutoGenerateColumns="False" 
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  CanUserSortColumns="True"
                   ItemsSource="{Binding Links}"
-                  HeadersVisibility="Column"
-                  GridLinesVisibility="Horizontal"
-                  HorizontalScrollBarVisibility="Auto"
-                  VerticalScrollBarVisibility="Auto"
-                  BorderBrush="#FF00796B"
-                  BorderThickness="1"
+                  AutoGenerateColumns="False" 
+                  CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="True"
+                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  BorderBrush="#FF00796B" BorderThickness="1"
                   SelectionMode="Extended"
-                  PreviewKeyDown="LinksDataGrid_PreviewKeyDown">
+                  PreviewKeyDown="LinksDataGrid_PreviewKeyDown"
+                  Sorting="LinksDataGrid_Sorting"
+                  ColumnHeaderHeight="48"
+                  RowStyle="{StaticResource DataGridRowContextMenuStyle}">
+
             <DataGrid.Columns>
-                <!-- Link Name (Read-only for real links, editable for placeholders) -->
-                <DataGridTextColumn Header="Link File Name" Binding="{Binding LinkName, UpdateSourceTrigger=PropertyChanged}" Width="3*"/>
-
-                <!-- Link Description (Text field) -->
-                <DataGridTextColumn Header="Link Description" Binding="{Binding LinkDescription, UpdateSourceTrigger=PropertyChanged}" Width="1.5*"/>
-                
-                <!-- Last Modified Date (Read-only) -->
-                <DataGridTextColumn Header="Last Modified" Binding="{Binding LastModified}" IsReadOnly="True" Width="1.2*"/>
-
-                <!-- Discipline (Dropdown) -->
-                <DataGridTemplateColumn Header="Discipline" SortMemberPath="SelectedDiscipline" Width="1*">
+                <!-- Columns Definition -->
+                <DataGridTextColumn Header="Link File Name" Binding="{Binding LinkName, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkName" Width="3*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Revizto&#x0a;Status" Binding="{Binding ReviztoStatus}" IsReadOnly="True" SortMemberPath="ReviztoStatus" Width="1*" CellStyle="{StaticResource ReviztoStatusCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Link&#x0a;Description" Binding="{Binding LinkDescription, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkDescription" Width="2.25*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Last&#x0a;Modified" Binding="{Binding LastModified}" IsReadOnly="True" SortMemberPath="LastModified" Width="1.2*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTemplateColumn Header="Discipline" SortMemberPath="SelectedDiscipline" Width="1*" CellStyle="{StaticResource DisciplineCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <ComboBox ItemsSource="{Binding AvailableDisciplines}" 
-                                      SelectedItem="{Binding SelectedDiscipline, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ComboBox ItemsSource="{Binding AvailableDisciplines}" SelectedItem="{Binding SelectedDiscipline, UpdateSourceTrigger=PropertyChanged}"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-
-                <!-- Coordinates (Dropdown) -->
-                <DataGridTemplateColumn Header="Coordinates" SortMemberPath="SelectedCoordinates" Width="1.1*">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <ComboBox ItemsSource="{Binding AvailableCoordinates}" 
-                                      SelectedItem="{Binding SelectedCoordinates, UpdateSourceTrigger=PropertyChanged}"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <!-- NEW: Company Name (Text field) -->
-                <DataGridTextColumn Header="Company Name" Binding="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}" Width="1.2*"/>
-
-                <!-- Responsible Person (Text field) -->
-                <DataGridTextColumn Header="Responsible Person" Binding="{Binding ResponsiblePerson, UpdateSourceTrigger=PropertyChanged}" Width="1.2*"/>
-
-                <!-- Contact Details (Text field) -->
-                <DataGridTextColumn Header="Contact Details" Binding="{Binding ContactDetails, UpdateSourceTrigger=PropertyChanged}" Width="1.2*"/>
-                
-                <!-- Comments (Text field) -->
-                <DataGridTextColumn Header="Comments" Binding="{Binding Comments, UpdateSourceTrigger=PropertyChanged}" Width="2*"/>
-
+                <DataGridTextColumn Header="Coordinates" Binding="{Binding SelectedCoordinates}" IsReadOnly="True" SortMemberPath="SelectedCoordinates" Width="1.1*" CellStyle="{StaticResource CoordinatesCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Link&#x0a;Workset" Binding="{Binding LinkWorkset}" IsReadOnly="True" SortMemberPath="LinkWorkset" Width="1.2*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Instances" Binding="{Binding NumberOfInstances}" IsReadOnly="True" SortMemberPath="NumberOfInstances" Width="0.8*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Path&#x0a;Type" Binding="{Binding PathType}" IsReadOnly="True" SortMemberPath="PathType" Width="1*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Link&#x0a;Status" Binding="{Binding LinkStatus}" IsReadOnly="True" SortMemberPath="LinkStatus" Width="1*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Version&#x0a;Status" Binding="{Binding VersionStatus}" IsReadOnly="True" SortMemberPath="VersionStatus" Width="1.2*" CellStyle="{StaticResource VersionStatusCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Company&#x0a;Name" Binding="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="CompanyName" Width="1.2*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Responsible&#x0a;Person" Binding="{Binding ResponsiblePerson, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="ResponsiblePerson" Width="1.2*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Contact&#x0a;Details" Binding="{Binding ContactDetails, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="ContactDetails" Width="1.2*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Comments" Binding="{Binding Comments, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="Comments" Width="2*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
             </DataGrid.Columns>
         </DataGrid>
 
-        <!-- Action Buttons at the bottom -->
+        <!-- Action Buttons -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button Content="Add Placeholder" x:Name="AddPlaceholderButton" Click="AddPlaceholderButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0" Width="123"/>
-            <Button Content="Save Profile" x:Name="SaveButton" Click="SaveButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0" Width="91"/>
-            <Button Content="Close" x:Name="CloseButton" Click="CloseButton_Click" Style="{StaticResource ModernButtonStyle}" Width="56"/>
+            <Button Content="Import Revizto" Click="ImportReviztoButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+            <Button Content="Export to Excel" Click="ExportToExcelButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+            <Button Content="Add Placeholder" Click="AddPlaceholderButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+            <Button Content="Bulk Edit" Click="BulkEditButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+            <Button Content="Save Profile" Click="SaveButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+            <Button Content="Close" Click="CloseButton_Click" Style="{StaticResource ModernButtonStyle}"/>
         </StackPanel>
     </Grid>
 </Window>
