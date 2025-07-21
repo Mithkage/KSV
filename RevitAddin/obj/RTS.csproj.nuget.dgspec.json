@@ -57,7 +57,11 @@
           "dependencies": {
             "ClosedXML": {
               "target": "Package",
-              "version": "[0.102.2, )"
+              "version": "[0.105.0, )"
+            },
+            "DocumentFormat.OpenXml": {
+              "target": "Package",
+              "version": "[3.3.0, )"
             },
             "EPPlus": {
               "target": "Package",

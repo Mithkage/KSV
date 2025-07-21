@@ -16,15 +16,11 @@
 // Company: ReTick Solutions (RTS)
 //
 // Log:
+// - July 19, 2025: Added specific exception handling for TypeLoadException on Excel export to diagnose version conflicts.
+// - July 19, 2025: Implemented dynamic ContextMenu creation in code-behind to resolve runtime errors.
+// - July 19, 2025: Added DispatcherUnhandledException handler for improved XAML runtime error diagnostics.
 // - July 19, 2025: Added robust icon loading in constructor to prevent runtime errors from missing image resources.
-// - July 19, 2025: Added placeholders and TODO comments for Revit 2022 API compatibility to resolve build errors.
 // - July 19, 2025: Corrected Revit 2022 API calls for IsRelativePath and GetLoadStatus to resolve compiler errors.
-// - July 19, 2025: Fixed multiple compiler errors related to ambiguous references (Control, Binding).
-// - July 19, 2025: Re-implemented right-click context menu with Open File/Folder, Remove, Copy, Relink, and Unload/Reload options.
-// - July 19, 2025: Removed dedicated Relink and Unload/Reload buttons from the main UI.
-// - July 19, 2025: Implemented Excel-like dropdown filters in DataGrid headers.
-// - July 18, 2025: Implemented Export to Excel/CSV, Link Path Management, Version Checking,
-//                  Conditional Formatting, Tooltips, and Bulk Editing.
 //
 
 using Autodesk.Revit.DB;
@@ -48,6 +44,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media; // Required for VisualTreeHelper
 using System.Windows.Media.Imaging; // Required for BitmapImage
+using System.Windows.Threading; // Required for DispatcherUnhandledException
 
 namespace RTS.UI
 {
@@ -71,6 +68,9 @@ namespace RTS.UI
 
         public LinkManagerWindow(Document doc)
         {
+            // Add an exception handler for more detailed XAML parsing errors
+            this.Dispatcher.UnhandledException += OnDispatcherUnhandledException;
+
             InitializeComponent();
             LoadIcon(); // Load icon robustly
             _doc = doc;
@@ -82,6 +82,27 @@ namespace RTS.UI
 
             LoadLinks();
         }
+
+        /// <summary>
+        /// Provides detailed exception information for XAML parsing and other UI thread errors.
+        /// </summary>
+        void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            // Prevent the application from crashing
+            e.Handled = true;
+
+            string errorMessage = $"An unexpected error occurred: {e.Exception.Message}";
+
+            // The InnerException often contains the most useful information for XAML errors
+            if (e.Exception.InnerException != null)
+            {
+                errorMessage += $"\n\nInner Exception: {e.Exception.InnerException.Message}";
+            }
+
+            // Show a detailed error message to the user
+            TaskDialog.Show("Runtime Error", errorMessage);
+        }
+
 
         /// <summary>
         /// Loads the window icon safely, ignoring errors if the resource is not found.
@@ -217,10 +238,8 @@ namespace RTS.UI
                         {
                             fullPath = Path.GetFullPath(linkPath);
                             lastModifiedDate = File.GetLastWriteTime(fullPath).ToString("yyyy-MM-dd HH:mm");
-                            // TODO: Revit 2022 API - Implement IsRelativePath logic.
-                            // The 'IsRelative' property on ModelPath and 'ModelPathUtils.IsRelativePath' do not exist in this API version.
-                            // A custom implementation might be needed to check the path format.
-                            viewModel.PathType = "Path Type (TBD)";
+                            // Corrected for Revit 2022 API using System.IO
+                            viewModel.PathType = Path.IsPathRooted(linkPath) ? "Absolute" : "Relative";
                             viewModel.HasValidPath = true;
                         }
                         else
@@ -233,9 +252,8 @@ namespace RTS.UI
                 viewModel.LastModified = lastModifiedDate;
                 viewModel.FullPath = fullPath;
 
-                // TODO: Revit 2022 API - The 'GetLoadStatus' method and 'RevitLinkLoadStatus' enum do not exist.
-                // The correct method for this version needs to be identified and implemented.
-                viewModel.LinkStatus = "Status (TBD)";
+                // Corrected for Revit 2022 API
+                viewModel.LinkStatus = RevitLinkType.IsLoaded(_doc, type.Id) ? "Loaded" : "Unloaded";
 
                 if (viewModel.LinkStatus == "Loaded" && viewModel.HasValidPath)
                 {
@@ -434,12 +452,67 @@ namespace RTS.UI
 
         #region Context Menu Handlers
 
+        private void LinksDataGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            try
+            {
+                var fe = e.Source as FrameworkElement;
+                if (fe == null) return;
+
+                var vm = fe.DataContext as LinkViewModel;
+                if (vm == null) return;
+
+                var menu = new ContextMenu();
+                menu.Tag = vm; // Store the ViewModel in the Tag for easy access in click handlers
+
+                var openFileItem = new MenuItem { Header = "Open Linked File", IsEnabled = vm.HasValidPath };
+                openFileItem.Click += OpenLinkedFile_Click;
+                menu.Items.Add(openFileItem);
+
+                var openFolderItem = new MenuItem { Header = "Open Containing Folder", IsEnabled = vm.HasValidPath };
+                openFolderItem.Click += OpenContainingFolder_Click;
+                menu.Items.Add(openFolderItem);
+
+                menu.Items.Add(new Separator());
+
+                var relinkItem = new MenuItem { Header = "Relink...", IsEnabled = vm.IsRevitLink };
+                relinkItem.Click += Relink_Click;
+                menu.Items.Add(relinkItem);
+
+                var unloadReloadItem = new MenuItem { Header = vm.UnloadReloadHeader, IsEnabled = vm.IsRevitLink };
+                unloadReloadItem.Click += UnloadReload_Click;
+                menu.Items.Add(unloadReloadItem);
+
+                var removeItem = new MenuItem { Header = "Remove Link", IsEnabled = vm.IsRevitLink };
+                removeItem.Click += RemoveLink_Click;
+                menu.Items.Add(removeItem);
+
+                menu.Items.Add(new Separator());
+
+                var copyNameItem = new MenuItem { Header = "Copy Link Name" };
+                copyNameItem.Click += CopyLinkName_Click;
+                menu.Items.Add(copyNameItem);
+
+                var copyPathItem = new MenuItem { Header = "Copy Link Path", IsEnabled = vm.HasValidPath };
+                copyPathItem.Click += CopyLinkPath_Click;
+                menu.Items.Add(copyPathItem);
+
+                fe.ContextMenu = menu;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating context menu: {ex.Message}");
+                e.Handled = true; // Prevent the default (and possibly crashing) context menu from showing
+            }
+        }
+
+
         private LinkViewModel GetLinkViewModelFromSender(object sender)
         {
             if (sender is MenuItem menuItem && menuItem.Parent is ContextMenu contextMenu)
             {
-                // The DataContext of the ContextMenu is set to the DataGridRow's DataContext in XAML
-                return contextMenu.DataContext as LinkViewModel;
+                // Get the LinkViewModel from the Tag property
+                return contextMenu.Tag as LinkViewModel;
             }
             return null;
         }
@@ -572,13 +645,8 @@ namespace RTS.UI
                 return;
             }
 
-            // TODO: Revit 2022 API - The 'GetLoadStatus' method and 'RevitLinkLoadStatus' enum do not exist.
-            // This functionality is temporarily disabled until the correct API call for this Revit version is implemented.
-            TaskDialog.Show("Feature Not Available", "Unload/Reload functionality is currently unavailable for this version of Revit.");
-
-            /*
             // Corrected for Revit 2022 API
-            string action = linkType.GetLoadStatus() == RevitLinkLoadStatus.Loaded ? "Unload" : "Reload";
+            string action = RevitLinkType.IsLoaded(_doc, linkType.Id) ? "Unload" : "Reload";
             try
             {
                 using (var tx = new Transaction(_doc, $"{action} Link"))
@@ -601,7 +669,6 @@ namespace RTS.UI
             {
                 TaskDialog.Show("Error", $"Failed to {action.ToLower()}: {ex.Message}");
             }
-            */
         }
 
         #endregion
@@ -755,7 +822,17 @@ namespace RTS.UI
                     }
                     TaskDialog.Show("Export Complete", "Link data exported to Excel successfully.", TaskDialogCommonButtons.Ok);
                 }
-                catch (Exception ex) { TaskDialog.Show("Export Error", $"Failed to export data to Excel: {ex.Message}", TaskDialogCommonButtons.Ok); }
+                catch (TypeLoadException tlEx)
+                {
+                    string errorMessage = "Failed to export data due to a library version conflict.\n\n" +
+                                          "This error often occurs if a dependency of the 'ClosedXML' library (like 'ExcelNumberFormat') is missing or the wrong version. Please ensure all required NuGet packages are installed and up to date.\n\n" +
+                                          $"Error Details: {tlEx.Message}";
+                    TaskDialog.Show("Export Error - Version Conflict", errorMessage);
+                }
+                catch (Exception ex)
+                {
+                    TaskDialog.Show("Export Error", $"Failed to export data to Excel: {ex.Message}", TaskDialogCommonButtons.Ok);
+                }
             }
         }
 

@@ -3,16 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\kyles\\source\\repos\\KSV\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\commands\\linkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\commands\\linkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\linkmanagerwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\linkmanagerwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\linkmanagerwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
       "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\linkmanagerwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\initiateparameterswindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
-      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\initiateparameterswindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\pc_extensible_window.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
@@ -38,7 +38,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": 1,
           "Children": [
             {
               "$type": "Bookmark",
@@ -46,18 +46,20 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "InitiateParametersWindow.xaml",
-              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\InitiateParametersWindow.xaml",
-              "RelativeDocumentMoniker": "RevitAddin\\UI\\InitiateParametersWindow.xaml",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\InitiateParametersWindow.xaml",
-              "RelativeToolTip": "RevitAddin\\UI\\InitiateParametersWindow.xaml",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-07-17T15:41:07.332Z"
+              "DocumentIndex": 0,
+              "Title": "LinkManager.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\LinkManager.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\Commands\\LinkManager.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\LinkManager.cs",
+              "RelativeToolTip": "RevitAddin\\Commands\\LinkManager.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAACMAAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-21T03:56:39.247Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "LinkManagerWindow.xaml",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml",
               "RelativeDocumentMoniker": "RevitAddin\\UI\\LinkManagerWindow.xaml",
@@ -69,13 +71,13 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "LinkManagerWindow.xaml.cs",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "RelativeDocumentMoniker": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "RelativeToolTip": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
-              "ViewState": "AgIAABEDAAAAAAAAAAAAACwDAAAqAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAACgAAAAeAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-07-17T13:23:58.836Z",
               "EditorCaption": ""

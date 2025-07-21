@@ -7,6 +7,8 @@ Function: This file defines the user interface for the Revit Link Manager WPF wi
           are now handled by a right-click context menu.
 
 Change Log:
+- July 19, 2025: Commented out the Window.Icon and header Image properties to troubleshoot a XAML runtime error.
+- July 19, 2025: Switched to a dynamic, code-behind approach for creating the ContextMenu to resolve runtime errors.
 - July 19, 2025: Refactored DataGrid.RowStyle into a separate resource to resolve persistent XAML compiler error MC6007.
 - July 19, 2025: Corrected ContextMenu bindings to resolve XAML compiler error MC6007.
 - July 19, 2025: Fixed XAML compile error by removing invalid Style attribute from the column header filter button.
@@ -26,8 +28,8 @@ Change Log:
         ShowInTaskbar="False"
         Topmost="True"
         Background="#FFE0F2F1"
-        MinWidth="900" MinHeight="450"
-        Icon="pack://application:,,,/Resources/RTS_Icon.png">
+        MinWidth="900" MinHeight="450">
+    <!-- Icon="pack://application:,,,/Resources/RTS_Icon.png" -->
 
     <!-- Resource Dictionary for Styles -->
     <Window.Resources>
@@ -169,32 +171,6 @@ Change Log:
             </Setter>
         </Style>
 
-        <!-- DataGrid Row Style with ContextMenu -->
-        <Style x:Key="DataGridRowContextMenuStyle" TargetType="DataGridRow">
-            <Setter Property="ContextMenu">
-                <Setter.Value>
-                    <!-- Set the DataContext of the whole menu to the row's DataContext. This simplifies the bindings below. -->
-                    <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                        <MenuItem Header="Open Linked File" Click="OpenLinkedFile_Click" IsEnabled="{Binding HasValidPath}"/>
-                        <MenuItem Header="Open Containing Folder" Click="OpenContainingFolder_Click" IsEnabled="{Binding HasValidPath}"/>
-                        <Separator/>
-                        <MenuItem Header="Relink..." Click="Relink_Click" IsEnabled="{Binding IsRevitLink}"/>
-                        <MenuItem Header="{Binding UnloadReloadHeader}" Click="UnloadReload_Click" IsEnabled="{Binding IsRevitLink}"/>
-                        <MenuItem Header="Remove Link" Click="RemoveLink_Click" IsEnabled="{Binding IsRevitLink}"/>
-                        <Separator/>
-                        <MenuItem Header="Copy Link Name" Click="CopyLinkName_Click"/>
-                        <MenuItem Header="Copy Link Path" Click="CopyLinkPath_Click" IsEnabled="{Binding HasValidPath}"/>
-                    </ContextMenu>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#FFB2DFDB"/>
-                    <Setter Property="Foreground" Value="Black"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
     </Window.Resources>
 
     <!-- Main Layout Grid -->
@@ -206,10 +182,25 @@ Change Log:
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,10">
-            <Image Source="pack://application:,,,/Resources/RTS_Icon.png" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,10,0"/>
-            <TextBlock FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#FF333333" Text="RTS Link Manager"/>
-        </DockPanel>
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Header Title -->
+            <DockPanel Grid.Column="0" LastChildFill="True">
+                <!-- <Image Source="pack://application:,,,/Resources/RTS_Icon.png" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,10,0"/> -->
+                <TextBlock FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#FF333333" Text="RTS Link Manager"/>
+            </DockPanel>
+
+            <!-- Top Right Buttons -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Content="Import Revizto" Click="ImportReviztoButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+                <Button Content="Export to Excel" Click="ExportToExcelButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+                <Button Content="Bulk Edit" Click="BulkEditButton_Click" Style="{StaticResource ModernButtonStyle}"/>
+            </StackPanel>
+        </Grid>
 
         <!-- DataGrid -->
         <DataGrid Grid.Row="1" x:Name="LinksDataGrid" 
@@ -222,7 +213,7 @@ Change Log:
                   PreviewKeyDown="LinksDataGrid_PreviewKeyDown"
                   Sorting="LinksDataGrid_Sorting"
                   ColumnHeaderHeight="48"
-                  RowStyle="{StaticResource DataGridRowContextMenuStyle}">
+                  ContextMenuOpening="LinksDataGrid_ContextMenuOpening">
 
             <DataGrid.Columns>
                 <!-- Columns Definition -->
@@ -252,10 +243,7 @@ Change Log:
 
         <!-- Action Buttons -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button Content="Import Revizto" Click="ImportReviztoButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
-            <Button Content="Export to Excel" Click="ExportToExcelButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
             <Button Content="Add Placeholder" Click="AddPlaceholderButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
-            <Button Content="Bulk Edit" Click="BulkEditButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
             <Button Content="Save Profile" Click="SaveButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
             <Button Content="Close" Click="CloseButton_Click" Style="{StaticResource ModernButtonStyle}"/>
         </StackPanel>

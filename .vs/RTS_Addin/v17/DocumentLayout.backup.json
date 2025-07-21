@@ -53,7 +53,8 @@
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\InitiateParametersWindow.xaml",
               "RelativeToolTip": "RevitAddin\\UI\\InitiateParametersWindow.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-07-17T15:41:07.332Z"
+              "WhenOpened": "2025-07-17T15:41:07.332Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -75,7 +76,7 @@
               "RelativeDocumentMoniker": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "RelativeToolTip": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
-              "ViewState": "AgIAABEDAAAAAAAAAAAAACwDAAAqAAAAAAAAAA==",
+              "ViewState": "AgIAAF4DAAAAAAAAAAAAAIkDAAAmAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-07-17T13:23:58.836Z",
               "EditorCaption": ""
@@ -89,7 +90,8 @@
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\PC_Extensible_Window.xaml",
               "RelativeToolTip": "RevitAddin\\UI\\PC_Extensible_Window.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-07-17T15:23:02.639Z"
+              "WhenOpened": "2025-07-17T15:23:02.639Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -100,7 +102,8 @@
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\InputWindow.xaml",
               "RelativeToolTip": "RevitAddin\\UI\\InputWindow.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-07-17T15:26:04.505Z"
+              "WhenOpened": "2025-07-17T15:26:04.505Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -112,7 +115,8 @@
               "RelativeToolTip": "RevitAddin\\Commands\\RTS_Initiate.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAuAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-17T15:03:52.951Z"
+              "WhenOpened": "2025-07-17T15:03:52.951Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -124,7 +128,8 @@
               "RelativeToolTip": "RevitAddin\\Commands\\PC_Generate_MD.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAASAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-17T13:58:27.277Z"
+              "WhenOpened": "2025-07-17T13:58:27.277Z",
+              "EditorCaption": ""
             }
           ]
         }

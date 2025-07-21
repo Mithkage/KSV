@@ -99,7 +99,8 @@
 	<ItemGroup>
 		<!-- ClosedXML depends on DocumentFormat.OpenXml. By only referencing ClosedXML,
 		     NuGet will automatically pull in a compatible version of DocumentFormat.OpenXml. -->
-		<PackageReference Include="ClosedXML" Version="0.102.2" />
+		<PackageReference Include="ClosedXML" Version="0.105.0" />
+		<PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />
 		<PackageReference Include="EPPlus" Version="8.0.7" />
 		<PackageReference Include="System.Text.Json" Version="6.0.9" />
 	</ItemGroup>
@@ -146,6 +147,7 @@
 		<EmbeddedResource Include="Resources\**\*.*" />
 	</ItemGroup>
 	<ItemGroup>
+	  <EmbeddedResource Remove="Resources\RTS Logo.png" />
 	  <EmbeddedResource Remove="Resources\RTS_Icon.png" />
 	</ItemGroup>
 	<ItemGroup>
@@ -161,6 +163,7 @@
 		  <Folder Include="Resources\Models\" />
 	</ItemGroup>
 	<ItemGroup>
+	  <Resource Include="Resources\RTS Logo.png" />
 	  <Resource Include="Resources\RTS_Icon.png" />
 	</ItemGroup>
 
