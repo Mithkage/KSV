@@ -57,15 +57,16 @@
           "dependencies": {
             "ClosedXML": {
               "target": "Package",
-              "version": "[0.105.0, )"
+              "version": "[0.102.2, )"
+            },
+            "Costura.Fody": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[6.0.0, )"
             },
             "DocumentFormat.OpenXml": {
               "target": "Package",
-              "version": "[3.3.0, )"
-            },
-            "EPPlus": {
-              "target": "Package",
-              "version": "[8.0.7, )"
+              "version": "[2.19.0, )"
             },
             "System.Text.Json": {
               "target": "Package",

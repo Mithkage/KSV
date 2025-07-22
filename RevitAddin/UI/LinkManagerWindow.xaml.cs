@@ -16,6 +16,9 @@
 // Company: ReTick Solutions (RTS)
 //
 // Log:
+// - July 22, 2025: Refined Revizto import to handle duplicate entries by prioritizing the latest 'Last Modified' date.
+// - July 22, 2025: Added specific exception handling for TypeInitializationException on Excel import/export.
+// - July 22, 2025: Enhanced error reporting to guide users on resolving ClosedXML dependency conflicts.
 // - July 19, 2025: Added specific exception handling for TypeLoadException on Excel export to diagnose version conflicts.
 // - July 19, 2025: Implemented dynamic ContextMenu creation in code-behind to resolve runtime errors.
 // - July 19, 2025: Added DispatcherUnhandledException handler for improved XAML runtime error diagnostics.
@@ -23,6 +26,7 @@
 // - July 19, 2025: Corrected Revit 2022 API calls for IsRelativePath and GetLoadStatus to resolve compiler errors.
 //
 
+#region Namespaces
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.UI;
@@ -33,6 +37,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics; // Required for Process.Start
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -45,6 +50,7 @@ using System.Windows.Input;
 using System.Windows.Media; // Required for VisualTreeHelper
 using System.Windows.Media.Imaging; // Required for BitmapImage
 using System.Windows.Threading; // Required for DispatcherUnhandledException
+#endregion
 
 namespace RTS.UI
 {
@@ -177,10 +183,10 @@ namespace RTS.UI
             contextMenu.Items.Add(new Separator());
 
             var uniqueValues = Links.Select(l => typeof(LinkViewModel).GetProperty(sortMemberPath).GetValue(l)?.ToString())
-                                      .Where(v => !string.IsNullOrEmpty(v))
-                                      .Distinct(StringComparer.OrdinalIgnoreCase)
-                                      .OrderBy(v => v)
-                                      .ToList();
+                                         .Where(v => !string.IsNullOrEmpty(v))
+                                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                                         .OrderBy(v => v)
+                                         .ToList();
 
             foreach (var value in uniqueValues)
             {
@@ -739,7 +745,7 @@ namespace RTS.UI
             if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) { TaskDialog.Show("Error", "Invalid file path or file does not exist.", TaskDialogCommonButtons.Ok); return; }
             try
             {
-                var reviztoLinks = new List<ReviztoLinkRecord>();
+                var allReviztoLinks = new List<ReviztoLinkRecord>();
                 using (var workbook = new XLWorkbook(filePath))
                 {
                     var worksheet = workbook.Worksheets.First();
@@ -756,9 +762,19 @@ namespace RTS.UI
                             Description = GetCellValue(cellValues, headerMap, "Description"),
                             LastModified = GetCellValue(cellValues, headerMap, "Last Modified"),
                         };
-                        if (!string.IsNullOrWhiteSpace(record.LinkName)) reviztoLinks.Add(record);
+                        if (!string.IsNullOrWhiteSpace(record.LinkName)) allReviztoLinks.Add(record);
                     }
                 }
+
+                // Group by link name and take the one with the most recent 'LastModified' date
+                var uniqueReviztoLinks = allReviztoLinks
+                    .GroupBy(r => r.LinkName)
+                    .Select(g => g.OrderByDescending(r => {
+                        DateTime.TryParse(r.LastModified, out DateTime dt);
+                        return dt;
+                    }).First())
+                    .ToList();
+
                 using (var tx = new Autodesk.Revit.DB.Transaction(_doc, "Import Revizto Link Data"))
                 {
                     tx.Start();
@@ -767,13 +783,25 @@ namespace RTS.UI
                     var collector = new FilteredElementCollector(_doc).OfClass(typeof(DataStorage));
                     var existing = collector.Cast<DataStorage>().FirstOrDefault(ds => ds.Name == dataStorageName);
                     if (existing != null) _doc.Delete(existing.Id);
-                    SaveDataToExtensibleStorage(_doc, reviztoLinks, schemaGuid, ReviztoLinkRecord.SchemaName, ReviztoLinkRecord.FieldName, dataStorageName);
+                    SaveDataToExtensibleStorage(_doc, uniqueReviztoLinks, schemaGuid, ReviztoLinkRecord.SchemaName, ReviztoLinkRecord.FieldName, dataStorageName);
                     tx.Commit();
                 }
-                TaskDialog.Show("Import Complete", "Revizto link data imported and saved successfully.", TaskDialogCommonButtons.Ok);
+                TaskDialog.Show("Import Complete", $"{uniqueReviztoLinks.Count} unique Revizto links imported and saved successfully.", TaskDialogCommonButtons.Ok);
                 LoadLinks();
             }
-            catch (Exception ex) { TaskDialog.Show("Import Error", $"Failed to import Revizto data: {ex.Message}", TaskDialogCommonButtons.Ok); }
+            catch (TypeInitializationException tiex)
+            {
+                string innerExMessage = tiex.InnerException?.Message ?? "No inner exception details.";
+                string errorMessage = "Failed to import Revizto data due to a library initialization error.\n\n" +
+                                      "This error often occurs if a dependency of the 'ClosedXML' library (like 'DocumentFormat.OpenXml') is missing, the wrong version, or could not be loaded. Please ensure all required NuGet packages are correctly installed and their versions are compatible.\n\n" +
+                                      $"Error: {tiex.Message}\n" +
+                                      $"Inner Exception: {innerExMessage}";
+                TaskDialog.Show("Import Error - Library Conflict", errorMessage);
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Import Error", $"An unexpected error occurred while importing Revizto data: {ex.Message}", TaskDialogCommonButtons.Ok);
+            }
         }
 
         private void ExportToExcelButton_Click(object sender, RoutedEventArgs e)
@@ -821,6 +849,15 @@ namespace RTS.UI
                         workbook.SaveAs(saveFileDialog.FileName);
                     }
                     TaskDialog.Show("Export Complete", "Link data exported to Excel successfully.", TaskDialogCommonButtons.Ok);
+                }
+                catch (TypeInitializationException tiex)
+                {
+                    string innerExMessage = tiex.InnerException?.Message ?? "No inner exception details.";
+                    string errorMessage = "Failed to export data due to a library initialization error.\n\n" +
+                                          "This error often occurs if a dependency of the 'ClosedXML' library (like 'DocumentFormat.OpenXml') is missing, the wrong version, or could not be loaded. Please ensure all required NuGet packages are correctly installed and their versions are compatible.\n\n" +
+                                          $"Error: {tiex.Message}\n" +
+                                          $"Inner Exception: {innerExMessage}";
+                    TaskDialog.Show("Export Error - Library Conflict", errorMessage);
                 }
                 catch (TypeLoadException tlEx)
                 {
