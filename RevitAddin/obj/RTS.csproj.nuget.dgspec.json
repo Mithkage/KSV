@@ -57,7 +57,11 @@
           "dependencies": {
             "ClosedXML": {
               "target": "Package",
-              "version": "[0.102.2, )"
+              "version": "[0.105.0, )"
+            },
+            "ClosedXML.Parser": {
+              "target": "Package",
+              "version": "[2.0.0, )"
             },
             "Costura.Fody": {
               "suppressParent": "All",
@@ -66,11 +70,25 @@
             },
             "DocumentFormat.OpenXml": {
               "target": "Package",
-              "version": "[2.19.0, )"
+              "version": "[3.3.0, )"
+            },
+            "DocumentFormat.OpenXml.Framework": {
+              "target": "Package",
+              "version": "[3.3.0, )"
+            },
+            "ExcelNumberFormat": {
+              "target": "Package",
+              "version": "[1.1.0, )"
+            },
+            "Fody": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[6.8.2, )"
             },
             "System.Text.Json": {
               "target": "Package",
-              "version": "[6.0.9, )"
+              "version": "[6.0.10, )"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300\\RuntimeIdentifierGraph.json"

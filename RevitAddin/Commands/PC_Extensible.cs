@@ -86,12 +86,7 @@ namespace PC_Extensible // Changed namespace from RTS to PC_Extensible for clari
             Document doc = uidoc.Document;
 
             // --- 1. LAUNCH WPF WINDOW ---
-            // Assuming PC_Extensible_Window is in the same assembly or correctly referenced.
-            // If PC_Extensible_Window is in RTS_Reports namespace, you would need:
-            // var window = new RTS_Reports.ReportSelectionWindow(commandData);
-            // For now, assuming it's in the same assembly and accessible.
             var window = new PC_Extensible_Window();
-            // Set the owner of the window to the Revit window to keep it on top.
             new WindowInteropHelper(window).Owner = commandData.Application.MainWindowHandle;
 
             bool? result = window.ShowDialog();
@@ -99,6 +94,7 @@ namespace PC_Extensible // Changed namespace from RTS to PC_Extensible for clari
             if (result != true) // User cancelled or closed the window
             {
                 message = "Operation cancelled by user.";
+                // Removed TaskDialog.Show here to avoid showing a dialog on cancel.
                 return Result.Cancelled;
             }
 
@@ -133,6 +129,7 @@ namespace PC_Extensible // Changed namespace from RTS to PC_Extensible for clari
 
                 default:
                     message = "Operation cancelled by user.";
+                    // No TaskDialog.Show here either.
                     return Result.Cancelled;
             }
         }

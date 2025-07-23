@@ -7,6 +7,10 @@ Function: This file defines the user interface for the Revit Link Manager WPF wi
           are now handled by a right-click context menu.
 
 Change Log:
+- July 23, 2025: Added a style trigger to color "Match on:" statuses in mustard.
+- July 23, 2025: Added "Import Profile CSV" button and updated "Save" button behavior.
+- July 23, 2025: Updated "Export to Excel" button to "Export to CSV" to reflect new functionality.
+- July 23, 2025: Added "Import Revizto CSV" button to support CSV file imports.
 - July 19, 2025: Commented out the Window.Icon and header Image properties to troubleshoot a XAML runtime error.
 - July 19, 2025: Switched to a dynamic, code-behind approach for creating the ContextMenu to resolve runtime errors.
 - July 19, 2025: Refactored DataGrid.RowStyle into a separate resource to resolve persistent XAML compiler error MC6007.
@@ -96,6 +100,11 @@ Change Log:
         <!-- Conditional Formatting Styles -->
         <Style x:Key="ReviztoStatusCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
             <Style.Triggers>
+                <DataTrigger Binding="{Binding IsAlternativeMatch}" Value="True">
+                    <Setter Property="Background" Value="#FFDAA520"/>
+                    <!-- Goldenrod -->
+                    <Setter Property="ToolTip" Value="This link is matched to a Revizto entry with a different file extension."/>
+                </DataTrigger>
                 <DataTrigger Binding="{Binding ReviztoStatus}" Value="Not Matched">
                     <Setter Property="Background" Value="#FFF08080"/>
                     <Setter Property="ToolTip" Value="This link is in Revit but not found in the imported Revizto data."/>
@@ -111,6 +120,10 @@ Change Log:
                 <DataTrigger Binding="{Binding ReviztoStatus}" Value="Matched">
                     <Setter Property="Background" Value="#FF90EE90"/>
                     <Setter Property="ToolTip" Value="This link is in Revit and matched with Revizto data."/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ReviztoStatus}" Value="Removed">
+                    <Setter Property="Background" Value="#FFD3D3D3"/>
+                    <Setter Property="ToolTip" Value="This link was previously matched but is no longer in the Revizto data."/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -196,9 +209,11 @@ Change Log:
 
             <!-- Top Right Buttons -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Button Content="Import Revizto" Click="ImportReviztoButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
-                <Button Content="Export to Excel" Click="ExportToExcelButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
-                <Button Content="Bulk Edit" Click="BulkEditButton_Click" Style="{StaticResource ModernButtonStyle}"/>
+                <Button Content="Import Profile CSV" Click="ImportProfileCsvButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+                <Button Content="Export to CSV" Click="ExportToCsvButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+                <Button Content="Import Revizto CSV" Click="ImportReviztoCsvButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+                <Button Content="Bulk Edit" Click="BulkEditButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+                <Button Content="Clear Profile" Click="ClearProfileButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,0,0"/>
             </StackPanel>
         </Grid>
 
@@ -244,7 +259,7 @@ Change Log:
         <!-- Action Buttons -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
             <Button Content="Add Placeholder" Click="AddPlaceholderButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
-            <Button Content="Save Profile" Click="SaveButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+            <Button Content="Save" Click="SaveButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
             <Button Content="Close" Click="CloseButton_Click" Style="{StaticResource ModernButtonStyle}"/>
         </StackPanel>
     </Grid>

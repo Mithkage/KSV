@@ -118,18 +118,20 @@
 
 	<!-- NuGet Package References -->
 	<ItemGroup>
-		<!--
-		  Downgraded to a known stable version to prevent NU1102 package restore errors.
-		  This combination is highly stable and widely available.
-		-->
-		<PackageReference Include="ClosedXML" Version="0.102.2" />
-		<!-- Explicitly define the compatible version of DocumentFormat.OpenXml for ClosedXML 0.102.2 -->
-		<PackageReference Include="DocumentFormat.OpenXml" Version="2.19.0" />
+		<PackageReference Include="ClosedXML" Version="0.105.0" />
+		<PackageReference Include="ClosedXML.Parser" Version="2.0.0" />
+		<PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />
 		<!-- Costura.Fody embeds dependencies into the main DLL. Reverted to a version known to be available. -->
 		<PackageReference Include="Costura.Fody" Version="6.0.0">
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
-		<PackageReference Include="System.Text.Json" Version="6.0.9" />
+		<PackageReference Include="DocumentFormat.OpenXml.Framework" Version="3.3.0" />
+		<PackageReference Include="ExcelNumberFormat" Version="1.1.0" />
+		<PackageReference Include="Fody" Version="6.8.2">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="System.Text.Json" Version="6.0.10" />
 	</ItemGroup>
 
 	<!-- Revit API References - Using a Choose/When block for robustness -->

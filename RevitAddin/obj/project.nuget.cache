@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "dgSpecHash": "Xwi+vm0uYtw=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\kyles\\.nuget\\packages\\closedxml\\0.105.0\\closedxml.0.105.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\closedxml.parser\\2.0.0\\closedxml.parser.2.0.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\costura.fody\\6.0.0\\costura.fody.6.0.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\documentformat.openxml\\3.3.0\\documentformat.openxml.3.3.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\documentformat.openxml.framework\\3.3.0\\documentformat.openxml.framework.3.3.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\excelnumberformat\\1.1.0\\excelnumberformat.1.1.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\fody\\6.8.2\\fody.6.8.2.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\6.0.0\\microsoft.bcl.asyncinterfaces.6.0.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\microsoft.bcl.hashcode\\1.1.1\\microsoft.bcl.hashcode.1.1.1.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\rbush.signed\\4.0.0\\rbush.signed.4.0.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\sixlabors.fonts\\1.0.0\\sixlabors.fonts.1.0.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\system.buffers\\4.5.1\\system.buffers.4.5.1.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\system.memory\\4.5.5\\system.memory.4.5.5.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\system.numerics.vectors\\4.5.0\\system.numerics.vectors.4.5.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.0.0\\system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\system.text.encodings.web\\6.0.0\\system.text.encodings.web.6.0.0.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\system.text.json\\6.0.10\\system.text.json.6.0.10.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\system.threading.tasks.extensions\\4.5.4\\system.threading.tasks.extensions.4.5.4.nupkg.sha512",
+    "C:\\Users\\kyles\\.nuget\\packages\\system.valuetuple\\4.5.0\\system.valuetuple.4.5.0.nupkg.sha512"
+  ],
+  "logs": []
+}

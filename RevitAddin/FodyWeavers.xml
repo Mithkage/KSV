@@ -1,4 +1,25 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+FILE: FodyWeavers.xml
+
+DESCRIPTION:
+This file configures the Fody framework, which modifies the add-in's assembly after compilation.
+The <Costura> weaver is used to embed referenced DLLs (dependencies) as resources directly
+into the main add-in assembly. This creates a single, self-contained DLL, which is the
+best practice for Revit add-ins to prevent dependency conflicts with Revit's own libraries
+or other add-ins.
+
+CHANGE LOG:
+- July 23, 2025: Explicitly added System.Text.Json and System.Runtime.CompilerServices.Unsafe
+                  to the IncludeAssemblies list. This forces Costura to embed these specific
+                  dependencies to resolve a TypeInitializationException in Revit 2022, which
+                  lacks the necessary .NET runtime components that Revit 2024 has.
+-->
 <Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
-  <Costura />
+  <Costura>
+    <IncludeAssemblies>
+			System.Text.Json
+			System.Runtime.CompilerServices.Unsafe
+		</IncludeAssemblies>
+  </Costura>
 </Weavers>

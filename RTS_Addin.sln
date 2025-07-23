@@ -14,6 +14,8 @@ Global
 		Release|x64 = Release|x64
 		Release2022|Any CPU = Release2022|Any CPU
 		Release2022|x64 = Release2022|x64
+		Release2024|Any CPU = Release2024|Any CPU
+		Release2024|x64 = Release2024|x64
 		Description = Revit Custom Addins
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
@@ -32,6 +34,10 @@ Global
 		{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}.Release2022|Any CPU.ActiveCfg = Release|Any CPU
 		{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}.Release2022|x64.ActiveCfg = Release2022|x64
 		{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}.Release2022|x64.Build.0 = Release2022|x64
+		{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}.Release2024|Any CPU.ActiveCfg = Release2024|x64
+		{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}.Release2024|Any CPU.Build.0 = Release2024|x64
+		{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}.Release2024|x64.ActiveCfg = Release2024|x64
+		{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}.Release2024|x64.Build.0 = Release2024|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

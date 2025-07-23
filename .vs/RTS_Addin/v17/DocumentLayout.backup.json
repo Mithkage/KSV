@@ -3,16 +3,24 @@
   "WorkspaceRootPath": "C:\\Users\\kyles\\source\\repos\\KSV\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\rts.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
-      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\rts.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\linkmanagerwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\linkmanagerwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\fodyweavers.xml||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
-      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\fodyweavers.xml||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\linkmanagerwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\linkmanagerwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\inputwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\inputwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\commands\\linkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\commands\\linkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\rts.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\rts.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
     }
   ],
   "DocumentGroupContainers": [
@@ -30,40 +38,64 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "FodyWeavers.xml",
-              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\FodyWeavers.xml",
-              "RelativeDocumentMoniker": "RevitAddin\\FodyWeavers.xml",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\FodyWeavers.xml",
-              "RelativeToolTip": "RevitAddin\\FodyWeavers.xml",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAMAAAAKAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003576|",
-              "WhenOpened": "2025-07-22T11:22:54.827Z"
+              "DocumentIndex": 2,
+              "Title": "InputWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\InputWindow.xaml",
+              "RelativeDocumentMoniker": "RevitAddin\\UI\\InputWindow.xaml",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\InputWindow.xaml",
+              "RelativeToolTip": "RevitAddin\\UI\\InputWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2025-07-23T05:58:53.163Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 1,
+              "Title": "LinkManagerWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml",
+              "RelativeDocumentMoniker": "RevitAddin\\UI\\LinkManagerWindow.xaml",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml",
+              "RelativeToolTip": "RevitAddin\\UI\\LinkManagerWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2025-07-23T05:58:34.512Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "LinkManagerWindow.xaml.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
+              "RelativeToolTip": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
+              "ViewState": "AgIAACAEAAAAAAAAAAAAADIEAAB0AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-23T00:03:09.811Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
               "Title": "LinkManager.cs",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\LinkManager.cs",
               "RelativeDocumentMoniker": "RevitAddin\\Commands\\LinkManager.cs",
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\LinkManager.cs",
               "RelativeToolTip": "RevitAddin\\Commands\\LinkManager.cs",
-              "ViewState": "AgIAADAAAAAAAAAAAAAAAEgAAAAzAAAAAAAAAA==",
+              "ViewState": "AgIAAB0AAAAAAAAAAAAUwEgAAAAzAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-07-22T11:22:44.46Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 4,
               "Title": "RTS.csproj",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj",
               "RelativeDocumentMoniker": "RevitAddin\\RTS.csproj",
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj",
               "RelativeToolTip": "RevitAddin\\RTS.csproj",
-              "ViewState": "AgIAAA0AAAAAAAAAAAAYwDUAAABvAAAAAAAAAA==",
+              "ViewState": "AgIAAEkAAAAAAAAAAAAIwEkAAAAbAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-07-22T11:05:10.371Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-22T11:05:10.371Z"
             }
           ]
         }
