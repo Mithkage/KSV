@@ -45,8 +45,7 @@
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\InputWindow.xaml",
               "RelativeToolTip": "RevitAddin\\UI\\InputWindow.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-07-23T05:58:53.163Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-23T05:58:53.163Z"
             },
             {
               "$type": "Document",
@@ -57,8 +56,7 @@
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml",
               "RelativeToolTip": "RevitAddin\\UI\\LinkManagerWindow.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-07-23T05:58:34.512Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-23T05:58:34.512Z"
             },
             {
               "$type": "Document",
@@ -68,7 +66,7 @@
               "RelativeDocumentMoniker": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "RelativeToolTip": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
-              "ViewState": "AgIAACAEAAAAAAAAAAAAADIEAAB0AAAAAAAAAA==",
+              "ViewState": "AgIAAN8BAAAAAAAAAAA6wAECAABAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-07-23T00:03:09.811Z",
               "EditorCaption": ""

@@ -16,6 +16,15 @@
 // Company: ReTick Solutions (RTS)
 //
 // Log:
+// - July 24, 2025: Corrected coordinate calculation to use ProjectLocation.GetTransform instead of the obsolete BasePoint.GetTotalTransform.
+// - July 24, 2025: Integrated the FormatCoordinates and AreTransformsClose methods to resolve CS0103 compiler error.
+// - July 23, 2025: Implemented the missing FormatCoordinates method and fixed WorksetId errors to resolve compiler issues.
+// - July 23, 2025: Resolved ambiguous 'Transform' reference by using the fully qualified name 'Autodesk.Revit.DB.Transform'.
+// - July 23, 2025: Implemented robust error handling for coordinate calculations.
+// - July 23, 2025: Deferred pin changes to the Save event instead of applying them immediately.
+// - July 23, 2025: Implemented pin control functionality with a three-state checkbox and immediate model update.
+// - July 23, 2025: Added PreviewMouseRightButtonDown event handler to select row before showing context menu.
+// - July 23, 2025: Added IsAlternativeMatch property to ViewModel to support XAML styling.
 // - July 23, 2025: Refined Revizto matching logic to ignore placeholders.
 // - July 23, 2025: Corrected ContextMenu logic to reliably attach to the DataGridRow, fixing the right-click feature.
 // - July 23, 2025: Implemented "Reload From..." context menu to relink existing links or resolve placeholders.
@@ -204,10 +213,10 @@ namespace RTS.UI
             contextMenu.Items.Add(new Separator());
 
             var uniqueValues = Links.Select(l => typeof(LinkViewModel).GetProperty(sortMemberPath).GetValue(l)?.ToString())
-                                        .Where(v => !string.IsNullOrEmpty(v))
-                                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                                        .OrderBy(v => v)
-                                        .ToList();
+                                         .Where(v => !string.IsNullOrEmpty(v))
+                                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                                         .OrderBy(v => v)
+                                         .ToList();
 
             foreach (var value in uniqueValues)
             {
@@ -237,13 +246,24 @@ namespace RTS.UI
             var allLinkTypes = new FilteredElementCollector(_doc).OfClass(typeof(RevitLinkType)).Cast<RevitLinkType>().Where(lt => !lt.IsNestedLink).ToList();
             var linkInstancesGroupedByType = new FilteredElementCollector(_doc).OfClass(typeof(RevitLinkInstance)).Cast<RevitLinkInstance>().GroupBy(inst => inst.GetTypeId()).ToDictionary(g => g.Key, g => g.ToList());
 
+            // Get available worksets for dropdown
+            List<string> availableWorksetNames = new List<string>();
+            if (_doc.IsWorkshared)
+            {
+                availableWorksetNames = new FilteredWorksetCollector(_doc)
+                    .OfKind(WorksetKind.UserWorkset)
+                    .Select(w => w.Name)
+                    .ToList();
+            }
+
+
             var finalLinkList = new List<LinkViewModel>();
             var processedPlaceholders = new HashSet<string>();
 
             // 2. Process all live Revit links
             foreach (var type in allLinkTypes)
             {
-                var viewModel = new LinkViewModel { LinkName = type.Name, IsRevitLink = true };
+                var viewModel = new LinkViewModel { LinkName = type.Name, IsRevitLink = true, AvailableWorksets = availableWorksetNames };
 
                 // Populate live Revit data
                 PopulateRevitLinkData(viewModel, type, linkInstancesGroupedByType);
@@ -294,6 +314,7 @@ namespace RTS.UI
                     continue; // Skip placeholders that were already merged or links that are already processed
                 }
                 SetPlaceholderProperties(savedProfile);
+                savedProfile.AvailableWorksets = availableWorksetNames;
                 finalLinkList.Add(savedProfile);
             }
 
@@ -340,14 +361,18 @@ namespace RTS.UI
                     {
                         LinkName = reviztoRecord.LinkName,
                         LastModified = reviztoRecord.LastModified,
-                        ReviztoStatus = "Missing"
+                        ReviztoStatus = "Missing",
+                        AvailableWorksets = availableWorksetNames
                     };
                     SetPlaceholderProperties(viewModel);
                     finalLinkList.Add(viewModel);
                 }
             }
 
-            // 5. Populate the UI
+            // 5. Calculate and format coordinates
+            FormatCoordinates(finalLinkList);
+
+            // 6. Populate the UI
             Links.Clear();
             foreach (var link in finalLinkList)
             {
@@ -426,22 +451,29 @@ namespace RTS.UI
                     viewModel.LinkWorkset = "N/A";
                 }
 
-                Parameter sharedSiteParam = instances.First().LookupParameter("Shared Site");
-                if (sharedSiteParam != null && sharedSiteParam.HasValue)
+                // Determine Pin Status
+                int pinnedCount = instances.Count(i => i.Pinned);
+                if (pinnedCount == 0)
                 {
-                    var siteLocation = _doc.GetElement(sharedSiteParam.AsElementId()) as ProjectLocation;
-                    viewModel.SelectedCoordinates = siteLocation != null ? siteLocation.Name : "Origin to Origin";
+                    viewModel.IsPinned = false;
+                }
+                else if (pinnedCount == instances.Count)
+                {
+                    viewModel.IsPinned = true;
                 }
                 else
                 {
-                    viewModel.SelectedCoordinates = "Unconfirmed";
+                    viewModel.IsPinned = null; // Indeterminate state
                 }
+
+                // Store transforms for later processing
+                viewModel.InstanceTransforms = instances.Select(i => i.GetTotalTransform()).ToList();
             }
             else
             {
                 viewModel.NumberOfInstances = 0;
                 viewModel.LinkWorkset = "N/A";
-                viewModel.SelectedCoordinates = "N/A";
+                viewModel.IsPinned = false;
             }
         }
 
@@ -456,35 +488,185 @@ namespace RTS.UI
             vm.PathType = "N/A";
             vm.LinkStatus = "N/A";
             vm.VersionStatus = "N/A";
+            vm.IsPinned = false;
+            vm.LinkCoordinates = "N/A";
             vm.SelectedDiscipline ??= "Unconfirmed";
             vm.CompanyName ??= "Not Set";
         }
 
         /// <summary>
-        /// Handles the click event for the "Save" button. Saves the profile without closing the window.
+        /// Calculates and formats the coordinate strings for all links based on their instance transforms.
+        /// </summary>
+        private void FormatCoordinates(List<LinkViewModel> linkViewModels)
+        {
+            // Error Handling: Check for a valid active project location.
+            var activeProjectLocation = _doc.ActiveProjectLocation;
+            if (activeProjectLocation == null)
+            {
+                foreach (var vm in linkViewModels)
+                {
+                    vm.LinkCoordinates = "Error: Active Project Location not found.";
+                }
+                return; // Stop processing if the location is missing.
+            }
+
+            // This transform converts from the site (shared) coordinate system to the project internal coordinate system.
+            // We need the inverse to go from project to shared.
+            Autodesk.Revit.DB.Transform projectToSharedTransform = activeProjectLocation.GetTransform().Inverse;
+
+
+            // Pre-calculate padding by finding the max integer length for each coordinate
+            int maxXDigits = 0, maxYDigits = 0, maxZDigits = 0;
+            foreach (var vm in linkViewModels.Where(l => l.IsRevitLink && l.InstanceTransforms.Any()))
+            {
+                foreach (var transform in vm.InstanceTransforms)
+                {
+                    // The link instance transform is in project coordinates.
+                    // We multiply by the inverse of the site transform to get shared coordinates.
+                    var finalTransform = projectToSharedTransform.Multiply(transform);
+                    var origin = finalTransform.Origin;
+
+                    // Convert from feet to meters for display
+                    double xMeters = UnitUtils.ConvertFromInternalUnits(origin.X, UnitTypeId.Meters);
+                    double yMeters = UnitUtils.ConvertFromInternalUnits(origin.Y, UnitTypeId.Meters);
+                    double zMeters = UnitUtils.ConvertFromInternalUnits(origin.Z, UnitTypeId.Meters);
+
+                    maxXDigits = Math.Max(maxXDigits, ((int)Math.Abs(xMeters)).ToString().Length);
+                    maxYDigits = Math.Max(maxYDigits, ((int)Math.Abs(yMeters)).ToString().Length);
+                    maxZDigits = Math.Max(maxZDigits, ((int)Math.Abs(zMeters)).ToString().Length);
+                }
+            }
+
+            // Now, format each link's coordinate string
+            foreach (var vm in linkViewModels)
+            {
+                if (!vm.IsRevitLink || !vm.InstanceTransforms.Any())
+                {
+                    vm.LinkCoordinates = "N/A";
+                    continue;
+                }
+
+                try
+                {
+                    var firstTransform = vm.InstanceTransforms.First();
+                    bool allSameLocation = vm.InstanceTransforms.All(t => AreTransformsClose(t, firstTransform));
+
+                    if (allSameLocation)
+                    {
+                        var finalTransform = projectToSharedTransform.Multiply(firstTransform);
+                        var origin = finalTransform.Origin;
+
+                        // Convert from feet to meters for display
+                        double xMeters = UnitUtils.ConvertFromInternalUnits(origin.X, UnitTypeId.Meters);
+                        double yMeters = UnitUtils.ConvertFromInternalUnits(origin.Y, UnitTypeId.Meters);
+                        double zMeters = UnitUtils.ConvertFromInternalUnits(origin.Z, UnitTypeId.Meters);
+
+                        // Calculate rotation in degrees
+                        double angle = Math.Atan2(finalTransform.BasisY.X, finalTransform.BasisX.X) * (180.0 / Math.PI);
+
+                        // Create padded format strings
+                        string xFormat = new string('0', maxXDigits) + ".00";
+                        string yFormat = new string('0', maxYDigits) + ".00";
+                        string zFormat = new string('0', maxZDigits) + ".00";
+
+                        vm.LinkCoordinates = $"X: {xMeters.ToString(xFormat)} m | Y: {yMeters.ToString(yFormat)} m | Z: {zMeters.ToString(zFormat)} m | Rotation: {angle:F1}°";
+                    }
+                    else
+                    {
+                        vm.LinkCoordinates = "Multiple Locations";
+                    }
+                }
+                catch (Exception)
+                {
+                    vm.LinkCoordinates = "Error calculating coordinates.";
+                }
+            }
+        }
+
+        /// <summary>
+        /// Compares two Revit transforms to see if they are effectively identical within a small tolerance.
+        /// </summary>
+        private bool AreTransformsClose(Autodesk.Revit.DB.Transform t1, Autodesk.Revit.DB.Transform t2)
+        {
+            const double tolerance = 1e-6; // A small tolerance for floating-point comparison
+
+            // Compare origins
+            if (!t1.Origin.IsAlmostEqualTo(t2.Origin, tolerance)) return false;
+
+            // Compare basis vectors (rotation and scale)
+            if (!t1.BasisX.IsAlmostEqualTo(t2.BasisX, tolerance)) return false;
+            if (!t1.BasisY.IsAlmostEqualTo(t2.BasisY, tolerance)) return false;
+            if (!t1.BasisZ.IsAlmostEqualTo(t2.BasisZ, tolerance)) return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Handles the click event for the "Save" button. Saves the profile and applies any workset and pin changes.
         /// </summary>
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            using (Transaction tx = new Transaction(_doc, "Save Link Manager Profile"))
+            using (Transaction tx = new Transaction(_doc, "Save Link Manager Changes"))
             {
                 tx.Start();
                 try
                 {
-                    // Save all links currently in the grid. The LoadLinks method is responsible
-                    // for correctly merging this saved data with live Revit and Revizto data on next open.
+                    // Apply workset and pin changes
+                    if (_doc.IsWorkshared)
+                    {
+                        var worksetTable = _doc.GetWorksetTable();
+                        var userWorksets = new FilteredWorksetCollector(_doc).OfKind(WorksetKind.UserWorkset).ToDictionary(ws => ws.Name, ws => ws.Id);
+
+                        foreach (var vm in Links.Where(l => l.IsRevitLink))
+                        {
+                            WorksetId targetWorksetId = WorksetId.InvalidWorksetId;
+                            if (userWorksets.TryGetValue(vm.LinkWorkset, out WorksetId foundId))
+                            {
+                                targetWorksetId = foundId;
+                            }
+
+                            foreach (var instanceId in vm.LinkInstanceIds)
+                            {
+                                var instance = _doc.GetElement(instanceId);
+                                if (instance == null) continue;
+
+                                // Update Workset
+                                if (targetWorksetId.IntegerValue != WorksetId.InvalidWorksetId.IntegerValue && instance.WorksetId.IntegerValue != targetWorksetId.IntegerValue)
+                                {
+                                    var worksetParam = instance.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM);
+                                    if (worksetParam != null && !worksetParam.IsReadOnly)
+                                    {
+                                        worksetParam.Set(targetWorksetId.IntegerValue);
+                                    }
+                                }
+
+                                // Update Pin State
+                                if (vm.IsPinned.HasValue && instance.Pinned != vm.IsPinned.Value)
+                                {
+                                    instance.Pinned = vm.IsPinned.Value;
+                                }
+                            }
+                        }
+                    }
+
+                    // Save the profile metadata
                     var linksToSave = Links.ToList();
                     SaveDataToExtensibleStorage(_doc, linksToSave, ProfileSchemaGuid, ProfileSchemaName, ProfileFieldName, ProfileDataStorageElementName);
 
                     tx.Commit();
-                    TaskDialog.Show("Success", "Project link profile saved successfully!", TaskDialogCommonButtons.Ok, TaskDialogResult.Ok);
+                    TaskDialog.Show("Success", "Changes saved successfully!", TaskDialogCommonButtons.Ok, TaskDialogResult.Ok);
+
+                    // Refresh the grid to show the new state after save
+                    LoadLinks();
                 }
                 catch (Exception ex)
                 {
                     tx.RollBack();
-                    TaskDialog.Show("Error", $"Failed to save profile: {ex.Message}", TaskDialogCommonButtons.Ok, TaskDialogResult.Ok);
+                    TaskDialog.Show("Error", $"Failed to save changes: {ex.Message}", TaskDialogCommonButtons.Ok, TaskDialogResult.Ok);
                 }
             }
         }
+
 
         /// <summary>
         /// Handles the click event for the "Add Placeholder" button.
@@ -650,6 +832,21 @@ namespace RTS.UI
                 }
                 // Refresh the entire grid to reflect the changes
                 LoadLinks();
+            }
+        }
+
+        private void LinksDataGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var row = FindParent<DataGridRow>(e.OriginalSource as DependencyObject);
+            if (row != null)
+            {
+                if (!row.IsSelected)
+                {
+                    row.IsSelected = true;
+                }
+                // If you want to clear other selections and only select the right-clicked row:
+                // var grid = sender as DataGrid;
+                // grid.SelectedItem = row.DataContext;
             }
         }
 
@@ -1029,6 +1226,18 @@ namespace RTS.UI
             return field;
         }
 
+        private void PinCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            var checkBox = sender as CheckBox;
+            var vm = checkBox?.DataContext as LinkViewModel;
+            if (vm == null || !vm.IsRevitLink) return;
+
+            // This logic ensures that a click on an indeterminate state makes it checked (true).
+            // A click on a checked state makes it unchecked (false).
+            // A click on an unchecked state makes it checked (true).
+            vm.IsPinned = vm.IsPinned != true;
+        }
+
 
         private static string GetCellValue(IList<string> cellValues, Dictionary<string, int> headerMap, string header) { if (headerMap.TryGetValue(header, out int idx) && idx < cellValues.Count) return cellValues[idx]; return string.Empty; }
         public class ReviztoLinkRecord { public static readonly Guid SchemaGuid = new Guid("A1B2C3D4-E5F6-47A8-9B0C-1234567890AB"); public const string SchemaName = "RTS_ReviztoLinkSchema"; public const string FieldName = "ReviztoLinkJson"; public const string DataStorageName = "RTS_Revizto_Link_Storage"; public string LinkName { get; set; } public string FilePath { get; set; } public string Description { get; set; } public string LastModified { get; set; } }
@@ -1055,11 +1264,23 @@ namespace RTS.UI
         private string _lastModified;
         [JsonIgnore] public string LastModified { get => _lastModified; set { _lastModified = value; OnPropertyChanged(nameof(LastModified)); } }
         private string _linkWorkset;
-        [JsonIgnore] public string LinkWorkset { get => _linkWorkset; set { _linkWorkset = value; OnPropertyChanged(nameof(LinkWorkset)); } }
+        public string LinkWorkset { get => _linkWorkset; set { _linkWorkset = value; OnPropertyChanged(nameof(LinkWorkset)); } }
         private int _numberOfInstances;
         [JsonIgnore] public int NumberOfInstances { get => _numberOfInstances; set { _numberOfInstances = value; OnPropertyChanged(nameof(NumberOfInstances)); } }
         private string _reviztoStatus;
-        [JsonIgnore] public string ReviztoStatus { get => _reviztoStatus; set { _reviztoStatus = value; OnPropertyChanged(nameof(ReviztoStatus)); } }
+        [JsonIgnore]
+        public string ReviztoStatus
+        {
+            get => _reviztoStatus;
+            set
+            {
+                _reviztoStatus = value;
+                OnPropertyChanged(nameof(ReviztoStatus));
+                OnPropertyChanged(nameof(IsAlternativeMatch)); // Notify that the dependent property has also changed
+            }
+        }
+        [JsonIgnore]
+        public bool IsAlternativeMatch => !string.IsNullOrEmpty(ReviztoStatus) && ReviztoStatus.StartsWith("Match on:");
         private string _pathType;
         [JsonIgnore] public string PathType { get => _pathType; set { _pathType = value; OnPropertyChanged(nameof(PathType)); } }
         private string _linkStatus;
@@ -1068,7 +1289,27 @@ namespace RTS.UI
         [JsonIgnore] public string VersionStatus { get => _versionStatus; set { _versionStatus = value; OnPropertyChanged(nameof(VersionStatus)); } }
         [JsonIgnore] public List<string> AvailableDisciplines { get; } = new List<string> { "Unconfirmed", "Architectural", "Structural", "Mechanical", "Electrical", "Hydraulic", "Fire", "Civil", "Landscape", "Other" };
         [JsonIgnore] public List<string> AvailableCoordinates { get; } = new List<string> { "Unconfirmed", "Origin to Origin", "Shared Coordinates", "N/A" };
+        [JsonIgnore] public List<string> AvailableWorksets { get; set; }
         [JsonIgnore] public string UnloadReloadHeader => LinkStatus == "Loaded" ? "Unload" : "Reload";
+
+        private bool? _isPinned;
+        [JsonIgnore]
+        public bool? IsPinned
+        {
+            get => _isPinned;
+            set { _isPinned = value; OnPropertyChanged(nameof(IsPinned)); }
+        }
+
+        private string _linkCoordinates;
+        [JsonIgnore]
+        public string LinkCoordinates
+        {
+            get => _linkCoordinates;
+            set { _linkCoordinates = value; OnPropertyChanged(nameof(LinkCoordinates)); }
+        }
+
+        [JsonIgnore] public List<Autodesk.Revit.DB.Transform> InstanceTransforms { get; set; } = new List<Autodesk.Revit.DB.Transform>();
+
 
         // User-editable properties (saved in profile)
         private string _linkName;

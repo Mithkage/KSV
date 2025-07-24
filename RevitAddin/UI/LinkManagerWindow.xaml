@@ -7,6 +7,9 @@ Function: This file defines the user interface for the Revit Link Manager WPF wi
           are now handled by a right-click context menu.
 
 Change Log:
+- July 23, 2025: Added a read-only "Coordinates" column to display link transform data.
+- July 23, 2025: Added a "Pinned" column with a three-state checkbox for managing link instance pin status.
+- July 23, 2025: Added PreviewMouseRightButtonDown event to select a row on right-click before the context menu opens.
 - July 23, 2025: Added a style trigger to color "Match on:" statuses in mustard.
 - July 23, 2025: Added "Import Profile CSV" button and updated "Save" button behavior.
 - July 23, 2025: Updated "Export to Excel" button to "Export to CSV" to reflect new functionality.
@@ -27,7 +30,7 @@ Change Log:
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Revit Link Manager" Height="722" Width="1733" 
+        Title="Revit Link Manager" Height="722" Width="2039" 
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
         Topmost="True"
@@ -137,9 +140,8 @@ Change Log:
         </Style>
         <Style x:Key="CoordinatesCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
             <Style.Triggers>
-                <DataTrigger Binding="{Binding SelectedCoordinates}" Value="Unconfirmed">
-                    <Setter Property="Background" Value="#FFD3D3D3"/>
-                    <Setter Property="ToolTip" Value="Coordinate system is unconfirmed. Please update."/>
+                <DataTrigger Binding="{Binding IsRevitLink}" Value="False">
+                    <Setter Property="Background" Value="#FFE0E0E0"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -182,6 +184,17 @@ Change Log:
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- Style for the Pin CheckBox -->
+        <Style x:Key="PinCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="IsChecked" Value="{Binding IsPinned, Mode=OneWay}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsPinned}" Value="{x:Null}">
+                    <Setter Property="IsChecked" Value="True"/>
+                    <Setter Property="Background" Value="LightGray"/>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
 
     </Window.Resources>
@@ -228,7 +241,8 @@ Change Log:
                   PreviewKeyDown="LinksDataGrid_PreviewKeyDown"
                   Sorting="LinksDataGrid_Sorting"
                   ColumnHeaderHeight="48"
-                  ContextMenuOpening="LinksDataGrid_ContextMenuOpening">
+                  ContextMenuOpening="LinksDataGrid_ContextMenuOpening"
+                  PreviewMouseRightButtonDown="LinksDataGrid_PreviewMouseRightButtonDown">
 
             <DataGrid.Columns>
                 <!-- Columns Definition -->
@@ -243,8 +257,31 @@ Change Log:
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Coordinates" Binding="{Binding SelectedCoordinates}" IsReadOnly="True" SortMemberPath="SelectedCoordinates" Width="1.1*" CellStyle="{StaticResource CoordinatesCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
-                <DataGridTextColumn Header="Link&#x0a;Workset" Binding="{Binding LinkWorkset}" IsReadOnly="True" SortMemberPath="LinkWorkset" Width="1.2*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTemplateColumn Header="Link&#x0a;Workset" SortMemberPath="LinkWorkset" Width="1.2*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding LinkWorkset}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate>
+                            <ComboBox ItemsSource="{Binding AvailableWorksets}"
+                                      SelectedItem="{Binding LinkWorkset, UpdateSourceTrigger=PropertyChanged}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Pinned" SortMemberPath="IsPinned" Width="0.6*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsEnabled="{Binding IsRevitLink}" 
+                                      Style="{StaticResource PinCheckBoxStyle}"
+                                      HorizontalAlignment="Center" 
+                                      VerticalAlignment="Center"
+                                      Click="PinCheckBox_Click"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Coordinates" Binding="{Binding LinkCoordinates}" IsReadOnly="True" SortMemberPath="LinkCoordinates" Width="2.5*" CellStyle="{StaticResource CoordinatesCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                 <DataGridTextColumn Header="Instances" Binding="{Binding NumberOfInstances}" IsReadOnly="True" SortMemberPath="NumberOfInstances" Width="0.8*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                 <DataGridTextColumn Header="Path&#x0a;Type" Binding="{Binding PathType}" IsReadOnly="True" SortMemberPath="PathType" Width="1*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                 <DataGridTextColumn Header="Link&#x0a;Status" Binding="{Binding LinkStatus}" IsReadOnly="True" SortMemberPath="LinkStatus" Width="1*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
