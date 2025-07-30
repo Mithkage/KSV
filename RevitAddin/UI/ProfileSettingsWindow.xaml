@@ -1,0 +1,118 @@
+<!--
+    File: ProfileSettingsWindow.xaml
+    Description: Defines the UI for the Profile Settings window. Users can map model
+                 element categories (like Grids, Walls, etc.) to specific Revit links.
+-->
+<Window x:Class="RTS.UI.ProfileSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:RTS.UI"
+        mc:Ignorable="d"
+        Title="Profile Settings" Height="450" Width="600"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="#FFE0F2F1"
+        ResizeMode="NoResize">
+
+    <!-- Reusing the same styles from the main Link Hub window -->
+    <Window.Resources>
+        <Style x:Key="ModernButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#FF26A69A"/>
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="BorderBrush" Value="#FF00796B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FF4DB6AC"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#FF00897B"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Grid.Row="0" Text="Assign Source Links" FontSize="18" FontWeight="SemiBold" Foreground="#FF333333" Margin="0,0,0,20"/>
+
+        <!-- Settings Grid -->
+        <Grid Grid.Row="1" DataContext="{Binding Settings}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Grids -->
+            <Label Grid.Row="0" Grid.Column="0" Content="Grids:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
+            <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,10"
+                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
+                      SelectedItem="{Binding GridsLink}"/>
+
+            <!-- Levels -->
+            <Label Grid.Row="1" Grid.Column="0" Content="Levels:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
+            <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,10"
+                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
+                      SelectedItem="{Binding LevelsLink}"/>
+
+            <!-- Walls -->
+            <Label Grid.Row="2" Grid.Column="0" Content="Walls:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
+            <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,10"
+                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
+                      SelectedItem="{Binding WallsLink}"/>
+
+            <!-- Floors -->
+            <Label Grid.Row="3" Grid.Column="0" Content="Floors:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
+            <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,10"
+                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
+                      SelectedItem="{Binding FloorsLink}"/>
+
+            <!-- Ceilings -->
+            <Label Grid.Row="4" Grid.Column="0" Content="Ceilings:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
+            <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,10"
+                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
+                      SelectedItem="{Binding CeilingsLink}"/>
+
+            <!-- Slabs -->
+            <Label Grid.Row="5" Grid.Column="0" Content="Slabs:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
+            <ComboBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,10"
+                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
+                      SelectedItem="{Binding SlabsLink}"/>
+        </Grid>
+
+        <!-- Action Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Save" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0" IsDefault="True" Click="SaveButton_Click"/>
+            <Button Content="Cancel" Style="{StaticResource ModernButtonStyle}" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -3,26 +3,12 @@ FILE: LinkManagerWindow.xaml (UPDATED)
 
 Function: This file defines the user interface for the Revit Link Manager WPF window.
           It includes the DataGrid for displaying Revit link metadata, filtering controls,
-          and action buttons for import, export, and bulk editing. Link-specific actions
-          are now handled by a right-click context menu.
+          and action buttons for import, export, and managing settings.
 
 Change Log:
+- July 30, 2025: Added a "Profile Settings" button to the main action panel.
 - July 23, 2025: Added a read-only "Coordinates" column to display link transform data.
 - July 23, 2025: Added a "Pinned" column with a three-state checkbox for managing link instance pin status.
-- July 23, 2025: Added PreviewMouseRightButtonDown event to select a row on right-click before the context menu opens.
-- July 23, 2025: Added a style trigger to color "Match on:" statuses in mustard.
-- July 23, 2025: Added "Import Profile CSV" button and updated "Save" button behavior.
-- July 23, 2025: Updated "Export to Excel" button to "Export to CSV" to reflect new functionality.
-- July 23, 2025: Added "Import Revizto CSV" button to support CSV file imports.
-- July 19, 2025: Commented out the Window.Icon and header Image properties to troubleshoot a XAML runtime error.
-- July 19, 2025: Switched to a dynamic, code-behind approach for creating the ContextMenu to resolve runtime errors.
-- July 19, 2025: Refactored DataGrid.RowStyle into a separate resource to resolve persistent XAML compiler error MC6007.
-- July 19, 2025: Corrected ContextMenu bindings to resolve XAML compiler error MC6007.
-- July 19, 2025: Fixed XAML compile error by removing invalid Style attribute from the column header filter button.
-- July 19, 2025: Implemented a right-click context menu on DataGrid rows for link-specific actions.
-- July 19, 2025: Removed dedicated "Relink" and "Unload/Reload" buttons from the main action panel.
-- July 19, 2025: Implemented dropdown filters in DataGrid column headers.
-- July 18, 2025: Added conditional formatting, tooltips, and new status columns.
 -->
 <Window x:Class="RTS.UI.LinkManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -30,7 +16,7 @@ Change Log:
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Revit Link Manager" Height="722" Width="2039" 
+        Title="RTS Link Hub" Height="722" Width="2191" 
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
         Topmost="True"
@@ -217,16 +203,15 @@ Change Log:
             <!-- Header Title -->
             <DockPanel Grid.Column="0" LastChildFill="True">
                 <!-- <Image Source="pack://application:,,,/Resources/RTS_Icon.png" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,10,0"/> -->
-                <TextBlock FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#FF333333" Text="RTS Link Manager"/>
+                <TextBlock FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#FF333333"><Run Text="Link "/><Run Text="Hub"/></TextBlock>
             </DockPanel>
 
             <!-- Top Right Buttons -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Button Content="Import Profile CSV" Click="ImportProfileCsvButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+                <Button Content="Import CSV" Click="ImportProfileCsvButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
                 <Button Content="Export to CSV" Click="ExportToCsvButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
                 <Button Content="Import Revizto CSV" Click="ImportReviztoCsvButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
-                <Button Content="Bulk Edit" Click="BulkEditButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
-                <Button Content="Clear Profile" Click="ClearProfileButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,0,0"/>
+                <Button Content="Clear" Click="ClearProfileButton_Click" Style="{StaticResource ModernButtonStyle}" Width="67"/>
             </StackPanel>
         </Grid>
 
@@ -246,9 +231,9 @@ Change Log:
 
             <DataGrid.Columns>
                 <!-- Columns Definition -->
-                <DataGridTextColumn Header="Link File Name" Binding="{Binding LinkName, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkName" Width="3*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="File Name" Binding="{Binding LinkName, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkName" Width="3*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                 <DataGridTextColumn Header="Revizto&#x0a;Status" Binding="{Binding ReviztoStatus}" IsReadOnly="True" SortMemberPath="ReviztoStatus" Width="1*" CellStyle="{StaticResource ReviztoStatusCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
-                <DataGridTextColumn Header="Link&#x0a;Description" Binding="{Binding LinkDescription, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkDescription" Width="2.25*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Description" Binding="{Binding LinkDescription, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkDescription" Width="2.25*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                 <DataGridTextColumn Header="Last&#x0a;Modified" Binding="{Binding LastModified}" IsReadOnly="True" SortMemberPath="LastModified" Width="1.2*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                 <DataGridTemplateColumn Header="Discipline" SortMemberPath="SelectedDiscipline" Width="1*" CellStyle="{StaticResource DisciplineCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
                     <DataGridTemplateColumn.CellTemplate>
@@ -257,7 +242,7 @@ Change Log:
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Link&#x0a;Workset" SortMemberPath="LinkWorkset" Width="1.2*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
+                <DataGridTemplateColumn Header="Link&#x0a;Workset" SortMemberPath="LinkWorkset" Width="1.8*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding LinkWorkset}" />
@@ -270,7 +255,7 @@ Change Log:
                         </DataTemplate>
                     </DataGridTemplateColumn.CellEditingTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Pinned" SortMemberPath="IsPinned" Width="0.6*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
+                <DataGridTemplateColumn Header="Pin" SortMemberPath="IsPinned" Width="0.6*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsEnabled="{Binding IsRevitLink}" 
@@ -281,8 +266,8 @@ Change Log:
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Coordinates" Binding="{Binding LinkCoordinates}" IsReadOnly="True" SortMemberPath="LinkCoordinates" Width="2.5*" CellStyle="{StaticResource CoordinatesCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
-                <DataGridTextColumn Header="Instances" Binding="{Binding NumberOfInstances}" IsReadOnly="True" SortMemberPath="NumberOfInstances" Width="0.8*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Coordinates" Binding="{Binding LinkCoordinates}" IsReadOnly="True" SortMemberPath="LinkCoordinates" Width="2.8*" CellStyle="{StaticResource CoordinatesCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                <DataGridTextColumn Header="Instances" Binding="{Binding NumberOfInstances}" IsReadOnly="True" SortMemberPath="NumberOfInstances" Width="1.0*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                 <DataGridTextColumn Header="Path&#x0a;Type" Binding="{Binding PathType}" IsReadOnly="True" SortMemberPath="PathType" Width="1*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                 <DataGridTextColumn Header="Link&#x0a;Status" Binding="{Binding LinkStatus}" IsReadOnly="True" SortMemberPath="LinkStatus" Width="1*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                 <DataGridTextColumn Header="Version&#x0a;Status" Binding="{Binding VersionStatus}" IsReadOnly="True" SortMemberPath="VersionStatus" Width="1.2*" CellStyle="{StaticResource VersionStatusCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
@@ -295,6 +280,7 @@ Change Log:
 
         <!-- Action Buttons -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Content="Profile Settings" Click="ProfileSettingsButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
             <Button Content="Add Placeholder" Click="AddPlaceholderButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
             <Button Content="Save" Click="SaveButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
             <Button Content="Close" Click="CloseButton_Click" Style="{StaticResource ModernButtonStyle}"/>

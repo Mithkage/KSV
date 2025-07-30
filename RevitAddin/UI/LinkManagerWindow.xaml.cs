@@ -4,7 +4,7 @@
 //
 // Namespace: RTS.UI
 //
-// Class: LinkManagerWindow, LinkViewModel, BulkEditDialog
+// Class: LinkManagerWindow, LinkViewModel
 //
 // Function: This file contains the code-behind logic for the Link Manager WPF window.
 //           It is responsible for loading, displaying, and saving Revit link metadata
@@ -16,36 +16,8 @@
 // Company: ReTick Solutions (RTS)
 //
 // Log:
-// - July 24, 2025: Corrected coordinate calculation to use ProjectLocation.GetTransform instead of the obsolete BasePoint.GetTotalTransform.
-// - July 24, 2025: Integrated the FormatCoordinates and AreTransformsClose methods to resolve CS0103 compiler error.
-// - July 23, 2025: Implemented the missing FormatCoordinates method and fixed WorksetId errors to resolve compiler issues.
-// - July 23, 2025: Resolved ambiguous 'Transform' reference by using the fully qualified name 'Autodesk.Revit.DB.Transform'.
-// - July 23, 2025: Implemented robust error handling for coordinate calculations.
-// - July 23, 2025: Deferred pin changes to the Save event instead of applying them immediately.
-// - July 23, 2025: Implemented pin control functionality with a three-state checkbox and immediate model update.
-// - July 23, 2025: Added PreviewMouseRightButtonDown event handler to select row before showing context menu.
-// - July 23, 2025: Added IsAlternativeMatch property to ViewModel to support XAML styling.
-// - July 23, 2025: Refined Revizto matching logic to ignore placeholders.
-// - July 23, 2025: Corrected ContextMenu logic to reliably attach to the DataGridRow, fixing the right-click feature.
-// - July 23, 2025: Implemented "Reload From..." context menu to relink existing links or resolve placeholders.
-// - July 23, 2025: Added Import Profile CSV functionality and updated Save button behavior.
-// - July 23, 2025: Removed obsolete Excel export method.
-// - July 23, 2025: Updated export functionality to generate a CSV file instead of an XLSX file.
-// - July 23, 2025: Implemented advanced data merging in LoadLinks to handle re-imports and placeholder resolution.
-// - July 23, 2025: Corrected a typo in the Revizto extension matching logic to ensure correct status reporting.
-// - July 23, 2025: Updated Revizto matching to ignore file extensions and report alternative matches. Stopped populating Link Description from Revizto data.
-// - July 23, 2025: Corrected Save Profile logic to save all links in the grid, preserving metadata for all placeholder types.
-// - July 23, 2025: Modified delete and clear profile logic to permanently remove associated Revizto records from Extensible Storage, preventing them from reappearing.
-// - July 23, 2025: Added functionality to import Revizto link data from a CSV file.
-// - July 23, 2025: Corrected icon loading to use an explicit assembly reference in the Pack URI, resolving Revit host warnings.
-// - July 22, 2025: Refined Revizto import to handle duplicate entries by prioritizing the latest 'Last Modified' date.
-// - July 22, 2025: Added specific exception handling for TypeInitializationException on Excel import/export.
-// - July 22, 2025: Enhanced error reporting to guide users on resolving ClosedXML dependency conflicts.
-// - July 19, 2025: Added specific exception handling for TypeLoadException on Excel export to diagnose version conflicts.
-// - July 19, 2025: Implemented dynamic ContextMenu creation in code-behind to resolve runtime errors.
-// - July 19, 2025: Added DispatcherUnhandledException handler for improved XAML runtime error diagnostics.
-// - July 19, 2025: Added robust icon loading in constructor to prevent runtime errors from missing image resources.
-// - July 19, 2025: Corrected Revit 2022 API calls for IsRelativePath and GetLoadStatus to resolve compiler errors.
+// - July 30, 2025: Implemented a more robust, multi-step link finding method with enhanced diagnostics.
+// - July 30, 2025: Added ProfileSettingsButton_Click event handler to launch the new settings window.
 //
 
 #region Namespaces
@@ -112,6 +84,16 @@ namespace RTS.UI
             _linksView.Filter = new Predicate<object>(FilterLinks);
 
             LoadLinks();
+        }
+
+        /// <summary>
+        /// Handles launching the Profile Settings window.
+        /// </summary>
+        private void ProfileSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var settingsWindow = new ProfileSettingsWindow(_doc, this.Links);
+            settingsWindow.Owner = this; // Set owner to center it correctly
+            settingsWindow.ShowDialog();
         }
 
         /// <summary>
@@ -213,10 +195,10 @@ namespace RTS.UI
             contextMenu.Items.Add(new Separator());
 
             var uniqueValues = Links.Select(l => typeof(LinkViewModel).GetProperty(sortMemberPath).GetValue(l)?.ToString())
-                                         .Where(v => !string.IsNullOrEmpty(v))
-                                         .Distinct(StringComparer.OrdinalIgnoreCase)
-                                         .OrderBy(v => v)
-                                         .ToList();
+                                             .Where(v => !string.IsNullOrEmpty(v))
+                                             .Distinct(StringComparer.OrdinalIgnoreCase)
+                                             .OrderBy(v => v)
+                                             .ToList();
 
             foreach (var value in uniqueValues)
             {
@@ -243,7 +225,13 @@ namespace RTS.UI
             // 1. Load all data sources
             var savedProfiles = RecallDataFromExtensibleStorage<LinkViewModel>(_doc, ProfileSchemaGuid, ProfileSchemaName, ProfileFieldName, ProfileDataStorageElementName);
             var reviztoRecords = RecallDataFromExtensibleStorage<ReviztoLinkRecord>(_doc, ReviztoLinkRecord.SchemaGuid, ReviztoLinkRecord.SchemaName, ReviztoLinkRecord.FieldName, ReviztoLinkRecord.DataStorageName);
-            var allLinkTypes = new FilteredElementCollector(_doc).OfClass(typeof(RevitLinkType)).Cast<RevitLinkType>().Where(lt => !lt.IsNestedLink).ToList();
+
+            var (allLinkTypes, problematicNames) = GetAllProjectLinkTypes(_doc);
+            if (problematicNames.Any())
+            {
+                TaskDialog.Show("Link Warning", "Could not read the following links (they may be unloaded or corrupt):\n\n" + string.Join("\n", problematicNames));
+            }
+
             var linkInstancesGroupedByType = new FilteredElementCollector(_doc).OfClass(typeof(RevitLinkInstance)).Cast<RevitLinkInstance>().GroupBy(inst => inst.GetTypeId()).ToDictionary(g => g.Key, g => g.ToList());
 
             // Get available worksets for dropdown
@@ -261,15 +249,18 @@ namespace RTS.UI
             var processedPlaceholders = new HashSet<string>();
 
             // 2. Process all live Revit links
-            foreach (var type in allLinkTypes)
+            foreach (var linkInfo in allLinkTypes)
             {
-                var viewModel = new LinkViewModel { LinkName = type.Name, IsRevitLink = true, AvailableWorksets = availableWorksetNames };
+                string cleanLinkName = linkInfo.Key;
+                RevitLinkType type = linkInfo.Value;
+
+                var viewModel = new LinkViewModel { LinkName = cleanLinkName, IsRevitLink = true, AvailableWorksets = availableWorksetNames };
 
                 // Populate live Revit data
                 PopulateRevitLinkData(viewModel, type, linkInstancesGroupedByType);
 
                 // Check for a matching placeholder in the saved profiles to inherit its data
-                string linkNameWithoutExt = Path.GetFileNameWithoutExtension(type.Name);
+                string linkNameWithoutExt = Path.GetFileNameWithoutExtension(cleanLinkName);
                 var matchingPlaceholder = savedProfiles.FirstOrDefault(p => !p.IsRevitLink && Path.GetFileNameWithoutExtension(p.LinkName).Equals(linkNameWithoutExt, StringComparison.OrdinalIgnoreCase));
 
                 if (matchingPlaceholder != null)
@@ -286,7 +277,7 @@ namespace RTS.UI
                 else
                 {
                     // No placeholder match, check for a direct match in the saved profiles
-                    var savedProfile = savedProfiles.FirstOrDefault(p => p.LinkName.Equals(type.Name, StringComparison.OrdinalIgnoreCase));
+                    var savedProfile = savedProfiles.FirstOrDefault(p => p.LinkName.Equals(cleanLinkName, StringComparison.OrdinalIgnoreCase));
                     if (savedProfile != null)
                     {
                         viewModel.LinkDescription = savedProfile.LinkDescription;
@@ -382,6 +373,59 @@ namespace RTS.UI
         }
 
         /// <summary>
+        /// Robustly gets all valid Revit Link Types from the project.
+        /// </summary>
+        private (Dictionary<string, RevitLinkType> types, List<string> problematicNames) GetAllProjectLinkTypes(Document doc)
+        {
+            var types = new Dictionary<string, RevitLinkType>(StringComparer.OrdinalIgnoreCase);
+            var problematicNames = new List<string>();
+
+            var allLinkTypes = new FilteredElementCollector(doc)
+                .OfClass(typeof(RevitLinkType))
+                .Cast<RevitLinkType>();
+
+            foreach (var linkType in allLinkTypes)
+            {
+                try
+                {
+                    string fileName = null;
+                    try
+                    {
+                        var externalRef = linkType.GetExternalFileReference();
+                        if (externalRef != null && externalRef.GetPath() != null)
+                        {
+                            string visiblePath = ModelPathUtils.ConvertModelPathToUserVisiblePath(externalRef.GetPath());
+                            fileName = Path.GetFileName(visiblePath);
+                        }
+                    }
+                    catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+                    {
+                        // Fallback to using the linkType.Name.
+                    }
+
+                    if (string.IsNullOrEmpty(fileName))
+                    {
+                        fileName = linkType.Name.Split(':').FirstOrDefault()?.Trim();
+                    }
+
+                    if (!string.IsNullOrEmpty(fileName) && !types.ContainsKey(fileName))
+                    {
+                        types.Add(fileName, linkType);
+                    }
+                    else if (string.IsNullOrEmpty(fileName))
+                    {
+                        problematicNames.Add($"Link Type ID {linkType.Id} could not be resolved to a filename.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    problematicNames.Add($"Link Type ID {linkType.Id} failed with error: {ex.Message}");
+                }
+            }
+            return (types, problematicNames);
+        }
+
+        /// <summary>
         /// Populates a LinkViewModel with data from a live RevitLinkType element.
         /// </summary>
         private void PopulateRevitLinkData(LinkViewModel viewModel, RevitLinkType type, Dictionary<ElementId, List<RevitLinkInstance>> linkInstancesGroupedByType)
@@ -408,7 +452,10 @@ namespace RTS.UI
                     }
                 }
             }
-            catch { /* Ignore */ }
+            catch
+            {
+                viewModel.PathType = "N/A (Cloud Path)";
+            }
             viewModel.LastModified = lastModifiedDate;
             viewModel.FullPath = fullPath;
 
@@ -852,31 +899,6 @@ namespace RTS.UI
 
 
         #endregion
-
-        /// <summary>
-        /// Handles the click event for the "Bulk Edit" button.
-        /// </summary>
-        private void BulkEditButton_Click(object sender, RoutedEventArgs e)
-        {
-            var selectedLinks = LinksDataGrid.SelectedItems.Cast<LinkViewModel>().ToList();
-            if (!selectedLinks.Any())
-            {
-                TaskDialog.Show("Bulk Edit", "Please select at least one link to bulk edit.", TaskDialogCommonButtons.Ok);
-                return;
-            }
-
-            var bulkEditDialog = new BulkEditDialog();
-            if (bulkEditDialog.ShowDialog() == true)
-            {
-                foreach (var linkVm in selectedLinks)
-                {
-                    if (bulkEditDialog.ApplyDiscipline) linkVm.SelectedDiscipline = bulkEditDialog.SelectedDiscipline;
-                    if (bulkEditDialog.ApplyCompanyName) linkVm.CompanyName = bulkEditDialog.CompanyName;
-                    if (bulkEditDialog.ApplyComments) linkVm.Comments = bulkEditDialog.Comments;
-                }
-                TaskDialog.Show("Bulk Edit", "Selected links updated. Click 'Save Profile' to make changes permanent.", TaskDialogCommonButtons.Ok);
-            }
-        }
 
         /// <summary>
         /// Handles the click event for the "Close" button.
@@ -1328,40 +1350,5 @@ namespace RTS.UI
         public string ContactDetails { get => _contactDetails; set { _contactDetails = value; OnPropertyChanged(nameof(ContactDetails)); } }
         private string _comments;
         public string Comments { get => _comments; set { _comments = value; OnPropertyChanged(nameof(Comments)); } }
-    }
-
-    /// <summary>
-    /// Dialog for bulk editing LinkViewModel properties.
-    /// </summary>
-    public partial class BulkEditDialog : Window, INotifyPropertyChanged
-    {
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-
-        private bool _applyDiscipline;
-        public bool ApplyDiscipline { get => _applyDiscipline; set { _applyDiscipline = value; OnPropertyChanged(nameof(ApplyDiscipline)); } }
-        private string _selectedDiscipline;
-        public string SelectedDiscipline { get => _selectedDiscipline; set { _selectedDiscipline = value; OnPropertyChanged(nameof(SelectedDiscipline)); } }
-        private bool _applyCompanyName;
-        public bool ApplyCompanyName { get => _applyCompanyName; set { _applyCompanyName = value; OnPropertyChanged(nameof(ApplyCompanyName)); } }
-        private string _companyName;
-        public string CompanyName { get => _companyName; set { _companyName = value; OnPropertyChanged(nameof(CompanyName)); } }
-        private bool _applyComments;
-        public bool ApplyComments { get => _applyComments; set { _applyComments = value; OnPropertyChanged(nameof(ApplyComments)); } }
-        private string _comments;
-        public string Comments { get => _comments; set { _comments = value; OnPropertyChanged(nameof(Comments)); } }
-        public List<string> AvailableDisciplines { get; } = new List<string> { "Unconfirmed", "Architectural", "Structural", "Mechanical", "Electrical", "Hydraulic", "Fire", "Civil", "Landscape", "Other" };
-
-        public BulkEditDialog()
-        {
-            // This requires a BulkEditDialog.xaml file with corresponding controls.
-            // For this example, we assume the XAML is set up correctly.
-            // InitializeComponent(); 
-            this.DataContext = this;
-            SelectedDiscipline = "Unconfirmed";
-        }
-
-        private void ApplyButton_Click(object sender, RoutedEventArgs e) => DialogResult = true;
-        private void CancelButton_Click(object sender, RoutedEventArgs e) => DialogResult = false;
     }
 }

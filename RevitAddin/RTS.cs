@@ -14,6 +14,7 @@
 // Company: ReTick Solutions (RTS)
 //
 // Log:
+// - July 30, 2025: Added buttons for ScheduleFloor and CastCeiling commands.
 // - July 16, 2025: Added standard file header comment.
 // - July 16, 2025: Added the 'Link Manager' button to the 'Revit Tools' panel.
 //
@@ -209,6 +210,20 @@ namespace RTS
                 LargeImage = GetEmbeddedPng("LinkManager.png") ?? defaultIcon
             };
 
+            // 10. Schedule Level
+            PushButtonData pbdScheduleLevel = new PushButtonData("CmdScheduleLevel", "Schedule\nLevel", ExecutingAssemblyPath, "RTS.Commands.ScheduleFloorClass")
+            {
+                ToolTip = "Updates the schedule level of lighting fixtures based on the closest floor in a linked model.",
+                LargeImage = defaultIcon // TODO: Create a specific icon
+            };
+
+            // 11. Cast to Ceiling/Slab
+            PushButtonData pbdCastCeiling = new PushButtonData("CmdCastCeiling", "Cast to\nCeiling/Slab", ExecutingAssemblyPath, "RTS.Commands.CastCeilingClass")
+            {
+                ToolTip = "Moves MEP elements vertically to the nearest ceiling or slab from linked models.",
+                LargeImage = defaultIcon // TODO: Create a specific icon
+            };
+
             // --- Misc Tools Buttons ---
 
             // 1. Import BB Cable Lengths
@@ -273,7 +288,9 @@ namespace RTS
             revitToolsPanel.AddItem(pbdRtUppercase);
             revitToolsPanel.AddItem(pbdRtWireRoute);
             revitToolsPanel.AddItem(pbdRtIsolate);
-            revitToolsPanel.AddItem(pbdLinkManager); 
+            revitToolsPanel.AddItem(pbdLinkManager);
+            revitToolsPanel.AddItem(pbdScheduleLevel);
+            revitToolsPanel.AddItem(pbdCastCeiling);
 
             miscPanel.AddItem(pbdBbImport);
             miscPanel.AddItem(pbdMdImporter);

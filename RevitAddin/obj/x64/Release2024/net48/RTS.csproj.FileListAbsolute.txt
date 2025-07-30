@@ -22,8 +22,6 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.g.resou
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.GeneratedMSBuildEditorConfig.editorconfig
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.CoreCompileInputs.cache
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.sourcelink.json
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Fody.CopyLocal.cache
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Fody.RuntimeCopyLocal.cache
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.pdb
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2024\net48\ClosedXML.dll
@@ -42,3 +40,8 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2024\net48\System.Text
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2024\net48\System.Threading.Tasks.Extensions.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Release2024\net48\System.ValueTuple.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Up2Date
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\UI\ProfileSettingsWindow.g.cs
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS_MarkupCompile.lref
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\UI\ProfileSettingsWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Fody.CopyLocal.cache
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Fody.RuntimeCopyLocal.cache
