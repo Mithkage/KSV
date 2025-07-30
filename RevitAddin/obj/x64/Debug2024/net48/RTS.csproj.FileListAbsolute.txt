@@ -45,3 +45,5 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\RTS.csproj.Fo
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\RTS.csproj.Up2Date
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\RTS.pdb
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\UI\ProgressBarWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\UI\ProgressBarWindow.g.cs
