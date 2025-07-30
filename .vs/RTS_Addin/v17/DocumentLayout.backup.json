@@ -70,8 +70,12 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 1,
           "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -80,7 +84,7 @@
               "RelativeDocumentMoniker": "RevitAddin\\Commands\\RTS_Initiate.cs",
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\RTS_Initiate.cs",
               "RelativeToolTip": "RevitAddin\\Commands\\RTS_Initiate.cs",
-              "ViewState": "AgIAAGsCAAAAAAAAAAAgwIsCAAAlAAAAAAAAAA==",
+              "ViewState": "AgIAAEQCAAAAAAAAAAAgwIYCAABtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-07-30T23:40:22.441Z",
               "EditorCaption": ""
@@ -94,8 +98,7 @@
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj",
               "RelativeToolTip": "RevitAddin\\RTS.csproj",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-07-30T23:34:41.082Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-30T23:34:41.082Z"
             },
             {
               "$type": "Document",
@@ -107,12 +110,7 @@
               "RelativeToolTip": "RevitAddin\\UI\\ProgressBarWindow.xaml.cs",
               "ViewState": "AgIAAA4AAAAAAAAAAAAowDMAAABIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-30T23:03:22.874Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+              "WhenOpened": "2025-07-30T23:03:22.874Z"
             },
             {
               "$type": "Document",
@@ -123,8 +121,7 @@
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProgressBarWindow.xaml",
               "RelativeToolTip": "RevitAddin\\UI\\ProgressBarWindow.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-07-30T11:56:16.506Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-30T11:56:16.506Z"
             },
             {
               "$type": "Document",
@@ -159,8 +156,7 @@
               "RelativeToolTip": "RevitAddin\\Commands\\CastCeiling.cs",
               "ViewState": "AgIAACYBAAAAAAAAAAAowEgBAABtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-30T02:35:37.23Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-30T02:35:37.23Z"
             },
             {
               "$type": "Document",
@@ -172,8 +168,7 @@
               "RelativeToolTip": "RevitAddin\\UI\\ProfileSettingsWindow.xaml.cs",
               "ViewState": "AgIAABIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-30T11:55:20.532Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-30T11:55:20.532Z"
             },
             {
               "$type": "Document",
@@ -197,8 +192,7 @@
               "RelativeToolTip": "RevitAddin\\Commands\\ScheduleFloorClass.cs",
               "ViewState": "AgIAAEkBAAAAAAAAAAAowJcBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-30T02:22:54.501Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-30T02:22:54.501Z"
             },
             {
               "$type": "Document",
@@ -257,8 +251,7 @@
               "RelativeToolTip": "RevitAddin\\RTS.csproj",
               "ViewState": "AgIAACUAAAAAAAAAAAAIwEkAAAAbAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-07-22T11:05:10.371Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-22T11:05:10.371Z"
             }
           ]
         }
