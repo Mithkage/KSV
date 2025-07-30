@@ -13,18 +13,20 @@
 //           and updates the fixture's schedule level parameter accordingly, without changing
 //           the fixture's physical location.
 //
-// Author: Your Name/Company
+// Author: Kyle Vorster
+// Company: ReTick Solutions Pty Ltd
 //
 // Log:
+// - July 31, 2025: Refactored summary dictionary to a class-level field for consistency.
+// - July 31, 2025: Added a fast room check to pre-filter elements, falling back to ray casting for outliers.
 // - July 30, 2025: Integrated the ProgressBarWindow for user feedback and cancellation.
-// - July 30, 2025: Added sorting of elements by location to maximize cache effectiveness.
-// - July 30, 2025: Optimized performance by creating the 3D view and ReferenceIntersector only once.
 //
 
 #region Namespaces
 using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
@@ -39,6 +41,9 @@ namespace RTS.Commands
     [Regeneration(RegenerationOption.Manual)]
     public class ScheduleFloorClass : IExternalCommand
     {
+        // --- Class-level field for summary reporting ---
+        private Dictionary<string, int> _updateSummary;
+
         public Result Execute(
             ExternalCommandData commandData,
             ref string message,
@@ -47,6 +52,9 @@ namespace RTS.Commands
             UIApplication uiApp = commandData.Application;
             UIDocument uiDoc = uiApp.ActiveUIDocument;
             Document doc = uiDoc.Document;
+
+            // Initialize the summary collection for this run
+            _updateSummary = new Dictionary<string, int>();
 
             // --- 1. Retrieve Profile Settings and Links using the Utility Class ---
             var settings = RTS_RevitUtils.GetProfileSettings(doc);
@@ -83,12 +91,6 @@ namespace RTS.Commands
                 .ThenBy(e => (e.Location as LocationPoint)?.Point.Y ?? 0)
                 .ToList();
 
-            if (!lightingFixtures.Any())
-            {
-                TaskDialog.Show("Information", "No lighting fixtures were found in the project to process.");
-                return Result.Succeeded;
-            }
-
             var linkedFloors = new FilteredElementCollector(archDoc)
                 .OfClass(typeof(Floor))
                 .WhereElementIsNotElementType()
@@ -109,7 +111,7 @@ namespace RTS.Commands
             View3D view = new FilteredElementCollector(doc).OfClass(typeof(View3D)).Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
             if (view == null)
             {
-                message = "A 3D view is required to perform this operation. Please create one if it doesn't exist.";
+                message = "A 3D view is required for the ray cast fallback. Please create one if it doesn't exist.";
                 TaskDialog.Show("Error", message);
                 return Result.Failed;
             }
@@ -122,12 +124,38 @@ namespace RTS.Commands
             XYZ lastFixtureLocation = null;
             const double cacheProximityThreshold = 15.0; // 15 feet
 
-            var updateSummary = new Dictionary<string, int>();
-
-            // --- 3. Initialize and Show Progress Bar ---
             var progressBar = new ProgressBarWindow();
             progressBar.Show();
             int processedCount = 0;
+
+            // --- 3. Group elements by room ---
+            var elementsByRoom = new Dictionary<ElementId, List<Element>>();
+            var elementsNotInRooms = new List<Element>();
+            Transform linkTransformInverse = linkInstance.GetTotalTransform().Inverse;
+
+            foreach (var elem in lightingFixtures)
+            {
+                LocationPoint locPoint = elem.Location as LocationPoint;
+                if (locPoint == null)
+                {
+                    elementsNotInRooms.Add(elem);
+                    continue;
+                }
+
+                Room room = archDoc.GetRoomAtPoint(linkTransformInverse.OfPoint(locPoint.Point));
+                if (room != null)
+                {
+                    if (!elementsByRoom.ContainsKey(room.Id))
+                    {
+                        elementsByRoom[room.Id] = new List<Element>();
+                    }
+                    elementsByRoom[room.Id].Add(elem);
+                }
+                else
+                {
+                    elementsNotInRooms.Add(elem);
+                }
+            }
 
             // --- 4. Start Transaction and Process Fixtures ---
             using (Transaction trans = new Transaction(doc, "Update Lighting Fixture Schedule Levels"))
@@ -136,64 +164,51 @@ namespace RTS.Commands
                 {
                     trans.Start();
 
-                    foreach (var fixture in lightingFixtures)
+                    int roomCount = 0;
+                    int totalRooms = elementsByRoom.Count;
+
+                    // Process elements grouped by room
+                    foreach (var roomGroup in elementsByRoom)
                     {
-                        // Check for cancellation request from the progress bar window
-                        if (progressBar.IsCancellationPending)
+                        roomCount++;
+                        Room room = archDoc.GetElement(roomGroup.Key) as Room;
+                        progressBar.UpdateRoomStatus(room?.Name ?? "Unnamed Room", roomCount, totalRooms);
+
+                        foreach (var fixture in roomGroup.Value)
                         {
-                            trans.RollBack();
-                            progressBar.Close();
-                            return Result.Cancelled;
-                        }
-
-                        processedCount++;
-                        progressBar.UpdateProgress(processedCount, lightingFixtures.Count);
-
-                        LocationPoint locPoint = fixture.Location as LocationPoint;
-                        if (locPoint == null) continue;
-
-                        XYZ fixtureLocation = locPoint.Point;
-                        Floor closestFloor = null;
-
-                        if (cachedFloor != null && lastFixtureLocation != null && fixtureLocation.DistanceTo(lastFixtureLocation) < cacheProximityThreshold)
-                        {
-                            if (ValidateCachedFloor(fixtureLocation, cachedFloor, intersector))
+                            if (progressBar.IsCancellationPending)
                             {
-                                closestFloor = cachedFloor;
+                                trans.RollBack();
+                                progressBar.Close();
+                                return Result.Cancelled;
                             }
-                        }
 
-                        if (closestFloor == null)
-                        {
-                            closestFloor = FindClosestFloor(fixtureLocation, linkedFloors, linkInstance, intersector, archDoc);
-                        }
+                            processedCount++;
+                            progressBar.UpdateProgress(processedCount, lightingFixtures.Count);
 
-                        lastFixtureLocation = fixtureLocation;
-                        cachedFloor = closestFloor;
-
-                        if (closestFloor == null) continue;
-
-                        Level linkedLevel = archDoc.GetElement(closestFloor.LevelId) as Level;
-                        if (linkedLevel == null) continue;
-
-                        if (hostLevels.TryGetValue(linkedLevel.Name, out Level hostLevel))
-                        {
-                            Parameter scheduleLevelParam = fixture.get_Parameter(BuiltInParameter.INSTANCE_SCHEDULE_ONLY_LEVEL_PARAM);
-                            if (scheduleLevelParam != null && !scheduleLevelParam.IsReadOnly)
-                            {
-                                if (scheduleLevelParam.AsElementId() != hostLevel.Id)
-                                {
-                                    scheduleLevelParam.Set(hostLevel.Id);
-                                    string fixtureTypeName = fixture.Name;
-                                    if (!updateSummary.ContainsKey(fixtureTypeName))
-                                    {
-                                        updateSummary[fixtureTypeName] = 0;
-                                    }
-                                    updateSummary[fixtureTypeName]++;
-                                }
-                            }
+                            ProcessFixture(fixture, doc, archDoc, linkInstance, hostLevels, linkedFloors, intersector, ref cachedFloor, ref lastFixtureLocation, cacheProximityThreshold);
                         }
                     }
+
+                    // Process elements that were not in any room
+                    if (elementsNotInRooms.Any())
+                    {
+                        progressBar.UpdateRoomStatus("Processing elements not in rooms...", 0, 0);
+                        foreach (var fixture in elementsNotInRooms)
+                        {
+                            if (progressBar.IsCancellationPending)
+                            {
+                                trans.RollBack();
+                                progressBar.Close();
+                                return Result.Cancelled;
+                            }
+
+                            processedCount++;
+                            progressBar.UpdateProgress(processedCount, lightingFixtures.Count);
+                            ProcessFixture(fixture, doc, archDoc, linkInstance, hostLevels, linkedFloors, intersector, ref cachedFloor, ref lastFixtureLocation, cacheProximityThreshold);
+                        }
+                    }
+
 
                     trans.Commit();
                 }
@@ -211,12 +226,12 @@ namespace RTS.Commands
             }
 
             // --- 5. Display Summary Report ---
-            if (updateSummary.Any())
+            if (_updateSummary.Any())
             {
                 StringBuilder summaryReport = new StringBuilder();
                 summaryReport.AppendLine("Successfully updated schedule levels for the following fixture types:");
                 summaryReport.AppendLine();
-                foreach (var entry in updateSummary)
+                foreach (var entry in _updateSummary)
                 {
                     summaryReport.AppendLine($"  - {entry.Key}: {entry.Value} fixture(s) updated.");
                 }
@@ -231,6 +246,81 @@ namespace RTS.Commands
         }
 
         #region Helper Methods
+
+        private void ProcessFixture(Element fixture, Document doc, Document archDoc, RevitLinkInstance linkInstance, Dictionary<string, Level> hostLevels, List<Floor> linkedFloors, ReferenceIntersector intersector, ref Floor cachedFloor, ref XYZ lastFixtureLocation, double cacheProximityThreshold)
+        {
+            LocationPoint locPoint = fixture.Location as LocationPoint;
+            if (locPoint == null) return;
+
+            XYZ fixtureLocation = locPoint.Point;
+            Level targetLevel = null;
+
+            // --- OPTIMIZATION: Fast Room Check First ---
+            bool needsRayCast = true;
+            Room room = archDoc.GetRoomAtPoint(linkInstance.GetTotalTransform().Inverse.OfPoint(fixtureLocation));
+            if (room != null)
+            {
+                Level roomLevel = archDoc.GetElement(room.LevelId) as Level;
+                Parameter scheduleLevelParam = fixture.get_Parameter(BuiltInParameter.INSTANCE_SCHEDULE_ONLY_LEVEL_PARAM);
+                if (roomLevel != null && scheduleLevelParam != null && scheduleLevelParam.HasValue)
+                {
+                    Level currentScheduleLevel = doc.GetElement(scheduleLevelParam.AsElementId()) as Level;
+                    if (currentScheduleLevel != null && currentScheduleLevel.Name == roomLevel.Name)
+                    {
+                        needsRayCast = false; // Already correct, skip the expensive check
+                    }
+                }
+            }
+
+            // --- Fallback to Ray Casting if needed ---
+            if (needsRayCast)
+            {
+                Floor closestFloor = null;
+
+                if (cachedFloor != null && lastFixtureLocation != null && fixtureLocation.DistanceTo(lastFixtureLocation) < cacheProximityThreshold)
+                {
+                    if (ValidateCachedFloor(fixtureLocation, cachedFloor, intersector))
+                    {
+                        closestFloor = cachedFloor;
+                    }
+                }
+
+                if (closestFloor == null)
+                {
+                    closestFloor = FindClosestFloor(fixtureLocation, linkedFloors, linkInstance, intersector, archDoc);
+                }
+
+                lastFixtureLocation = fixtureLocation;
+                cachedFloor = closestFloor;
+
+                if (closestFloor != null)
+                {
+                    Level linkedLevel = archDoc.GetElement(closestFloor.LevelId) as Level;
+                    if (linkedLevel != null && hostLevels.TryGetValue(linkedLevel.Name, out Level hostLevel))
+                    {
+                        targetLevel = hostLevel;
+                    }
+                }
+            }
+
+            if (targetLevel != null)
+            {
+                Parameter scheduleLevelParam = fixture.get_Parameter(BuiltInParameter.INSTANCE_SCHEDULE_ONLY_LEVEL_PARAM);
+                if (scheduleLevelParam != null && !scheduleLevelParam.IsReadOnly)
+                {
+                    if (scheduleLevelParam.AsElementId() != targetLevel.Id)
+                    {
+                        scheduleLevelParam.Set(targetLevel.Id);
+                        string fixtureTypeName = fixture.Name;
+                        if (!_updateSummary.ContainsKey(fixtureTypeName))
+                        {
+                            _updateSummary[fixtureTypeName] = 0;
+                        }
+                        _updateSummary[fixtureTypeName]++;
+                    }
+                }
+            }
+        }
 
         private Floor FindClosestFloor(XYZ point, List<Floor> allFloors, RevitLinkInstance linkInstance, ReferenceIntersector intersector, Document linkDoc)
         {

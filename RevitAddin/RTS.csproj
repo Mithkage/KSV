@@ -115,6 +115,12 @@
 	<PropertyGroup Condition=" '$(Configuration.Contains(&quot;Release&quot;))' == 'true' ">
 		<Optimize>true</Optimize>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug2024|x64'">
+	  <DefineConstants>$(DefineConstants);DEBUG;REVIT2024_OR_GREATER</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release2024|x64'">
+	  <DefineConstants>$(DefineConstants);REVIT2024;TRACE;REVIT2024_OR_GREATER</DefineConstants>
+	</PropertyGroup>
 
 	<!-- NuGet Package References -->
 	<ItemGroup>
