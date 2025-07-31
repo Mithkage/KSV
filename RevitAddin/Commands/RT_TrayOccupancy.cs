@@ -40,6 +40,7 @@ using System.Text.RegularExpressions; // Added for generic prefix checking
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection; // Added for selection filter
 using System.Reflection;
 using PC_Extensible;
 #endregion
@@ -714,7 +715,11 @@ namespace RTS.Commands
                 foreach (Element element in elementsToUpdate) // Iterate through all relevant elements
                 {
                     // Special handling for Cable Trays: Update their specific RT_ parameters
-                    if (element.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTray) // REVERTED: Used .IntegerValue to resolve CS1061
+#if REVIT2024_OR_GREATER
+                    if (element.Category.Id.Value == (int)BuiltInCategory.OST_CableTray)
+#else
+                    if (element.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTray)
+#endif
                     {
                         Parameter rtsIdParam = element.get_Parameter(rtsIdGuid);
                         if (rtsIdParam != null && rtsIdParam.HasValue)
@@ -949,5 +954,30 @@ namespace RTS.Commands
             }
         }
         #endregion
+    }
+
+    public class MepElementSelectionFilter : ISelectionFilter
+    {
+        public bool AllowElement(Element elem)
+        {
+            if (elem.Category == null) return false;
+
+#if REVIT2024_OR_GREATER
+            long catId = elem.Category.Id.Value;
+#else
+            long catId = elem.Category.Id.IntegerValue;
+#endif
+
+            return catId == (long)BuiltInCategory.OST_LightingFixtures
+                || catId == (long)BuiltInCategory.OST_ElectricalFixtures
+                || catId == (long)BuiltInCategory.OST_ElectricalEquipment
+                || catId == (long)BuiltInCategory.OST_CommunicationDevices
+                || catId == (long)BuiltInCategory.OST_FireAlarmDevices
+                || catId == (long)BuiltInCategory.OST_SecurityDevices
+                || catId == (long)BuiltInCategory.OST_MechanicalEquipment
+                || catId == (long)BuiltInCategory.OST_Sprinklers
+                || catId == (long)BuiltInCategory.OST_PlumbingFixtures;
+        }
+        public bool AllowReference(Reference reference, XYZ position) { return false; }
     }
 }

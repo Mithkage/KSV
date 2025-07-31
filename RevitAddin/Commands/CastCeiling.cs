@@ -14,8 +14,8 @@
 // Company: ReTick Solutions Pty Ltd
 //
 // Log:
-// - July 31, 2025: Added preprocessor directives for Revit 2022/2024 compatibility.
-// - July 31, 2025: Refactored summary dictionaries to class-level fields to resolve scope errors.
+// - July 31, 2025: Added preprocessor directives for Revit 2022/2024 compatibility to remove warnings.
+// - July 31, 2025: Corrected method signatures to resolve variable scope compiler errors.
 // - July 31, 2025: Added user option for Fast vs. Accurate processing.
 //
 
@@ -94,6 +94,12 @@ namespace RTS.Commands
             else if (surfaceResult == TaskDialogResult.CommandLink2) { if (slabLink == null) { TaskDialog.Show("Error", "The 'Slabs' link is not defined in Profile Settings."); return Result.Cancelled; } ceilingLink = null; }
             else if (surfaceResult == TaskDialogResult.CommandLink3) { if (ceilingLink == null && slabLink == null) { TaskDialog.Show("Error", "Neither the 'Ceilings' nor the 'Slabs' link is defined in Profile Settings."); return Result.Cancelled; } }
             else { return Result.Cancelled; }
+
+            // --- 2a. Check if the relevant links are Room Bounding ---
+            if (!CheckRoomBoundingLinks(doc, ceilingLink, slabLink, settings))
+            {
+                return Result.Cancelled; // User chose not to proceed
+            }
 
             // Ask for processing method
             TaskDialog methodDialog = new TaskDialog("Select Processing Method");
@@ -215,7 +221,13 @@ namespace RTS.Commands
                     if (elementsNotInRooms.Any())
                     {
                         progressBar.UpdateRoomStatus("Processing elements not in rooms...", 0, 0);
-                        ProcessIndividually(elementsNotInRooms, ceilingIntersector, slabIntersector, ceilingLink, slabLink, maxMoveDistance, doc, progressBar, ref processedCount, elementsToProcess.Count);
+                        var sortedNotInRooms = elementsNotInRooms
+                            .OrderBy(e => (e.Location as LocationPoint)?.Point.X ?? 0)
+                            .ThenBy(e => (e.Location as LocationPoint)?.Point.Y ?? 0)
+                            .ThenBy(e => (e.Location as LocationPoint)?.Point.Z ?? 0)
+                            .ToList();
+
+                        ProcessIndividually(sortedNotInRooms, ceilingIntersector, slabIntersector, ceilingLink, slabLink, maxMoveDistance, doc, progressBar, ref processedCount, elementsToProcess.Count);
                     }
 
                     trans.Commit();
@@ -238,9 +250,6 @@ namespace RTS.Commands
             double moveDistance = targetZ - currentRefZ;
             if (Math.Abs(moveDistance) > maxMove)
             {
-                // Use preprocessor directives for version compatibility.
-                // The REVIT2024_OR_GREATER symbol must be defined in the project properties
-                // for the Revit 2024 build configuration.
 #if REVIT2024_OR_GREATER
                 _outlierElements.Add(elem.Id.Value);
 #else
@@ -255,6 +264,10 @@ namespace RTS.Commands
 
         private void ProcessIndividually(List<Element> elements, ReferenceIntersector cInt, ReferenceIntersector sInt, RevitLinkInstance cLink, RevitLinkInstance sLink, double maxMove, Document doc, ProgressBarWindow progressBar, ref int processedCount, int totalCount)
         {
+            ReferenceWithContext cachedHit = null;
+            XYZ lastElementLocation = null;
+            const double cacheProximityThreshold = 15.0;
+
             foreach (var elem in elements)
             {
                 if (progressBar.IsCancellationPending) return;
@@ -262,10 +275,34 @@ namespace RTS.Commands
                 LocationPoint locPoint = elem.Location as LocationPoint;
                 if (locPoint == null) { LogFailure(elem.Name); continue; }
 
-                ReferenceWithContext hit = FindClosestSurface(locPoint.Point, cInt, sInt, cLink, sLink);
-                if (hit == null) { LogFailure(elem.Name); continue; }
+                XYZ currentLocation = locPoint.Point;
+                ReferenceWithContext targetHit = null;
+                XYZ targetPoint = null;
 
-                ProcessElement(elem, hit.GetReference().GlobalPoint.Z, maxMove, doc);
+                if (cachedHit != null && lastElementLocation != null && currentLocation.DistanceTo(lastElementLocation) < cacheProximityThreshold)
+                {
+                    if (ValidateCacheByBoundingBox(currentLocation, cachedHit, doc))
+                    {
+                        targetHit = cachedHit;
+                        targetPoint = new XYZ(currentLocation.X, currentLocation.Y, cachedHit.GetReference().GlobalPoint.Z);
+                    }
+                }
+
+                if (targetHit == null)
+                {
+                    targetHit = FindClosestSurface(currentLocation, cInt, sInt, cLink, sLink);
+                    if (targetHit != null)
+                    {
+                        targetPoint = targetHit.GetReference().GlobalPoint;
+                    }
+                }
+
+                lastElementLocation = currentLocation;
+                cachedHit = targetHit;
+
+                if (targetHit == null) { LogFailure(elem.Name); continue; }
+
+                ProcessElement(elem, targetPoint.Z, maxMove, doc);
                 processedCount++;
                 progressBar.UpdateProgress(processedCount, totalCount);
             }
@@ -306,6 +343,65 @@ namespace RTS.Commands
             }
             if (ceilingHit != null && slabHit != null) return (ceilingHit.Proximity < slabHit.Proximity) ? ceilingHit : slabHit;
             return ceilingHit ?? slabHit;
+        }
+
+        private bool ValidateCacheByBoundingBox(XYZ point, ReferenceWithContext cachedHit, Document doc)
+        {
+            if (cachedHit == null) return false;
+
+            var linkInstance = doc.GetElement(cachedHit.GetReference().ElementId) as RevitLinkInstance;
+            if (linkInstance == null) return false;
+
+            var linkDoc = linkInstance.GetLinkDocument();
+            if (linkDoc == null) return false;
+
+            var linkedElement = linkDoc.GetElement(cachedHit.GetReference().LinkedElementId);
+            if (linkedElement == null) return false;
+
+            BoundingBoxXYZ bb = linkedElement.get_BoundingBox(null);
+            if (bb == null) return false;
+
+            Transform transform = linkInstance.GetTotalTransform();
+            bb.Transform = transform;
+
+            return point.X >= bb.Min.X && point.X <= bb.Max.X && point.Y >= bb.Min.Y && point.Y <= bb.Max.Y;
+        }
+
+        private bool CheckRoomBoundingLinks(Document doc, RevitLinkInstance ceilingLink, RevitLinkInstance slabLink, ProfileSettings settings)
+        {
+            List<string> nonBoundingLinks = new List<string>();
+
+            if (ceilingLink != null)
+            {
+                var linkType = doc.GetElement(ceilingLink.GetTypeId()) as RevitLinkType;
+                if (linkType != null && linkType.get_Parameter(BuiltInParameter.WALL_ATTR_ROOM_BOUNDING).AsInteger() == 0)
+                {
+                    nonBoundingLinks.Add($"Ceilings link: '{RTS_RevitUtils.ParseLinkName(settings.CeilingsLink)}'");
+                }
+            }
+            if (slabLink != null)
+            {
+                var linkType = doc.GetElement(slabLink.GetTypeId()) as RevitLinkType;
+                if (linkType != null && linkType.get_Parameter(BuiltInParameter.WALL_ATTR_ROOM_BOUNDING).AsInteger() == 0)
+                {
+                    nonBoundingLinks.Add($"Slabs link: '{RTS_RevitUtils.ParseLinkName(settings.SlabsLink)}'");
+                }
+            }
+
+            if (nonBoundingLinks.Any())
+            {
+                TaskDialog warningDialog = new TaskDialog("Room Bounding Warning");
+                warningDialog.MainInstruction = "One or more links are not Room Bounding";
+                warningDialog.MainContent = "The following link(s) are not set to 'Room Bounding'. This will prevent the high-speed room processing from working correctly, and the script will be slower.\n\n"
+                                            + string.Join("\n", nonBoundingLinks)
+                                            + "\n\nDo you want to continue?";
+                warningDialog.CommonButtons = TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No;
+                warningDialog.DefaultButton = TaskDialogResult.No;
+
+                return warningDialog.Show() == TaskDialogResult.Yes;
+            }
+
+            return true;
         }
 
         private void LogSuccess(string typeName)
@@ -354,9 +450,6 @@ namespace RTS.Commands
             {
                 if (elem.Category == null) return false;
 
-                // Use preprocessor directives for version compatibility.
-                // The REVIT2024_OR_GREATER symbol must be defined in the project properties
-                // for the Revit 2024 build configuration.
 #if REVIT2024_OR_GREATER
                 long catId = elem.Category.Id.Value;
 #else

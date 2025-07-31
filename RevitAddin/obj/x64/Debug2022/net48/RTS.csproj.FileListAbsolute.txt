@@ -45,3 +45,5 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\RTS.csproj.Up
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\ProfileSettingsWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\RTS_MarkupCompile.lref
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\ProfileSettingsWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\ProgressBarWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2022\net48\UI\ProgressBarWindow.g.cs

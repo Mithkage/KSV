@@ -180,6 +180,42 @@ namespace RTS.Commands
                 return Result.Succeeded;
             }
 
+            // --- Add user prompt for processing scope: active view or entire model ---
+
+            // Place this after obtaining the input string and before collecting elements for processing
+
+            TaskDialog scopeDialog = new TaskDialog("Processing Scope");
+            scopeDialog.MainInstruction = "Choose which elements to process:";
+            scopeDialog.MainContent = "Do you want to process all elements in the model, or only those visible in the active view?";
+            scopeDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "All elements in the model");
+            scopeDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Only elements in the active view");
+            scopeDialog.CommonButtons = TaskDialogCommonButtons.Cancel;
+            scopeDialog.DefaultButton = TaskDialogResult.CommandLink2;
+            TaskDialogResult scopeResult = scopeDialog.Show();
+
+            if (scopeResult == TaskDialogResult.Cancel)
+            {
+                return Result.Cancelled;
+            }
+
+            ICollection<Element> elementsForProcessing;
+            if (scopeResult == TaskDialogResult.CommandLink1)
+            {
+                // All elements in the model
+                elementsForProcessing = new FilteredElementCollector(doc)
+                    .WhereElementIsNotElementType()
+                    .Where(e => e.Id != activeView.Id)
+                    .ToList();
+            }
+            else
+            {
+                // Only elements in the active view (default)
+                elementsForProcessing = new FilteredElementCollector(doc, activeView.Id)
+                    .WhereElementIsNotElementType()
+                    .Where(e => e.Id != activeView.Id)
+                    .ToList();
+            }
+
             // Parse the input string into a list of search values
             List<string> searchValues = inputString.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                                                    .Select(s => s.Trim())
@@ -194,12 +230,6 @@ namespace RTS.Commands
                 TaskDialog.Show("RT_Isolate", "No valid search values provided. All graphic overrides have been cleared from the active view.");
                 return Result.Succeeded;
             }
-
-            // Collect all elements in the active view for processing (excluding element types and the view itself)
-            var allElementsInViewForProcessing = new FilteredElementCollector(doc, activeView.Id)
-                                                         .WhereElementIsNotElementType()
-                                                         .Where(e => e.Id != activeView.Id) // Exclude the view element itself
-                                                         .ToList();
 
             List<ElementId> targetedElements = new List<ElementId>();
             List<ElementId> nonTargetedElements = new List<ElementId>();
@@ -224,7 +254,7 @@ namespace RTS.Commands
                 tApplyOverrides.Start();
                 try
                 {
-                    foreach (Element elem in allElementsInViewForProcessing)
+                    foreach (Element elem in elementsForProcessing)
                     {
                         bool matchFound = false;
 

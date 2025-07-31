@@ -36,7 +36,7 @@
 //    - Prefix (P):        Derived from the 5th character of the first populated RTS_Cable_XX parameter (e.g., if RTS_Cable_01 = "CABLE-POWER-MAIN", 'P' is used). Defaults to 'X' if no cable values or non-alphabetic character.
 //    - TypeSuffix (FLS):  3-character abbreviation based on Cable Tray Type Name (e.g., "FR" in type name becomes "FLS", "ESS" becomes "ESS", otherwise "DFT").
 //    - LevelAbbr (L01):   First 3 characters of the associated Reference Level name (e.g., "Level 01" becomes "L01"). Padded with '?' if shorter than 3.
-//    - ElevationMM (4285): Bottom elevation of the cable tray in millimeters, rounded to the nearest integer. This value is always positive and padded with leading zeros to 4 digits.
+//    - ElevationMM (4285): Bottom elevation of the cable tray in millimeters, rounded to the nearest integer. This value is padded with leading zeros to 4 digits and can be negative.
 //    - UniqueSuffix (0001): A sequential 4-digit number. Increments for each unique set of RTS_Cable_XX values. For trays without values, it starts at 1000 + last counter and increments.
 
 #region Namespaces
@@ -211,8 +211,11 @@ namespace RTS.Commands
                     }
                     else
                     {
-                        // REVERTED: Used .IntegerValue to resolve CS1061
+#if REVIT2024_OR_GREATER
+                        sortedCableTraysWithValues = Enumerable.Empty<Element>().OrderBy(e => e.Id.Value);
+#else
                         sortedCableTraysWithValues = Enumerable.Empty<Element>().OrderBy(e => e.Id.IntegerValue);
+#endif
                     }
 
                     int updatedCableTrayCount = 0;
@@ -302,42 +305,29 @@ namespace RTS.Commands
                                 }
                             }
 
-                            // 4. Get the bottom elevation in millimeters (rounded)
-                            double absoluteBottomElevationFeet = 0.0;
-                            double absoluteMiddleElevationFeet = 0.0;
+                            // --- Calculate tray bottom elevation relative to tray level ---
+                            double offsetFromLevelFeet = 0.0;
+                            Parameter offsetParam = elem.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
+                            if (offsetParam != null && offsetParam.HasValue)
+                            {
+                                offsetFromLevelFeet = offsetParam.AsDouble();
+                            }
+
                             double trayHeightFeet = 0.0;
-
-                            if (elem.Location is LocationCurve locationCurve)
-                            {
-                                absoluteMiddleElevationFeet = locationCurve.Curve.GetEndPoint(0).Z;
-                            }
-                            else if (elem.Location is LocationPoint locationPoint)
-                            {
-                                absoluteMiddleElevationFeet = locationPoint.Point.Z;
-                            }
-
                             Parameter heightParam = elem.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM);
                             if (heightParam != null && heightParam.HasValue)
                             {
                                 trayHeightFeet = heightParam.AsDouble();
                             }
 
-                            // Calculate the absolute bottom elevation relative to Revit's internal origin
-                            if (trayHeightFeet > 0)
-                            {
-                                absoluteBottomElevationFeet = absoluteMiddleElevationFeet - trayHeightFeet / 2.0;
-                            }
-                            else
-                            {
-                                absoluteBottomElevationFeet = absoluteMiddleElevationFeet;
-                            }
+                            // Bottom elevation relative to level (in feet)
+                            double bottomElevationFromLevelFeet = offsetFromLevelFeet - trayHeightFeet / 2.0;
 
-                            // Direct conversion from feet to millimeters. 1 foot = 304.8 millimeters.
-                            long bottomElevationMM = (long)Math.Round(absoluteBottomElevationFeet * 304.8);
+                            // Convert to millimeters (allow negative values)
+                            long bottomElevationFromLevelMM = (long)Math.Round(bottomElevationFromLevelFeet * 304.8);
 
-                            // Use Math.Abs to ensure the elevation string is always positive for the ID component
-                            string formattedBottomElevation = Math.Abs(bottomElevationMM).ToString("D4");
-
+                            // Format as 4 digits, preserving sign if negative
+                            string formattedBottomElevation = bottomElevationFromLevelMM.ToString("D4");
 
                             // 5. Generate a unique 4-digit number based on the sorted order and parameter values
                             string currentCableKey = GetAllCableParamValues(elem);
@@ -371,8 +361,8 @@ namespace RTS.Commands
                             else
                             {
                                 // This should ideally not happen if RTS_ID is truly unique
-                                System.Diagnostics.Debug.WriteLine($"Warning: Duplicate RTS_ID '{newRtsId}' generated for Cable Tray {elem.Id} (no values). Overwriting cable values in map.");
-                                cableTrayRtsIdToCableValuesMap[newRtsId] = new List<string>(); // Ensure it's empty
+                                System.Diagnostics.Debug.WriteLine($"Warning: Duplicate RTS_ID '{newRtsId}' generated for Cable Tray {elem.Id}. Overwriting cable values in map.");
+                                cableTrayRtsIdToCableValuesMap[newRtsId] = currentCableTrayValues;
                             }
                         }
                         else
@@ -402,8 +392,11 @@ namespace RTS.Commands
                                 {
                                     levelId = e.LevelId;
                                 }
-                                // REVERTED: Used .IntegerValue to resolve CS1061
+#if REVIT2024_OR_GREATER
+                                return levelId.Value;
+#else
                                 return levelId.IntegerValue;
+#endif
                             })
                             .ThenBy(e =>
                             {
@@ -479,40 +472,29 @@ namespace RTS.Commands
                                     }
                                 }
 
-                                // Get the bottom elevation in millimeters (rounded)
-                                double absoluteBottomElevationFeet = 0.0;
-                                double absoluteMiddleElevationFeet = 0.0;
+                                // --- Calculate tray bottom elevation relative to tray level ---
+                                double offsetFromLevelFeet = 0.0;
+                                Parameter offsetParam = elem.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
+                                if (offsetParam != null && offsetParam.HasValue)
+                                {
+                                    offsetFromLevelFeet = offsetParam.AsDouble();
+                                }
+
                                 double trayHeightFeet = 0.0;
-
-                                if (elem.Location is LocationCurve locationCurve)
-                                {
-                                    absoluteMiddleElevationFeet = locationCurve.Curve.GetEndPoint(0).Z;
-                                }
-                                else if (elem.Location is LocationPoint locationPoint)
-                                {
-                                    absoluteMiddleElevationFeet = locationPoint.Point.Z;
-                                }
-
                                 Parameter heightParam = elem.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM);
                                 if (heightParam != null && heightParam.HasValue)
                                 {
                                     trayHeightFeet = heightParam.AsDouble();
                                 }
 
-                                // Calculate the absolute bottom elevation relative to Revit's internal origin
-                                if (trayHeightFeet > 0)
-                                {
-                                    absoluteBottomElevationFeet = absoluteMiddleElevationFeet - trayHeightFeet / 2.0;
-                                }
-                                else
-                                {
-                                    absoluteBottomElevationFeet = absoluteMiddleElevationFeet;
-                                }
+                                // Bottom elevation relative to level (in feet)
+                                double bottomElevationFromLevelFeet = offsetFromLevelFeet - trayHeightFeet / 2.0;
 
-                                // Direct conversion from feet to millimeters. 1 foot = 304.8 millimeters.
-                                long bottomElevationMM = (long)Math.Round(absoluteBottomElevationFeet * 304.8);
-                                string formattedBottomElevation = Math.Abs(bottomElevationMM).ToString("D4");
+                                // Convert to millimeters (allow negative values)
+                                long bottomElevationFromLevelMM = (long)Math.Round(bottomElevationFromLevelFeet * 304.8);
 
+                                // Format as 4 digits, preserving sign if negative
+                                string formattedBottomElevation = bottomElevationFromLevelMM.ToString("D4");
 
                                 // Increment the counter for trays without values
                                 string uniqueSuffix = noCableUniqueIdCounter.ToString("D4");

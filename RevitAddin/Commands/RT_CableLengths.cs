@@ -169,7 +169,11 @@ namespace RTS.Commands // Namespace to organize the code, reflecting the file na
                 {
                     string lookupValue = null;
                     // Check if it's a Detail Item and get its specific "PC_SWB To" value
-                    if (item.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DetailComponents) // REVERTED: Used .IntegerValue to resolve CS1061
+#if REVIT2024_OR_GREATER
+                    if (item.Category.Id.Value == (int)BuiltInCategory.OST_DetailComponents)
+#else
+                    if (item.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DetailComponents)
+#endif
                     {
                         Parameter pcSwbToParam = item.get_Parameter(_pcSwbToGuidForDetailItems);
                         if (pcSwbToParam?.HasValue ?? false)
@@ -178,7 +182,11 @@ namespace RTS.Commands // Namespace to organize the code, reflecting the file na
                         }
                     }
                     // *** ADD LOGIC HERE FOR GENERIC ANNOTATIONS IF NEEDED ***
-                    // else if (item.Category.Id.IntegerValue == (int)BuiltInCategory.OST_GenericAnnotation) // REVERTED: Use .IntegerValue here too
+                    // #if REVIT2024_OR_GREATER
+                    // else if (item.Category.Id.Value == (int)BuiltInCategory.OST_GenericAnnotation)
+                    // #else
+                    // else if (item.Category.Id.IntegerValue == (int)BuiltInCategory.OST_GenericAnnotation)
+                    // #endif
                     // {
                     //      // Get the relevant lookup parameter for Generic Annotations
                     //      // Parameter genericLookupParam = item.get_Parameter(your_generic_annotation_guid);

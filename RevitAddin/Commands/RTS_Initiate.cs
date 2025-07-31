@@ -112,8 +112,13 @@ namespace RTS.Commands
             }
 
             Category familyCat = family.FamilyCategory;
+#if REVIT2024_OR_GREATER
+            if (familyCat.Id.Value != (int)BuiltInCategory.OST_DetailComponents &&
+                familyCat.Id.Value != (int)BuiltInCategory.OST_GenericAnnotation)
+#else
             if (familyCat.Id.IntegerValue != (int)BuiltInCategory.OST_DetailComponents &&
                 familyCat.Id.IntegerValue != (int)BuiltInCategory.OST_GenericAnnotation)
+#endif
             {
                 message = $"This command is designed for Detail Item or Generic Annotation families only. This family's category is '{familyCat.Name}'.";
                 TaskDialog.Show("Command Not Applicable", message);
