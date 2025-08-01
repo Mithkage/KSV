@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="RTS Reports" Height="395" Width="350" WindowStartupLocation="CenterScreen"
+        Title="RTS Reports" Height="453" Width="350" WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Topmost="True"
@@ -92,6 +92,13 @@
             <Button Content="RSGx Cable Summary (XLSX)"
                     Name="GenerateRSGxCableSummaryXlsxReportButton"
                     Click="GenerateRSGxCableSummaryXlsxReport_Click"
+                    Width="250" Height="40" Margin="0,5,0,5"
+                    Style="{StaticResource ModernButtonStyle}"/>
+
+            <!-- NEW BUTTON FOR ROUTING SEQUENCE REPORT -->
+            <Button Content="Routing Sequence (CSV)"
+                    Name="GenerateRoutingSequenceReportButton"
+                    Click="GenerateRoutingSequenceReportButton_Click"
                     Width="250" Height="40" Margin="0,5,0,5"
                     Style="{StaticResource ModernButtonStyle}"/>
         </StackPanel>

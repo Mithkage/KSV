@@ -1,0 +1,86 @@
+<Window x:Class="RTS.UI.CastCeilingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cast Ceiling/Slab Options"
+        Height="340" Width="520"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="#FFE0F2F1"
+        MinWidth="400" MinHeight="300">
+    <Window.Resources>
+        <Style x:Key="ModernButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#FF26A69A"/>
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="BorderBrush" Value="#FF00796B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#FF616161" Direction="270" ShadowDepth="2" BlurRadius="4" Opacity="0.4"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FF4DB6AC"/>
+                    <Setter Property="BorderBrush" Value="#FF00897B"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#FF00897B"/>
+                    <Setter Property="BorderBrush" Value="#FF00695C"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#FFBDBDBD"/>
+                    <Setter Property="Foreground" Value="#FF757575"/>
+                    <Setter Property="BorderBrush" Value="#FF9E9E9E"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Grid.Row="0" FontSize="18" FontWeight="SemiBold" Foreground="#FF333333" Margin="0,0,0,10">
+            <Run Text="Cast Ceiling/Slab Options"/>
+        </TextBlock>
+
+        <!-- Options -->
+        <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,0">
+            <GroupBox Header="Surface Types" Margin="0,0,0,10">
+                <StackPanel Orientation="Horizontal">
+                    <CheckBox x:Name="CeilingsCheckBox" Content="Ceilings" Margin="10,0,20,0"/>
+                    <CheckBox x:Name="SlabsCheckBox" Content="Slabs" Margin="10,0,0,0"/>
+                </StackPanel>
+            </GroupBox>
+            <GroupBox Header="Processing Method" Margin="0,0,0,10">
+                <StackPanel Orientation="Horizontal">
+                    <CheckBox x:Name="FastProcessingCheckBox" Content="Fast Processing" Margin="10,0,20,0"/>
+                    <CheckBox x:Name="AccurateProcessingCheckBox" Content="Accurate Processing" Margin="10,0,0,0"/>
+                </StackPanel>
+            </GroupBox>
+            <CheckBox x:Name="ActiveViewOnlyCheckBox" Content="Search active view only (element selection and ray casting)" Margin="0,10,0,0"/>
+        </StackPanel>
+
+        <!-- Action Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Content="Select Elements" Click="SelectElementsButton_Click" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0"/>
+            <Button Content="Cancel" Click="CancelButton_Click" Style="{StaticResource ModernButtonStyle}"/>
+        </StackPanel>
+    </Grid>
+</Window>

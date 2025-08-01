@@ -88,5 +88,10 @@ namespace RTS.UI
             CancelButton.IsEnabled = false;
             StatusText.Text = "Cancelling operation...";
         }
+
+        private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.WindowState = WindowState.Minimized;
+        }
     }
 }

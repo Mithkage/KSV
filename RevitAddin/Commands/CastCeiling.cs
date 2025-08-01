@@ -17,6 +17,7 @@
 // - July 31, 2025: Added preprocessor directives for Revit 2022/2024 compatibility to remove warnings.
 // - July 31, 2025: Corrected method signatures to resolve variable scope compiler errors.
 // - July 31, 2025: Added user option for Fast vs. Accurate processing.
+// - August 1, 2025: Added static fields to remember user options for the session.
 //
 
 #region Namespaces
@@ -43,6 +44,13 @@ namespace RTS.Commands
         private Dictionary<string, int> _failedElementsSummary;
         private List<long> _outlierElements;
 
+        // --- Static fields to remember options for the session ---
+        private static bool? _lastUseCeilings;
+        private static bool? _lastUseSlabs;
+        private static bool? _lastUseFastProcessing;
+        private static bool? _lastUseAccurateProcessing;
+        private static bool? _lastSearchActiveViewOnly;
+
         public Result Execute(
             ExternalCommandData commandData,
             ref string message,
@@ -68,32 +76,40 @@ namespace RTS.Commands
 
             var (ceilingLink, slabLink, diagnosticMessage) = RTS_RevitUtils.GetLinkInstances(doc, settings);
 
-            // --- 2. User Selections ---
-            IList<Reference> selectedRefs;
-            try
+            // --- Show WPF UI for user options ---
+            var optionsWindow = new RTS.UI.CastCeilingWindow();
+            // Restore previous session values if available
+            if (_lastUseCeilings.HasValue) optionsWindow.CeilingsCheckBox.IsChecked = _lastUseCeilings.Value;
+            if (_lastUseSlabs.HasValue) optionsWindow.SlabsCheckBox.IsChecked = _lastUseSlabs.Value;
+            if (_lastUseFastProcessing.HasValue) optionsWindow.FastProcessingCheckBox.IsChecked = _lastUseFastProcessing.Value;
+            if (_lastUseAccurateProcessing.HasValue) optionsWindow.AccurateProcessingCheckBox.IsChecked = _lastUseAccurateProcessing.Value;
+            if (_lastSearchActiveViewOnly.HasValue) optionsWindow.ActiveViewOnlyCheckBox.IsChecked = _lastSearchActiveViewOnly.Value;
+
+            bool? dialogResult = optionsWindow.ShowDialog();
+            if (dialogResult != true)
+                return Result.Cancelled;
+
+            // Save options for session
+            _lastUseCeilings = optionsWindow.UseCeilings;
+            _lastUseSlabs = optionsWindow.UseSlabs;
+            _lastUseFastProcessing = optionsWindow.UseFastProcessing;
+            _lastUseAccurateProcessing = optionsWindow.UseAccurateProcessing;
+            _lastSearchActiveViewOnly = optionsWindow.SearchActiveViewOnly;
+
+            bool useCeilings = optionsWindow.UseCeilings;
+            bool useSlabs = optionsWindow.UseSlabs;
+            bool useFastProcessing = optionsWindow.UseFastProcessing;
+            bool useAccurateProcessing = optionsWindow.UseAccurateProcessing;
+            bool searchActiveViewOnly = optionsWindow.SearchActiveViewOnly;
+
+            // Validate links based on user selection
+            if (!useCeilings) ceilingLink = null;
+            if (!useSlabs) slabLink = null;
+            if (ceilingLink == null && slabLink == null)
             {
-                selectedRefs = uiDoc.Selection.PickObjects(ObjectType.Element, new MepElementSelectionFilter(), "Select one or more electrical or MEP elements to process.");
-            }
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
+                TaskDialog.Show("Error", "Neither the 'Ceilings' nor the 'Slabs' link is defined in Profile Settings.");
                 return Result.Cancelled;
             }
-
-            if (selectedRefs == null || selectedRefs.Count == 0) return Result.Cancelled;
-
-            // Ask for surface type
-            TaskDialog surfaceDialog = new TaskDialog("Select Surface Types");
-            surfaceDialog.MainInstruction = "Which surfaces should the elements be cast to?";
-            surfaceDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Ceilings Only");
-            surfaceDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Slabs (Floors) Only");
-            surfaceDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Both Ceilings and Slabs");
-            surfaceDialog.CommonButtons = TaskDialogCommonButtons.Cancel;
-            TaskDialogResult surfaceResult = surfaceDialog.Show();
-
-            if (surfaceResult == TaskDialogResult.CommandLink1) { if (ceilingLink == null) { TaskDialog.Show("Error", "The 'Ceilings' link is not defined in Profile Settings."); return Result.Cancelled; } slabLink = null; }
-            else if (surfaceResult == TaskDialogResult.CommandLink2) { if (slabLink == null) { TaskDialog.Show("Error", "The 'Slabs' link is not defined in Profile Settings."); return Result.Cancelled; } ceilingLink = null; }
-            else if (surfaceResult == TaskDialogResult.CommandLink3) { if (ceilingLink == null && slabLink == null) { TaskDialog.Show("Error", "Neither the 'Ceilings' nor the 'Slabs' link is defined in Profile Settings."); return Result.Cancelled; } }
-            else { return Result.Cancelled; }
 
             // --- 2a. Check if the relevant links are Room Bounding ---
             if (!CheckRoomBoundingLinks(doc, ceilingLink, slabLink, settings))
@@ -101,31 +117,79 @@ namespace RTS.Commands
                 return Result.Cancelled; // User chose not to proceed
             }
 
-            // Ask for processing method
-            TaskDialog methodDialog = new TaskDialog("Select Processing Method");
-            methodDialog.MainInstruction = "Choose a processing method";
-            methodDialog.MainContent = "Fast Processing is quicker but assumes flat ceilings within each room. Accurate Processing is slower but correctly handles sloped or stepped ceilings.";
-            methodDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Fast Processing (Recommended for simple models)");
-            methodDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Accurate Processing (Recommended for complex ceilings)");
-            methodDialog.CommonButtons = TaskDialogCommonButtons.Cancel;
-            TaskDialogResult methodResult = methodDialog.Show();
-
-            bool useFastProcessing = true;
-            if (methodResult == TaskDialogResult.CommandLink1) { useFastProcessing = true; }
-            else if (methodResult == TaskDialogResult.CommandLink2) { useFastProcessing = false; }
-            else { return Result.Cancelled; }
-
-
             // --- 3. Collect and Group Elements ---
-            var selectedTypeIds = selectedRefs.Select(r => doc.GetElement(r.ElementId).GetTypeId()).Where(id => id != ElementId.InvalidElementId).Distinct().ToList();
-            if (!selectedTypeIds.Any()) { message = "The selected elements do not have valid types."; TaskDialog.Show("Error", message); return Result.Failed; }
+            IList<Reference> selectedRefs;
+            try
+            {
+                if (searchActiveViewOnly)
+                {
+                    selectedRefs = uiDoc.Selection.PickObjects(
+                        ObjectType.Element,
+                        new MepElementSelectionFilter(),
+                        "Select one or more electrical or MEP elements to process in the active view.");
+                }
+                else
+                {
+                    selectedRefs = uiDoc.Selection.PickObjects(
+                        ObjectType.Element,
+                        new MepElementSelectionFilter(),
+                        "Select one or more electrical or MEP elements to process.");
+                }
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return Result.Cancelled;
+            }
 
-            var elementsToProcess = new FilteredElementCollector(doc).WhereElementIsNotElementType().Where(e => selectedTypeIds.Contains(e.GetTypeId())).ToList();
-            if (!elementsToProcess.Any()) { TaskDialog.Show("Information", "No elements of the selected types were found to process."); return Result.Succeeded; }
+            if (selectedRefs == null || selectedRefs.Count == 0)
+            {
+                TaskDialog.Show("Information", "No elements were selected.");
+                return Result.Cancelled;
+            }
+
+            var selectedTypeIds = selectedRefs.Select(r => doc.GetElement(r.ElementId).GetTypeId()).Where(id => id != ElementId.InvalidElementId).Distinct().ToList();
+            if (!selectedTypeIds.Any())
+            {
+                message = "The selected elements do not have valid types.";
+                TaskDialog.Show("Error", message);
+                return Result.Failed;
+            }
+
+            List<Element> elementsToProcess;
+            if (searchActiveViewOnly)
+            {
+                var activeViewId = uiDoc.ActiveView.Id;
+                elementsToProcess = new FilteredElementCollector(doc, activeViewId)
+                    .WhereElementIsNotElementType()
+                    .Where(e => selectedTypeIds.Contains(e.GetTypeId()))
+                    .ToList();
+            }
+            else
+            {
+                elementsToProcess = new FilteredElementCollector(doc)
+                    .WhereElementIsNotElementType()
+                    .Where(e => selectedTypeIds.Contains(e.GetTypeId()))
+                    .ToList();
+            }
+            if (!elementsToProcess.Any())
+            {
+                TaskDialog.Show("Information", "No elements of the selected types were found to process.");
+                return Result.Succeeded;
+            }
 
             // --- 4. Setup for Ray Casting and Grouping ---
-            View3D view = new FilteredElementCollector(doc).OfClass(typeof(View3D)).Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
-            if (view == null) { message = "A 3D view is required. Please create one."; TaskDialog.Show("Error", message); return Result.Failed; }
+            View3D view;
+            if (searchActiveViewOnly && uiDoc.ActiveView is View3D v3d && !v3d.IsTemplate)
+                view = v3d;
+            else
+                view = new FilteredElementCollector(doc).OfClass(typeof(View3D)).Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
+
+            if (view == null)
+            {
+                message = "A 3D view is required. Please create one.";
+                TaskDialog.Show("Error", message);
+                return Result.Failed;
+            }
 
             var ceilingIntersector = new ReferenceIntersector(new ElementCategoryFilter(BuiltInCategory.OST_Ceilings), FindReferenceTarget.Face, view) { FindReferencesInRevitLinks = true };
             var slabIntersector = new ReferenceIntersector(new ElementCategoryFilter(BuiltInCategory.OST_Floors), FindReferenceTarget.Face, view) { FindReferencesInRevitLinks = true };
@@ -157,6 +221,9 @@ namespace RTS.Commands
             progressBar.Show();
             int processedCount = 0;
 
+            bool useFast = useFastProcessing;
+            if (useAccurateProcessing) useFast = false;
+
             using (Transaction trans = new Transaction(doc, "Cast Elements to Ceiling or Slab"))
             {
                 try
@@ -174,7 +241,7 @@ namespace RTS.Commands
 
                         var roomElements = roomGroup.Value;
 
-                        if (useFastProcessing)
+                        if (useFast)
                         {
                             LocationPoint roomCenter = room.Location as LocationPoint;
                             if (roomCenter == null) { ProcessIndividually(roomElements, ceilingIntersector, slabIntersector, ceilingLink, slabLink, maxMoveDistance, doc, progressBar, ref processedCount, elementsToProcess.Count); continue; }
@@ -232,8 +299,17 @@ namespace RTS.Commands
 
                     trans.Commit();
                 }
-                catch (Exception ex) { trans.RollBack(); message = "An error occurred: " + ex.Message; TaskDialog.Show("Error", message); return Result.Failed; }
-                finally { progressBar.Close(); }
+                catch (Exception ex)
+                {
+                    trans.RollBack();
+                    message = "An error occurred: " + ex.Message + "\n" + ex.StackTrace;
+                    TaskDialog.Show("Error", message);
+                    return Result.Failed;
+                }
+                finally
+                {
+                    progressBar.Close();
+                }
             }
 
             DisplaySummary();

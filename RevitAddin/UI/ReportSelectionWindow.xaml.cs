@@ -154,14 +154,12 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
         {
             this.Close();
 
-            string outputFolderPath = GetOutputFolderPath();
-            if (string.IsNullOrEmpty(outputFolderPath))
+            string filePath = GetOutputFilePath("RSGx Cable Schedule.csv", "Save RSGx Cable Schedule Report");
+            if (string.IsNullOrEmpty(filePath))
             {
-                Autodesk.Revit.UI.TaskDialog.Show("Export Cancelled", "Output folder not selected. RSGx Cable Schedule export cancelled.");
+                Autodesk.Revit.UI.TaskDialog.Show("Export Cancelled", "Output file not selected. RSGx Cable Schedule export cancelled.");
                 return;
             }
-
-            string filePath = System.IO.Path.Combine(outputFolderPath, "RSGx Cable Schedule.csv");
 
             try
             {
@@ -428,6 +426,163 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
             }
         }
 
+        private void GenerateRoutingSequenceReportButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+
+            string filePath = GetOutputFilePath("Routing_Sequence.csv", "Save Routing Sequence Report");
+            if (string.IsNullOrEmpty(filePath))
+            {
+                Autodesk.Revit.UI.TaskDialog.Show("Export Cancelled", "Output file not selected. Routing Sequence export cancelled.");
+                return;
+            }
+
+            // --- Project Information Header ---
+            var projectInfo = new FilteredElementCollector(_doc)
+                .OfCategory(BuiltInCategory.OST_ProjectInformation)
+                .WhereElementIsNotElementType()
+                .Cast<ProjectInfo>()
+                .FirstOrDefault();
+
+            string projectName = projectInfo?.get_Parameter(BuiltInParameter.PROJECT_NAME)?.AsString() ?? "";
+            string projectNumber = projectInfo?.get_Parameter(BuiltInParameter.PROJECT_NUMBER)?.AsString() ?? "";
+
+            var sb = new StringBuilder();
+            sb.AppendLine("Cable Routing Sequence");
+            sb.AppendLine($"Project:\t{projectName}");
+            sb.AppendLine($"Project No:\t{projectNumber}");
+            sb.AppendLine($"Date:\t{DateTime.Now:dd/MM/yyyy}");
+            sb.AppendLine(); // Blank line between header and table
+            sb.AppendLine("Cable Reference,From,To,Routing Sequence");
+
+            // --- Routing Sequence Data ---
+            List<PC_ExtensibleClass.CableData> primaryData = _pcExtensible.RecallDataFromExtensibleStorage<PC_ExtensibleClass.CableData>(
+                _doc, PC_ExtensibleClass.PrimarySchemaGuid, PC_ExtensibleClass.PrimarySchemaName,
+                PC_ExtensibleClass.PrimaryFieldName, PC_ExtensibleClass.PrimaryDataStorageElementName
+            );
+
+            if (primaryData == null || !primaryData.Any())
+            {
+                Autodesk.Revit.UI.TaskDialog.Show("No Data", "No primary cable data found to generate the Routing Sequence report.");
+                return;
+            }
+
+            var cableLookup = primaryData
+                .Where(c => !string.IsNullOrWhiteSpace(c.CableReference))
+                .GroupBy(c => c.CableReference)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var cableGuids = new List<Guid>
+            {
+                new Guid("cf0d478e-1e98-4e83-ab80-6ee867f61798"), // Cable_01
+                new Guid("2551d308-44ed-405c-8aad-fb78624d086e"), // Cable_02
+                new Guid("c1dfc402-2101-4e53-8f52-f6af64584a9f"), // Cable_03
+                new Guid("f297daa6-a9e0-4dd5-bda3-c628db7c28bd"), // Cable_04
+                new Guid("b0ef396d-6ec0-4ab7-b7cc-9318e9e9b3ab"), // Cable_05
+                new Guid("7c08095a-a3b2-4b78-ba15-dde09a7bc3a9"), // Cable_06
+                new Guid("9bc78bce-0d39-4538-b507-7b98e8a13404"), // Cable_07
+                new Guid("e9d50153-a0e9-4685-bc92-d89f244f7e8e"), // Cable_08
+                new Guid("5713d65a-91df-4d2e-97bf-1c3a10ea5225"), // Cable_09
+                new Guid("64af3105-b2fd-44bc-9ad3-17264049ff62"), // Cable_10
+                new Guid("f3626002-0e62-4b75-93cc-35d0b11dfd67"), // Cable_11
+                new Guid("63dc0a2e-0770-4002-a859-a9d40a2ce023"), // Cable_12
+                new Guid("eb7c4b98-d676-4e2b-a408-e3578b2c0ef2"), // Cable_13
+                new Guid("0e0572e5-c568-42b7-8730-a97433bd9b54"), // Cable_14
+                new Guid("bf9cd3e8-e38f-4250-9daa-c0fc67eca10f"), // Cable_15
+                new Guid("f6d2af67-027e-4b9c-9def-336ebaa87336"), // Cable_16
+                new Guid("f6a4459d-46a1-44c0-8545-ee44e4778854"), // Cable_17
+                new Guid("0d66d2fa-f261-4daa-8041-9eadeefac49a"), // Cable_18
+                new Guid("af483914-c8d2-4ce6-be6e-ab81661e5bf1"), // Cable_19
+                new Guid("c8d2d2fc-c248-483f-8d52-e630eb730cd7"), // Cable_20
+                new Guid("aa41bc4a-e3e7-45b0-81fa-74d3e71ca506"), // Cable_21
+                new Guid("6cffdb25-8270-4b34-8bb4-cf5d0a224dc2"), // Cable_22
+                new Guid("7fdaad3a-454e-47f3-8189-7eda9cb9f6a2"), // Cable_23
+                new Guid("7f745b2b-a537-42d9-8838-7a5521cc7d0c"), // Cable_24
+                new Guid("9a76c2dc-1022-4a54-ab66-5ca625b50365"), // Cable_25
+                new Guid("658e39c4-bbac-4e2e-b649-2f2f5dd05b5e"), // Cable_26
+                new Guid("8ad24640-036b-44d2-af9c-b891f6e64271"), // Cable_27
+                new Guid("c046c4d7-e1fd-4cf7-a99f-14ae96b722be"), // Cable_28
+                new Guid("cdf00587-7e11-4af4-8e54-48586481cf22"), // Cable_29
+                new Guid("a92bb0f9-2781-4971-a3b1-9c47d62b947b")  // Cable_30
+            };
+            var rtsIdGuid = new Guid("3175a27e-d386-4567-bf10-2da1a9cbb73b");
+
+            var traysWithRtsId = new FilteredElementCollector(_doc)
+                .OfCategory(BuiltInCategory.OST_CableTray)
+                .WhereElementIsNotElementType()
+                .Where(e =>
+                {
+                    var param = e.get_Parameter(rtsIdGuid);
+                    return param != null && param.HasValue && !string.IsNullOrWhiteSpace(param.AsString());
+                })
+                .ToList();
+
+            var conduitsWithRtsId = new FilteredElementCollector(_doc)
+                .OfCategory(BuiltInCategory.OST_Conduit)
+                .WhereElementIsNotElementType()
+                .Where(e =>
+                {
+                    var param = e.get_Parameter(rtsIdGuid);
+                    return param != null && param.HasValue && !string.IsNullOrWhiteSpace(param.AsString());
+                })
+                .ToList();
+
+            var elementsToCheck = traysWithRtsId.Concat(conduitsWithRtsId);
+
+            foreach (var cableRef in cableLookup.Keys)
+            {
+                var cableInfo = cableLookup[cableRef];
+                var rtsIdBranchList = new List<(string rtsId, int branchNumber)>();
+                var uniqueRtsIds = new HashSet<string>();
+
+                foreach (Element element in elementsToCheck)
+                {
+                    Parameter rtsIdParam = element.get_Parameter(rtsIdGuid);
+                    string rtsId = rtsIdParam != null && rtsIdParam.HasValue ? rtsIdParam.AsString() : null;
+                    if (string.IsNullOrWhiteSpace(rtsId)) continue;
+
+                    foreach (var guid in cableGuids)
+                    {
+                        Parameter cableParam = element.get_Parameter(guid);
+                        if (cableParam != null && cableParam.HasValue)
+                        {
+                            string paramValue = cableParam.AsString();
+                            if (CleanCableReference(paramValue) == cableRef && uniqueRtsIds.Add(rtsId))
+                            {
+                                // Extract branch number (last 4 digits after last '-')
+                                int branchNumber = 0;
+                                var parts = rtsId.Split('-');
+                                if (parts.Length > 0)
+                                {
+                                    string branchStr = parts.Last();
+                                    int.TryParse(branchStr, out branchNumber);
+                                }
+                                rtsIdBranchList.Add((rtsId, branchNumber));
+                            }
+                        }
+                    }
+                }
+
+                // Order by branch number
+                var orderedRtsIds = rtsIdBranchList
+                    .OrderBy(t => t.branchNumber)
+                    .Select(t => t.rtsId)
+                    .ToList();
+
+                string routingSequence = string.Join(", ", orderedRtsIds);
+
+                // If blank, write "Pending model cable reticulation update"
+                if (string.IsNullOrWhiteSpace(routingSequence))
+                    routingSequence = "Pending model cable reticulation update";
+
+                sb.AppendLine($"\"{cableRef}\",\"{cableInfo.From}\",\"{cableInfo.To}\",\"{routingSequence}\"");
+            }
+
+            System.IO.File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+
+            Autodesk.Revit.UI.TaskDialog.Show("Export Complete", $"Routing Sequence report successfully exported to:\n{filePath}");
+        }
+
         private void PerformExport<T>(Guid schemaGuid, string schemaName, string fieldName, string dataStorageElementName, string defaultFileName, string dataTypeName) where T : class, new()
         {
             this.Close();
@@ -441,14 +596,12 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                 return;
             }
 
-            string outputFolderPath = GetOutputFolderPath();
-            if (string.IsNullOrEmpty(outputFolderPath))
+            string filePath = GetOutputFilePath(defaultFileName, $"Save {dataTypeName} Report");
+            if (string.IsNullOrEmpty(filePath))
             {
-                Autodesk.Revit.UI.TaskDialog.Show("Export Cancelled", "Output folder not selected.");
+                Autodesk.Revit.UI.TaskDialog.Show("Export Cancelled", "Output file not selected.");
                 return;
             }
-
-            string filePath = System.IO.Path.Combine(outputFolderPath, defaultFileName);
 
             try
             {
@@ -462,26 +615,27 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
         }
 
         /// <summary>
-        /// Prompts the user to select an output folder using the standard System.Windows.Forms.FolderBrowserDialog.
+        /// Prompts the user to select an output file using the modern Windows API file dialog.
         /// </summary>
-        private string GetOutputFolderPath()
+        private string GetOutputFilePath(string defaultFileName, string dialogTitle)
         {
-            using (var dialog = new FolderBrowserDialog())
+            // Use the modern Windows API file dialog for folder and filename selection
+            var dialog = new SaveFileDialog
             {
-                dialog.Description = "Select a Folder to Save the Exported Reports";
-                dialog.SelectedPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                dialog.ShowNewFolderButton = true;
+                Title = dialogTitle,
+                FileName = defaultFileName,
+                Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                OverwritePrompt = true
+            };
 
-                // Create a wrapper for the Revit window handle to properly parent the dialog
-                var helper = new WindowInteropHelper(this);
-                System.Windows.Forms.DialogResult result = dialog.ShowDialog(new Win32Window(helper.Handle));
-
-                if (result == System.Windows.Forms.DialogResult.OK)
-                {
-                    return dialog.SelectedPath;
-                }
+            var helper = new WindowInteropHelper(this);
+            var result = dialog.ShowDialog(new Win32Window(helper.Handle));
+            if (result == System.Windows.Forms.DialogResult.OK)
+            {
+                return dialog.FileName;
             }
-            return null; // User cancelled
+            return null;
         }
 
         /// <summary>
@@ -604,6 +758,35 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
             public string CableDescription { get; set; } = "";
             public string Comments { get; set; } = "";
             public string UpdateSummary { get; set; } = "";
+        }
+
+        private string CleanCableReference(string cableReference)
+        {
+            if (string.IsNullOrEmpty(cableReference)) return cableReference;
+            string cleaned = cableReference.Trim();
+            int openParenIndex = cleaned.IndexOf('(');
+            if (openParenIndex != -1)
+            {
+                int closeParenIndex = cleaned.IndexOf(')', openParenIndex);
+                cleaned = cleaned.Substring(0, openParenIndex).Trim();
+            }
+            int firstSlashIndex = cleaned.IndexOf('/');
+            if (firstSlashIndex != -1)
+            {
+                cleaned = cleaned.Substring(0, firstSlashIndex).Trim();
+            }
+            string[] parts = cleaned.Split('-');
+            Regex prefixPattern = new Regex(@"^[A-Za-z]{2}\d{2}", RegexOptions.IgnoreCase);
+            if (parts.Length >= 3 && prefixPattern.IsMatch(parts[0]))
+            {
+                if (!int.TryParse(parts[2], out _)) return $"{parts[0]}-{parts[1]}";
+            }
+            if (parts.Length >= 4 && prefixPattern.IsMatch(parts[0]))
+            {
+                if (int.TryParse(parts[2], out _) && !int.TryParse(parts[3], out _))
+                    return $"{parts[0]}-{parts[1]}-{parts[2]}";
+            }
+            return cleaned;
         }
     }
 }
