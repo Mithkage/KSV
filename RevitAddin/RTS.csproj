@@ -77,8 +77,8 @@
 		<NoWarn>$(NoWarn);NU1903</NoWarn>
 
 		<!-- Define Revit API Paths Here -->
-		<Revit2022Path>D:\Program Files\Autodesk\Revit 2022\</Revit2022Path>
-		<Revit2024Path>C:\Program Files\Autodesk\Revit 2024\</Revit2024Path>
+		<Revit2022Path>D:\Program Files\Autodesk\Revit 2022\Revit.exe</Revit2022Path>
+		<Revit2024Path>C:\Program Files\Autodesk\Revit 2024\Revit.exe</Revit2024Path>
 
 		<!-- Assembly Info (used if GenerateAssemblyInfo is true) -->
 		<Company>ReTick Solutions</Company>
@@ -121,6 +121,13 @@
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release2024|x64'">
 	  <DefineConstants>$(DefineConstants);REVIT2024;TRACE;REVIT2024_OR_GREATER</DefineConstants>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugLocal|x64'">
+	  <DefineConstants>DEBUG;TRACE</DefineConstants>
+	  <DebugSymbols>true</DebugSymbols>
+	  <DebugType>full</DebugType>
+	  <Optimize>false</Optimize>
+	  <OutputPath>bin\DebugLocal\</OutputPath>
+	</PropertyGroup>
 
 	<!-- NuGet Package References -->
 	<ItemGroup>
@@ -142,18 +149,7 @@
 
 	<!-- Revit API References - Using a Choose/When block for robustness -->
 	<Choose>
-		<When Condition="'$(Configuration.Contains(&quot;2022&quot;))' == 'true'">
-			<ItemGroup>
-				<Reference Include="RevitAPI">
-					<HintPath>$(Revit2022Path)RevitAPI.dll</HintPath>
-					<Private>False</Private>
-				</Reference>
-				<Reference Include="RevitAPIUI">
-					<HintPath>$(Revit2022Path)RevitAPIUI.dll</HintPath>
-					<Private>False</Private>
-				</Reference>
-			</ItemGroup>
-		</When>
+		<When Condition="'$(Configuration.Contains(&quot;2022&quot;))' == 'true'" />
 		<Otherwise>
 			<ItemGroup>
 				<Reference Include="RevitAPI">
@@ -173,6 +169,12 @@
 		<Reference Include="Microsoft.VisualBasic" />
 		<Reference Include="PresentationCore" />
 		<Reference Include="PresentationFramework" />
+		<Reference Include="RevitAPI">
+		  <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Revit 2024\RevitAPI.dll</HintPath>
+		</Reference>
+		<Reference Include="RevitAPIUI">
+		  <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Revit 2024\RevitAPIUI.dll</HintPath>
+		</Reference>
 		<Reference Include="System.Xaml" />
 		<Reference Include="WindowsBase" />
 	</ItemGroup>
@@ -196,6 +198,9 @@
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Resources\Models\" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Include="RTS.csproj.user" />
 	</ItemGroup>
 	<ItemGroup>
 		<Resource Include="Resources\RTS Logo.png" />
@@ -229,6 +234,24 @@
 		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2022AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND '$(Configuration)'=='Release2022'" />
 
 		<Message Text="Successfully deployed $(TargetName) to $(Revit2024AddinsFolder) or $(Revit2022AddinsFolder)" Importance="high" />
+	</Target>
+
+	<!-- Debug2022 Post-Build: Copy debug .addin file to Revit 2022 Addins folder -->
+	<PropertyGroup Condition="'$(Configuration)'=='Debug2022'">
+	  <Revit2022AddinSource>$(ProjectDir)Addin\RTS_2022.addin</Revit2022AddinSource>
+	  <Revit2022AddinDest>C:\ProgramData\Autodesk\Revit\Addins\2022\RTS_2022.addin</Revit2022AddinDest>
+	</PropertyGroup>
+	<Target Name="CopyDebug2022Addin" AfterTargets="Build" Condition="'$(Configuration)'=='Debug2022'">
+	  <Copy SourceFiles="$(Revit2022AddinSource)" DestinationFiles="$(Revit2022AddinDest)" />
+	</Target>
+
+	<!-- Debug2024 Post-Build: Copy debug .addin file to Revit 2024 Addins folder -->
+	<PropertyGroup Condition="'$(Configuration)'=='Debug2024'">
+	  <Revit2024AddinSource>$(ProjectDir)Addin\RTS_2024.addin</Revit2024AddinSource>
+	  <Revit2024AddinDest>C:\ProgramData\Autodesk\Revit\Addins\2024\RTS_2024.addin</Revit2024AddinDest>
+	</PropertyGroup>
+	<Target Name="CopyDebug2024Addin" AfterTargets="Build" Condition="'$(Configuration)'=='Debug2024'">
+	  <Copy SourceFiles="$(Revit2024AddinSource)" DestinationFiles="$(Revit2024AddinDest)" />
 	</Target>
 
 </Project>

@@ -804,23 +804,56 @@ namespace RTS.UI
         {
             try
             {
-                // The source of the event is often a low-level element like a TextBlock or Border.
-                // We need to find the DataGridRow that contains this element.
                 var dependencyObject = e.OriginalSource as DependencyObject;
                 var row = FindParent<DataGridRow>(dependencyObject);
-
                 if (row == null) return;
 
                 var vm = row.DataContext as LinkViewModel;
                 if (vm == null) return;
 
-                var menu = new ContextMenu();
-                var reloadItem = new MenuItem { Header = "Reload From...", Tag = vm };
-                reloadItem.Click += ReloadFrom_Click;
-                menu.Items.Add(reloadItem);
+                // Find the column that was right-clicked
+                DataGrid dataGrid = sender as DataGrid;
+                DataGridCell cell = FindParent<DataGridCell>(dependencyObject);
+                if (cell == null) return;
 
-                // Assign the context menu to the row itself.
-                row.ContextMenu = menu;
+                DataGridColumn column = cell.Column;
+                if (column == null) return;
+
+                // Only show the custom menu for the "File Name" column
+                // Adjust the header or SortMemberPath as needed to match your column
+                if (column.SortMemberPath == "LinkName" || (column.Header?.ToString() ?? "") == "File Name")
+                {
+                    var menu = new ContextMenu();
+
+                    var openFileMenuItem = new MenuItem { Header = "Open File Location", Tag = vm };
+                    openFileMenuItem.Click += (s, args) =>
+                    {
+                        if (!string.IsNullOrEmpty(vm.FullPath) && File.Exists(vm.FullPath))
+                        {
+                            Process.Start("explorer.exe", $"/select,\"{vm.FullPath}\"");
+                        }
+                        else
+                        {
+                            MessageBox.Show("File path not found or file does not exist.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
+                    };
+                    menu.Items.Add(openFileMenuItem);
+
+                    var copyNameMenuItem = new MenuItem { Header = "Copy File Name", Tag = vm };
+                    copyNameMenuItem.Click += (s, args) =>
+                    {
+                        Clipboard.SetText(vm.LinkName ?? "");
+                    };
+                    menu.Items.Add(copyNameMenuItem);
+
+                    // Assign the context menu to the cell
+                    cell.ContextMenu = menu;
+                }
+                else
+                {
+                    // Optionally, clear context menu for other columns
+                    cell.ContextMenu = null;
+                }
             }
             catch (Exception ex)
             {

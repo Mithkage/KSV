@@ -14,7 +14,7 @@ Log:
 <RevitAddIns>
 	<AddIn Type="Application">
 		<Name>RTS</Name>
-		<Assembly>RTS.dll</Assembly>
+		 <Assembly>C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\RTS.dll</Assembly>
 		<!-- UPDATED: A new, unique GUID to prevent conflicts with other add-ins. -->
 		<AddInId>E8A2D6C0-2B3D-4E5F-8A9B-C0D1E2F3A4B5</AddInId>
 		<FullClassName>RTS.App</FullClassName>

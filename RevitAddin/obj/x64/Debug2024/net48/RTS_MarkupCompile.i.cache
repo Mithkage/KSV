@@ -16,5 +16,5 @@ TRACE;REVIT2024;TRACE;DEBUG;DEBUG;REVIT2024_OR_GREATER;DEBUG2024;NETFRAMEWORK;NE
 43552155252
 UI\CastCeilingWindow.xaml;UI\InitiateParametersWindow.xaml;UI\InputWindow.xaml;UI\LinkManagerWindow.xaml;UI\PC_Extensible_Window.xaml;UI\ProfileSettingsWindow.xaml;UI\ProgressBarWindow.xaml;UI\ReportSelectionWindow.xaml;UI\ScheduleSelectionWindow.xaml;UI\UserSelectionWindow.xaml;
 
-False
+True
 

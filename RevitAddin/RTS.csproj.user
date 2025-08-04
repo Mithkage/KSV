@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug2022'">
+    <StartProgram>D:\Program Files\Autodesk\Revit 2022\Revit.exe</StartProgram>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug2024'">
+    <StartProgram>C:\Program Files\Autodesk\Revit 2024\Revit.exe</StartProgram>
+  </PropertyGroup>
+</Project>
