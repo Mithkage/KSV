@@ -3,6 +3,9 @@
   "WorkspaceRootPath": "C:\\Users\\kyles\\source\\repos\\KSV\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|D:\\Visual Studio\\VS 2022\\MSBuild\\Current\\Bin\\amd64\\Microsoft.Common.CurrentVersion.targets||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\commands\\copyrelative.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\commands\\copyrelative.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -59,19 +62,29 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "CopyRelative.cs",
-              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\CopyRelative.cs",
-              "RelativeDocumentMoniker": "RevitAddin\\Commands\\CopyRelative.cs",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\CopyRelative.cs*",
-              "RelativeToolTip": "RevitAddin\\Commands\\CopyRelative.cs*",
-              "ViewState": "AgIAAL4AAAAAAAAAAAAowAwBAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-04T07:23:45.082Z",
+              "Title": "Microsoft.Common.CurrentVersion.targets",
+              "DocumentMoniker": "D:\\Visual Studio\\VS 2022\\MSBuild\\Current\\Bin\\amd64\\Microsoft.Common.CurrentVersion.targets",
+              "ToolTip": "D:\\Visual Studio\\VS 2022\\MSBuild\\Current\\Bin\\amd64\\Microsoft.Common.CurrentVersion.targets*",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAADwAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003801|",
+              "WhenOpened": "2025-08-04T22:56:17.113Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 1,
+              "Title": "CopyRelative.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\CopyRelative.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\Commands\\CopyRelative.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\CopyRelative.cs",
+              "RelativeToolTip": "RevitAddin\\Commands\\CopyRelative.cs",
+              "ViewState": "AgIAAMoAAAAAAAAAAAAcwOsAAABsAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-04T07:23:45.082Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
               "Title": "LinkManagerWindow.xaml",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml",
               "RelativeDocumentMoniker": "RevitAddin\\UI\\LinkManagerWindow.xaml",
@@ -82,7 +95,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "LinkManagerWindow.xaml.cs",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "RelativeDocumentMoniker": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
@@ -90,12 +103,11 @@
               "RelativeToolTip": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "ViewState": "AgIAAGkDAAAAAAAAAAAvwKEDAAANAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-04T02:05:26.966Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-04T02:05:26.966Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "LinkManager.cs",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\LinkManager.cs",
               "RelativeDocumentMoniker": "RevitAddin\\Commands\\LinkManager.cs",
@@ -107,7 +119,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 7,
               "Title": "RTS_2024.addin",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Addin\\RTS_2024.addin",
               "RelativeDocumentMoniker": "RevitAddin\\Addin\\RTS_2024.addin",
@@ -119,7 +131,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 6,
               "Title": "RTS_2022.addin",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Addin\\RTS_2022.addin",
               "RelativeDocumentMoniker": "RevitAddin\\Addin\\RTS_2022.addin",
@@ -131,7 +143,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 9,
               "Title": "RTS.csproj.user",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj.user",
               "RelativeDocumentMoniker": "RevitAddin\\RTS.csproj.user",
@@ -143,7 +155,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 8,
               "Title": "BB_Import.cs",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\BB_Import.cs",
               "RelativeDocumentMoniker": "RevitAddin\\Commands\\BB_Import.cs",
@@ -155,7 +167,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "RTS.csproj",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\RTS.csproj",
               "RelativeDocumentMoniker": "RevitAddin\\RTS.csproj",
@@ -163,11 +175,12 @@
               "RelativeToolTip": "RevitAddin\\RTS.csproj",
               "ViewState": "AgIAAJsAAAAAAAAAAAAwwIMAAAAiAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-08-02T03:48:40.038Z"
+              "WhenOpened": "2025-08-02T03:48:40.038Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 10,
               "Title": "CastCeilingWindow.xaml.cs",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\CastCeilingWindow.xaml.cs",
               "RelativeDocumentMoniker": "RevitAddin\\UI\\CastCeilingWindow.xaml.cs",

@@ -1,8 +1,0 @@
-PowerCAD Exporter:
-
-Change Family Name and Type Name dependancies to Parameter Text Field for easier porting to new families.
-Add Cable material export for Al or Cu - Where nothing specified default to Cu.
-Identify Source/ Transformer and update Label to be parameter based. Put parenthises in code for PowerCAD
-Add folder selector for wwhere to save files.
-
-
