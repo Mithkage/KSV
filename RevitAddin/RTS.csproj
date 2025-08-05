@@ -195,6 +195,9 @@
 		<None Update="Addin\RTS_2024.addin">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+		<None Update="Addin\RTS_2022_Release.addin">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Resources\Models\" />
@@ -215,22 +218,22 @@
 
 		<!-- Handle Revit 2024 Deployment -->
 		<ItemGroup Condition="'$(Configuration)'=='Release2024'">
-			<AddinFileSource2024 Include="$(ProjectDir)Addin\RTS_2024.addin" />
+			<AddinFileSource2024 Include="$(ProjectDir)Addin\RTS_2024_Release.addin" />
 			<!-- The main DLL is the only file needed as Costura.Fody embeds dependencies -->
 			<FilesToCopy2024 Include="$(TargetDir)$(TargetName).dll" />
 		</ItemGroup>
 		<Copy SourceFiles="@(FilesToCopy2024)" DestinationFolder="$(Revit2024AddinsFolder)" SkipUnchangedFiles="true" Condition="'$(Configuration)'=='Release2024'" />
-		<Copy SourceFiles="@(AddinFileSource2024)" DestinationFiles="$(Revit2024AddinsFolder)$(TargetName).addin" SkipUnchangedFiles="true" Condition="'$(Configuration)'=='Release2024'" />
+		<Copy SourceFiles="@(AddinFileSource2024)" DestinationFiles="$(Revit2024AddinsFolder)RTS_2024.addin" SkipUnchangedFiles="true" Condition="'$(Configuration)'=='Release2024'" />
 		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2024AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND '$(Configuration)'=='Release2024'" />
 
 		<!-- Handle Revit 2022 Deployment -->
 		<ItemGroup Condition=" '$(Configuration)'=='Release2022' ">
-			<AddinFileSource2022 Include="$(ProjectDir)Addin\RTS_2022.addin" />
+			<AddinFileSource2022 Include="$(ProjectDir)Addin\RTS_2022_Release.addin" />
 			<!-- The main DLL is the only file needed as Costura.Fody embeds dependencies -->
 			<FilesToCopy2022 Include="$(TargetDir)$(TargetName).dll" />
 		</ItemGroup>
 		<Copy SourceFiles="@(FilesToCopy2022)" DestinationFolder="$(Revit2022AddinsFolder)" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release2022' " />
-		<Copy SourceFiles="@(AddinFileSource2022)" DestinationFiles="$(Revit2022AddinsFolder)$(TargetName).addin" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release2022' " />
+		<Copy SourceFiles="@(AddinFileSource2022)" DestinationFiles="$(Revit2022AddinsFolder)RTS_2022.addin" SkipUnchangedFiles="true" Condition=" '$(Configuration)'=='Release2022' " />
 		<Exec Command="xcopy &quot;$(SourceResourcesDir.TrimEnd('\'))&quot; &quot;$(Revit2022AddinsFolder)Resources\&quot; /E /I /Y /C" Condition="Exists('$(SourceResourcesDir)') AND '$(Configuration)'=='Release2022'" />
 
 		<Message Text="Successfully deployed $(TargetName) to $(Revit2024AddinsFolder) or $(Revit2022AddinsFolder)" Importance="high" />

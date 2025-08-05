@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+File: RTS_2024.addin
+Description: This is the Revit Add-in manifest file for the RTS application,
+             specifically configured for Revit 2024. It defines the entry point
+             and metadata for the add-in to be loaded by Revit.
+
+Author: Kyle Vorster
+Company: ReTick Solutions (RTS)
+
+Log:
+- July 8, 2025: Added commented header and generated 2024 add-in manifest.
+-->
+<RevitAddIns>
+	<AddIn Type="Application">
+		<Name>RTS</Name>
+		<Assembly>C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2024\net48\RTS.dll</Assembly>
+		<!-- New, unique GUID for Revit 2024 add-in -->
+		<AddInId>F9B3E7D1-3C4E-5F6A-9B0C-D1E2F3A4B5C6</AddInId>
+		<FullClassName>RTS.App</FullClassName>
+		<VendorId>ReTick_Solutions</VendorId>
+		<VendorDescription>ReTick Solutions, www.reticksolutions.com</VendorDescription>
+	</AddIn>
+</RevitAddIns>

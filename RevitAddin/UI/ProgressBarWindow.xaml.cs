@@ -44,15 +44,18 @@ namespace RTS.UI
         {
             if (total == 0) return;
 
-            ProgressBar.Value = (double)current / total * 100;
-            StatusText.Text = $"Processing element {current} of {total}...";
+            if (ProgressBar != null)
+                ProgressBar.Value = (double)current / total * 100;
+            if (StatusText != null)
+                StatusText.Text = $"Processing element {current} of {total}...";
 
             if (current > 5)
             {
                 double elapsedSeconds = _stopwatch.Elapsed.TotalSeconds;
                 double avgTimePerItem = elapsedSeconds / current;
                 double remainingSeconds = (total - current) * avgTimePerItem;
-                TimeEstimateText.Text = FormatTimeSpan(TimeSpan.FromSeconds(remainingSeconds));
+                if (TimeEstimateText != null)
+                    TimeEstimateText.Text = FormatTimeSpan(TimeSpan.FromSeconds(remainingSeconds));
             }
 
             System.Windows.Forms.Application.DoEvents();
@@ -63,13 +66,16 @@ namespace RTS.UI
         /// </summary>
         public void UpdateRoomStatus(string roomName, int currentRoom, int totalRooms)
         {
-            if (totalRooms > 0)
+            if (RoomStatusText != null)
             {
-                RoomStatusText.Text = $"Processing Room {currentRoom} of {totalRooms}: {roomName}";
-            }
-            else
-            {
-                RoomStatusText.Text = roomName;
+                if (totalRooms > 0)
+                {
+                    RoomStatusText.Text = $"Processing Room {currentRoom} of {totalRooms}: {roomName}";
+                }
+                else
+                {
+                    RoomStatusText.Text = roomName;
+                }
             }
             System.Windows.Forms.Application.DoEvents();
         }
@@ -85,8 +91,10 @@ namespace RTS.UI
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             _isCancellationPending = true;
-            CancelButton.IsEnabled = false;
-            StatusText.Text = "Cancelling operation...";
+            if (CancelButton != null)
+                CancelButton.IsEnabled = false;
+            if (StatusText != null)
+                StatusText.Text = "Cancelling operation...";
         }
 
         private void MinimizeButton_Click(object sender, RoutedEventArgs e)

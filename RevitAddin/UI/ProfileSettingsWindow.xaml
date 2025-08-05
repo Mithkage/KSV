@@ -10,7 +10,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:RTS.UI"
         mc:Ignorable="d"
-        Title="Profile Settings" Height="450" Width="600"
+        Title="Profile Settings" Height="450" Width="800"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         Topmost="True"
@@ -45,74 +45,123 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="ColumnHeaderFilterStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridColumnHeader">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter Grid.Column="0" Content="{TemplateBinding Content}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="5,0"/>
+                            <Button Grid.Column="1"
+                                    Width="18" Height="18"
+                                    Margin="2,0,2,0"
+                                    Click="ColumnHeaderFilter_Click"
+                                    Tag="{TemplateBinding Content}">
+                                <Path Data="M0,0 L4,4 L8,0 Z" Fill="Gray"/>
+                            </Button>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <TextBlock Grid.Row="0" Text="Assign Source Links" FontSize="18" FontWeight="SemiBold" Foreground="#FF333333" Margin="0,0,0,20"/>
+        <!-- Tab Control -->
+        <TabControl Grid.Row="0">
+            <TabItem Header="Model Categories">
+                <StackPanel>
+                    <StackPanel>
+                        <DataGrid ItemsSource="{Binding ModelCategoryMappings}"
+                                  AutoGenerateColumns="False"
+                                  HeadersVisibility="Column"
+                                  CanUserAddRows="False"
+                                  CanUserResizeColumns="True"
+                                  Margin="0,10,0,0"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  Height="300">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Model Category"
+                                                    Binding="{Binding CategoryName}"
+                                                    IsReadOnly="True"
+                                                    Width="*"
+                                                    HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                                <DataGridTemplateColumn Header="Responsible"
+                                                        Width="2*"
+                                                        HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <ComboBox ItemsSource="{Binding DataContext.AvailableLinks, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      SelectedItem="{Binding SelectedLink, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
 
-        <!-- Settings Grid -->
-        <Grid Grid.Row="1" DataContext="{Binding Settings}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+            <TabItem Header="Annotation Categories">
+                <DataGrid ItemsSource="{Binding AnnotationCategoryMappings}" AutoGenerateColumns="False" HeadersVisibility="Column" CanUserAddRows="False" CanUserResizeColumns="True" Margin="0,10,0,0">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Annotation Category"
+                                            Binding="{Binding CategoryName}"
+                                            IsReadOnly="True"
+                                            Width="*"
+                                            HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                        <DataGridTemplateColumn Header="Responsible"
+                                                Width="2*"
+                                                HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox ItemsSource="{Binding DataContext.AvailableLinks, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              SelectedItem="{Binding SelectedLink, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
 
-            <!-- Grids -->
-            <Label Grid.Row="0" Grid.Column="0" Content="Grids:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
-            <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,10"
-                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
-                      SelectedItem="{Binding GridsLink}"/>
-
-            <!-- Levels -->
-            <Label Grid.Row="1" Grid.Column="0" Content="Levels:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
-            <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,10"
-                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
-                      SelectedItem="{Binding LevelsLink}"/>
-
-            <!-- Walls -->
-            <Label Grid.Row="2" Grid.Column="0" Content="Walls:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
-            <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,10"
-                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
-                      SelectedItem="{Binding WallsLink}"/>
-
-            <!-- Floors -->
-            <Label Grid.Row="3" Grid.Column="0" Content="Floors:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
-            <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,10"
-                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
-                      SelectedItem="{Binding FloorsLink}"/>
-
-            <!-- Ceilings -->
-            <Label Grid.Row="4" Grid.Column="0" Content="Ceilings:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
-            <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,10"
-                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
-                      SelectedItem="{Binding CeilingsLink}"/>
-
-            <!-- Slabs -->
-            <Label Grid.Row="5" Grid.Column="0" Content="Slabs:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
-            <ComboBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,10"
-                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableLinks}"
-                      SelectedItem="{Binding SlabsLink}"/>
-        </Grid>
+            <TabItem Header="Coordinate Systems">
+                <DataGrid ItemsSource="{Binding CoordinateSystemMappings}" AutoGenerateColumns="False" HeadersVisibility="Column" CanUserAddRows="False" CanUserResizeColumns="True" Margin="0,10,0,0">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Coordinate System"
+                                            Binding="{Binding SystemName}"
+                                            IsReadOnly="True"
+                                            Width="*"
+                                            HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
+                        <DataGridTemplateColumn Header="Responsible"
+                                                Width="2*"
+                                                HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox ItemsSource="{Binding DataContext.AvailableLinks, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              SelectedItem="{Binding SelectedLink, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
 
         <!-- Action Buttons -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="Save" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0" IsDefault="True" Click="SaveButton_Click"/>
-            <Button Content="Cancel" Style="{StaticResource ModernButtonStyle}" IsCancel="True"/>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Save" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0" IsDefault="True" Click="SaveButton_Click" Width="47"/>
+            <Button Content="Clear Profile" Style="{StaticResource ModernButtonStyle}" Margin="0,0,10,0" Click="ClearProfileButton_Click" Width="86"/>
+            <Button Content="Cancel" Style="{StaticResource ModernButtonStyle}" Margin="0,0,0,0" IsCancel="True" Width="58"/>
         </StackPanel>
     </Grid>
 </Window>

@@ -18,6 +18,13 @@
 // Log:
 // - July 30, 2025: Implemented a more robust, multi-step link finding method with enhanced diagnostics.
 // - July 30, 2025: Added ProfileSettingsButton_Click event handler to launch the new settings window.
+// - August 1, 2025: Enhanced column filtering UI with wildcard search functionality.
+// - August 2, 2025: Added context menu for moving links to shared coordinates.
+// - August 3, 2025: Added ProjectRoleContact class and ObservableCollection for project roles.
+// - August 4, 2025: Updated LinksDataGrid to be part of a TabControl with a "Management" tab.
+// - August 5, 2025: Added ObservableCollections for dropdowns and updated LoadLinks to populate them.
+// - August 6, 2025: Corrected RevitLinkType.Unload method call to comply with updated API requirements.
+// - August 6, 2025: Removed redundant code for populating ComboBoxes that are now text fields.
 //
 
 #region Namespaces
@@ -39,6 +46,7 @@ using System.Reflection; // Required for Assembly.GetExecutingAssembly
 using System.Text; // Required for StringBuilder
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions; // Required for Regex
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -68,6 +76,7 @@ namespace RTS.UI
         public const string VendorId = "ReTick_Solutions"; // Must match your .addin file
 
         public ObservableCollection<LinkViewModel> Links { get; set; }
+        public ObservableCollection<ProjectRoleContact> ProjectRoles { get; set; }
 
         public LinkManagerWindow(Document doc)
         {
@@ -82,6 +91,13 @@ namespace RTS.UI
             Links = new ObservableCollection<LinkViewModel>();
             _linksView = CollectionViewSource.GetDefaultView(Links);
             _linksView.Filter = new Predicate<object>(FilterLinks);
+
+            ProjectRoles = new ObservableCollection<ProjectRoleContact>
+            {
+                new ProjectRoleContact { Role = "Project Manager" },
+                new ProjectRoleContact { Role = "BIM Manager" },
+                new ProjectRoleContact { Role = "BIM Coordinator" }
+            };
 
             LoadLinks();
         }
@@ -181,40 +197,87 @@ namespace RTS.UI
             string sortMemberPath = header.Column.SortMemberPath;
             if (string.IsNullOrEmpty(sortMemberPath)) return;
 
-            ContextMenu contextMenu = new ContextMenu();
+            // Get unique values for the column
+            var uniqueValues = Links.Select(l => typeof(LinkViewModel).GetProperty(sortMemberPath).GetValue(l)?.ToString())
+                .Where(v => !string.IsNullOrEmpty(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(v => v)
+                .ToList();
 
-            MenuItem clearFilterMenuItem = new MenuItem { Header = "Clear Filter" };
-            clearFilterMenuItem.Click += (s, args) =>
+            // Create the popup
+            var popup = new Popup
+            {
+                PlacementTarget = button,
+                Placement = PlacementMode.Bottom,
+                StaysOpen = false,
+                AllowsTransparency = true,
+                Width = 250,
+                Height = 300
+            };
+
+            // Create the filter UI
+            var stackPanel = new StackPanel { Background = Brushes.White, Margin = new Thickness(5) };
+
+            var searchBox = new System.Windows.Controls.TextBox { Margin = new Thickness(0, 0, 0, 5) };
+            var listBox = new ListBox { Height = 220 };
+
+            // Filtering logic with wildcards
+            void UpdateList()
+            {
+                string pattern = searchBox.Text.Trim();
+                IEnumerable<string> filtered;
+                if (string.IsNullOrEmpty(pattern))
+                {
+                    filtered = uniqueValues;
+                }
+                else
+                {
+                    // Convert wildcard pattern to regex
+                    string regexPattern = "^" + Regex.Escape(pattern)
+                        .Replace("\\*", ".*")
+                        .Replace("\\?", ".") + "$";
+                    var regex = new Regex(regexPattern, RegexOptions.IgnoreCase);
+                    filtered = uniqueValues.Where(v => regex.IsMatch(v));
+                }
+                listBox.ItemsSource = filtered;
+            }
+
+            searchBox.TextChanged += (s, args) => UpdateList();
+            UpdateList();
+
+            // Selection logic
+            listBox.SelectionChanged += (s, args) =>
+            {
+                if (listBox.SelectedItem is string selected)
+                {
+                    _activeColumnFilters[sortMemberPath] = selected;
+                    _linksView.Refresh();
+                    header.Background = Brushes.LightBlue;
+                    popup.IsOpen = false;
+                }
+            };
+
+            // Add clear filter button
+            var clearButton = new Button
+            {
+                Content = "Clear Filter",
+                Margin = new Thickness(0, 5, 0, 0),
+                Background = Brushes.LightGray
+            };
+            clearButton.Click += (s, args) =>
             {
                 _activeColumnFilters.Remove(sortMemberPath);
                 _linksView.Refresh();
-                // Fully qualify Control to resolve ambiguity
                 header.ClearValue(System.Windows.Controls.Control.BackgroundProperty);
+                popup.IsOpen = false;
             };
-            contextMenu.Items.Add(clearFilterMenuItem);
-            contextMenu.Items.Add(new Separator());
 
-            var uniqueValues = Links.Select(l => typeof(LinkViewModel).GetProperty(sortMemberPath).GetValue(l)?.ToString())
-                                             .Where(v => !string.IsNullOrEmpty(v))
-                                             .Distinct(StringComparer.OrdinalIgnoreCase)
-                                             .OrderBy(v => v)
-                                             .ToList();
+            stackPanel.Children.Add(searchBox);
+            stackPanel.Children.Add(listBox);
+            stackPanel.Children.Add(clearButton);
 
-            foreach (var value in uniqueValues)
-            {
-                MenuItem menuItem = new MenuItem { Header = value };
-                menuItem.IsChecked = _activeColumnFilters.ContainsKey(sortMemberPath) && _activeColumnFilters[sortMemberPath].Equals(value, StringComparison.OrdinalIgnoreCase);
-                menuItem.Click += (s, args) =>
-                {
-                    _activeColumnFilters[sortMemberPath] = value;
-                    _linksView.Refresh();
-                    header.Background = System.Windows.Media.Brushes.LightBlue;
-                };
-                contextMenu.Items.Add(menuItem);
-            }
-
-            contextMenu.PlacementTarget = button;
-            contextMenu.IsOpen = true;
+            popup.Child = stackPanel;
+            popup.IsOpen = true;
         }
 
         /// <summary>
@@ -653,6 +716,72 @@ namespace RTS.UI
         /// </summary>
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
+            int moveSuccess = 0, moveFail = 0;
+            var moveErrors = new List<string>();
+
+            foreach (var vm in Links.Where(l => l.PendingMoveToSharedCoordinates))
+            {
+                using (Transaction tx = new Transaction(_doc, $"Move Link '{vm.LinkName}' to Shared Coordinates"))
+                {
+                    tx.Start();
+                    try
+                    {
+                        // Get target transform from Profile Settings (implement retrieval logic)
+                        Autodesk.Revit.DB.Transform sharedCoordTransform = GetSharedCoordinatesTransform();
+                        if (sharedCoordTransform == null)
+                            throw new Exception("Shared Coordinates transform not found.");
+
+                        // Move all instances for this link
+                        foreach (var id in vm.LinkInstanceIds)
+                        {
+                            var inst = _doc.GetElement(id) as RevitLinkInstance;
+                            if (inst == null) continue;
+
+                            var location = inst.Location as LocationPoint;
+                            if (location == null) continue;
+
+                            // Unpin before move
+                            bool wasPinned = inst.Pinned;
+                            if (wasPinned)
+                                inst.Pinned = false;
+
+                            // Move to target position
+                            XYZ currentPosition = location.Point;
+                            XYZ targetPosition = sharedCoordTransform.Origin;
+                            XYZ translation = targetPosition - currentPosition;
+                            location.Move(translation);
+
+                            // Rotate to target angle (assume Z axis rotation)
+                            double currentAngle = location.Rotation;
+                            double targetAngle = Math.Atan2(sharedCoordTransform.BasisX.Y, sharedCoordTransform.BasisX.X);
+                            double angleDelta = targetAngle - currentAngle;
+                            if (Math.Abs(angleDelta) > 1e-6)
+                            {
+                                location.Rotate(Line.CreateBound(targetPosition, targetPosition + XYZ.BasisZ), angleDelta);
+                            }
+
+                            // Restore pin state after move (based on user selection)
+                            if (vm.IsPinned.HasValue)
+                                inst.Pinned = vm.IsPinned.Value;
+                            else
+                                inst.Pinned = wasPinned;
+                        }
+                        tx.Commit();
+                        moveSuccess++;
+                    }
+                    catch (Exception ex)
+                    {
+                        tx.RollBack();
+                        moveFail++;
+                        moveErrors.Add($"{vm.LinkName}: {ex.Message}");
+                    }
+                    vm.PendingMoveToSharedCoordinates = false;
+                }
+            }
+
+            // *** Force reload of links and coordinates after move ***
+            LoadLinks();
+
             using (Transaction tx = new Transaction(_doc, "Save Link Manager Changes"))
             {
                 tx.Start();
@@ -703,14 +832,20 @@ namespace RTS.UI
                     tx.Commit();
                     TaskDialog.Show("Success", "Changes saved successfully!", TaskDialogCommonButtons.Ok, TaskDialogResult.Ok);
 
-                    // Refresh the grid to show the new state after save
-                    LoadLinks();
+                    // No need to call LoadLinks() again here
                 }
                 catch (Exception ex)
                 {
                     tx.RollBack();
                     TaskDialog.Show("Error", $"Failed to save changes: {ex.Message}", TaskDialogCommonButtons.Ok, TaskDialogResult.Ok);
                 }
+            }
+
+            if (moveSuccess > 0 || moveFail > 0)
+            {
+                var msg = $"Move to Shared Coordinates complete.\n\nSuccess: {moveSuccess}\nFailed: {moveFail}";
+                msg += "\n\nErrors:\n" + string.Join("\n", moveErrors);
+                TaskDialog.Show("Move Summary", msg, TaskDialogCommonButtons.Ok);
             }
         }
 
@@ -846,6 +981,26 @@ namespace RTS.UI
                     };
                     menu.Items.Add(copyNameMenuItem);
 
+                    var unloadMenuItem = new MenuItem { Header = "Unload", Tag = vm };
+                    unloadMenuItem.Click += FileName_Unload_Click;
+                    menu.Items.Add(unloadMenuItem);
+
+                    var reloadMenuItem = new MenuItem { Header = "Reload", Tag = vm };
+                    reloadMenuItem.Click += FileName_Reload_Click;
+                    menu.Items.Add(reloadMenuItem);
+
+                    var reloadFromMenuItem = new MenuItem { Header = "Reload From...", Tag = vm };
+                    reloadFromMenuItem.Click += FileName_ReloadFrom_Click;
+                    menu.Items.Add(reloadFromMenuItem);
+
+                    var openLocationMenuItem = new MenuItem { Header = "Open Location", Tag = vm };
+                    openLocationMenuItem.Click += FileName_OpenLocation_Click;
+                    menu.Items.Add(openLocationMenuItem);
+
+                    var removePlaceholderMenuItem = new MenuItem { Header = "Remove Placeholder", Tag = vm };
+                    removePlaceholderMenuItem.Click += FileName_RemovePlaceholder_Click;
+                    menu.Items.Add(removePlaceholderMenuItem);
+
                     // Assign the context menu to the cell
                     cell.ContextMenu = menu;
                 }
@@ -930,6 +1085,231 @@ namespace RTS.UI
             }
         }
 
+        private void CoordinatesCell_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var cell = sender as DataGridCell;
+            if (cell == null) return;
+            var row = FindParent<DataGridRow>(cell);
+            if (row == null) return;
+
+            // Get all selected links, or just the clicked row if none selected
+            var selectedLinks = LinksDataGrid.SelectedItems.Cast<LinkViewModel>().ToList();
+            if (!selectedLinks.Any())
+                selectedLinks.Add(row.DataContext as LinkViewModel);
+
+            var menu = new ContextMenu();
+            var moveMenuItem = new MenuItem
+            {
+                Header = "Move to Shared Coordinates",
+                IsEnabled = selectedLinks.All(l => l.IsRevitLink && l.LinkStatus == "Loaded")
+            };
+            moveMenuItem.Click += (s, args) =>
+            {
+                foreach (var link in selectedLinks)
+                {
+                    if (link.IsRevitLink && link.LinkStatus == "Loaded")
+                        link.PendingMoveToSharedCoordinates = true;
+                }
+                MessageBox.Show($"{selectedLinks.Count(l => l.PendingMoveToSharedCoordinates)} link(s) marked for move. Click Save to apply.", "Move to Shared Coordinates", MessageBoxButton.OK, MessageBoxImage.Information);
+            };
+            menu.Items.Add(moveMenuItem);
+            cell.ContextMenu = menu;
+            menu.IsOpen = true;
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// Handles the "Unload" context menu item click for File Name cells.
+        /// </summary>
+        private void FileName_Unload_Click(object sender, RoutedEventArgs e)
+        {
+            var menuItem = sender as MenuItem;
+            var link = menuItem?.DataContext as LinkViewModel;
+            if (link == null || !link.IsRevitLink || link.LinkStatus != "Loaded") return;
+
+            using (var tx = new Transaction(_doc, $"Unload Link {link.LinkName}"))
+            {
+                tx.Start();
+                try
+                {
+                    var linkType = _doc.GetElement(link.LinkTypeId) as RevitLinkType;
+                    if (linkType != null)
+                    {
+                        // CORRECTED: The Unload method requires an ISaveSharedCoordinatesCallback argument.
+                        // Passing null prompts the user with the default Revit dialog.
+                        linkType.Unload(null);
+                        tx.Commit();
+
+                        // Update the link status in the UI without reloading everything
+                        link.LinkStatus = "Unloaded";
+                        link.VersionStatus = "N/A (Unloaded)";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    tx.RollBack();
+                    TaskDialog.Show("Error", $"Failed to unload link: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles the "Reload" context menu item click for File Name cells.
+        /// </summary>
+        private void FileName_Reload_Click(object sender, RoutedEventArgs e)
+        {
+            var menuItem = sender as MenuItem;
+            var link = menuItem?.DataContext as LinkViewModel;
+            if (link == null || !link.IsRevitLink) return;
+
+            using (var tx = new Transaction(_doc, $"Reload Link {link.LinkName}"))
+            {
+                tx.Start();
+                try
+                {
+                    var linkType = _doc.GetElement(link.LinkTypeId) as RevitLinkType;
+                    if (linkType != null)
+                    {
+                        // This is an instance method and takes no parameters.
+                        linkType.Reload();
+                        tx.Commit();
+
+                        // Reload link data in UI
+                        LoadLinks();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    tx.RollBack();
+                    TaskDialog.Show("Error", $"Failed to reload link: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles the "Reload From" context menu item click for File Name cells.
+        /// </summary>
+        private void FileName_ReloadFrom_Click(object sender, RoutedEventArgs e)
+        {
+            var menuItem = sender as MenuItem;
+            var link = menuItem?.DataContext as LinkViewModel;
+            if (link == null) return;
+
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select New Link Source",
+                Filter = "Revit Files (*.rvt)|*.rvt|All Files (*.*)|*.*"
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                string newPath = dlg.FileName;
+                using (var tx = new Transaction(_doc, $"Reload Link From {link.LinkName}"))
+                {
+                    tx.Start();
+                    try
+                    {
+                        if (link.IsRevitLink)
+                        {
+                            // For existing Revit link, reload from new path
+                            var linkType = _doc.GetElement(link.LinkTypeId) as RevitLinkType;
+                            if (linkType != null)
+                            {
+                                var modelPath = ModelPathUtils.ConvertUserVisiblePathToModelPath(newPath);
+                                linkType.LoadFrom(modelPath, new WorksetConfiguration());
+                            }
+                        }
+                        else
+                        {
+                            // For placeholder, create new link
+                            var linkOptions = new RevitLinkOptions(false);
+                            RevitLinkType.Create(_doc, ModelPathUtils.ConvertUserVisiblePathToModelPath(newPath), linkOptions);
+                        }
+                        tx.Commit();
+
+                        // Reload all links to reflect the changes
+                        LoadLinks();
+                    }
+                    catch (Exception ex)
+                    {
+                        tx.RollBack();
+                        TaskDialog.Show("Error", $"Failed to reload link from new source: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles the "Open Location" context menu item click for File Name cells.
+        /// </summary>
+        private void FileName_OpenLocation_Click(object sender, RoutedEventArgs e)
+        {
+            var menuItem = sender as MenuItem;
+            var link = menuItem?.DataContext as LinkViewModel;
+            if (link == null || string.IsNullOrEmpty(link.FullPath)) return;
+
+            try
+            {
+                // Check if file exists before trying to open its location
+                if (System.IO.File.Exists(link.FullPath))
+                {
+                    // Open Explorer and select the file
+                    Process.Start("explorer.exe", $"/select,\"{link.FullPath}\"");
+                }
+                else
+                {
+                    TaskDialog.Show("File Not Found", $"The file path does not exist:\n{link.FullPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Error", $"Failed to open file location: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles the "Remove Placeholder" context menu item click for File Name cells.
+        /// </summary>
+        private void FileName_RemovePlaceholder_Click(object sender, RoutedEventArgs e)
+        {
+            var menuItem = sender as MenuItem;
+            var link = menuItem?.DataContext as LinkViewModel;
+            if (link == null || link.IsRevitLink) return;
+
+            // For placeholder links, remove immediately
+            Links.Remove(link);
+
+            // Also remove from Revizto records if present
+            using (var tx = new Transaction(_doc, "Remove Placeholder"))
+            {
+                tx.Start();
+                try
+                {
+                    var reviztoRecords = RecallDataFromExtensibleStorage<ReviztoLinkRecord>(
+                        _doc, ReviztoLinkRecord.SchemaGuid, ReviztoLinkRecord.SchemaName,
+                        ReviztoLinkRecord.FieldName, ReviztoLinkRecord.DataStorageName);
+
+                    var recordToRemove = reviztoRecords.FirstOrDefault(r =>
+                        r.LinkName.Equals(link.LinkName, StringComparison.OrdinalIgnoreCase));
+
+                    if (recordToRemove != null)
+                    {
+                        reviztoRecords.Remove(recordToRemove);
+                        SaveDataToExtensibleStorage(
+                            _doc, reviztoRecords, ReviztoLinkRecord.SchemaGuid,
+                            ReviztoLinkRecord.SchemaName, ReviztoLinkRecord.FieldName,
+                            ReviztoLinkRecord.DataStorageName);
+                    }
+
+                    tx.Commit();
+                }
+                catch (Exception ex)
+                {
+                    tx.RollBack();
+                    TaskDialog.Show("Error", $"Failed to remove placeholder from storage: {ex.Message}");
+                }
+            }
+        }
 
         #endregion
 
@@ -1089,7 +1469,8 @@ namespace RTS.UI
                 // Group by link name and take the one with the most recent 'LastModified' date
                 var uniqueReviztoLinks = allReviztoLinks
                     .GroupBy(r => r.LinkName)
-                    .Select(g => g.OrderByDescending(r => {
+                    .Select(g => g.OrderByDescending(r =>
+                    {
                         DateTime.TryParse(r.LastModified, out DateTime dt);
                         return dt;
                     }).First())
@@ -1300,6 +1681,83 @@ namespace RTS.UI
         private DataStorage GetOrCreateDataStorage(Document doc, string dataStorageElementName) { var collector = new FilteredElementCollector(doc).OfClass(typeof(DataStorage)); DataStorage dataStorage = collector.Cast<DataStorage>().FirstOrDefault(ds => ds.Name == dataStorageElementName); if (dataStorage == null) { dataStorage = DataStorage.Create(doc); dataStorage.Name = dataStorageElementName; } return dataStorage; }
         public void SaveDataToExtensibleStorage<T>(Document doc, List<T> dataList, Guid schemaGuid, string schemaName, string fieldName, string dataStorageElementName) { Schema schema = GetOrCreateSchema(schemaGuid, schemaName, fieldName); DataStorage dataStorage = GetOrCreateDataStorage(doc, dataStorageElementName); string jsonString = JsonSerializer.Serialize(dataList, new JsonSerializerOptions { WriteIndented = true }); Entity entity = new Entity(schema); entity.Set(schema.GetField(fieldName), jsonString); dataStorage.SetEntity(entity); }
         public List<T> RecallDataFromExtensibleStorage<T>(Document doc, Guid schemaGuid, string schemaName, string fieldName, string dataStorageElementName) { Schema schema = Schema.Lookup(schemaGuid); if (schema == null) return new List<T>(); var collector = new FilteredElementCollector(doc).OfClass(typeof(DataStorage)); DataStorage dataStorage = collector.Cast<DataStorage>().FirstOrDefault(ds => ds.Name == dataStorageElementName); if (dataStorage == null) return new List<T>(); Entity entity = dataStorage.GetEntity(schema); if (!entity.IsValid()) return new List<T>(); string jsonString = entity.Get<string>(schema.GetField(fieldName)); if (string.IsNullOrEmpty(jsonString)) return new List<T>(); try { return JsonSerializer.Deserialize<List<T>>(jsonString) ?? new List<T>(); } catch (Exception ex) { TaskDialog.Show("Profile Error", $"Failed to read saved profile: {ex.Message}", TaskDialogCommonButtons.Ok); return new List<T>(); } }
+
+        private Autodesk.Revit.DB.Transform GetSharedCoordinatesTransform()
+        {
+            // Recall ProfileSettings from Extensible Storage
+            var settingsList = RecallDataFromExtensibleStorage<ProfileSettings>(
+                _doc,
+                ProfileSettingsWindow.SettingsSchemaGuid,
+                ProfileSettingsWindow.SettingsSchemaName,
+                ProfileSettingsWindow.SettingsFieldName,
+                ProfileSettingsWindow.SettingsDataStorageElementName
+            );
+            var settings = settingsList.FirstOrDefault();
+            if (settings == null || string.IsNullOrWhiteSpace(settings.SharedCoordinatesLink) || settings.SharedCoordinatesLink == "<None>")
+                return null;
+
+            // Extract LinkName from "[Discipline] - LinkName" format
+            string linkName = settings.SharedCoordinatesLink;
+            int idx = linkName.IndexOf("] - ");
+            if (idx > 0)
+                linkName = linkName.Substring(idx + 4);
+
+            // Find the loaded link in the Links collection
+            var linkVm = Links.FirstOrDefault(l =>
+                l.LinkName.Equals(linkName, StringComparison.OrdinalIgnoreCase)
+                && l.IsRevitLink
+                && l.LinkStatus == "Loaded"
+                && l.InstanceTransforms != null
+                && l.InstanceTransforms.Any()
+            );
+            if (linkVm != null)
+                return linkVm.InstanceTransforms.First();
+
+            return null;
+        }
+
+        /// <summary>
+        /// Retrieves the ceiling and slab link instances based on the profile settings.
+        /// </summary>
+        public static (RevitLinkInstance ceilingLink, RevitLinkInstance slabLink, string diagnosticMessage) GetLinkInstances(Document doc, ProfileSettings settings)
+        {
+            // Parse link names from settings
+            string ceilingLinkName = ParseLinkName(settings.CeilingsLink);
+            string slabLinkName = ParseLinkName(settings.SlabsLink);
+
+            // Find loaded RevitLinkInstance for each
+            RevitLinkInstance ceilingLink = FindLoadedLinkInstance(doc, ceilingLinkName);
+            RevitLinkInstance slabLink = FindLoadedLinkInstance(doc, slabLinkName);
+
+            string diagnosticMessage = "";
+            if (ceilingLink == null) diagnosticMessage += "Ceilings link not found or not loaded.\n";
+            if (slabLink == null) diagnosticMessage += "Slabs link not found or not loaded.\n";
+
+            return (ceilingLink, slabLink, diagnosticMessage);
+        }
+
+        private static string ParseLinkName(string formatted)
+        {
+            if (string.IsNullOrWhiteSpace(formatted) || formatted == "<None>")
+                return null;
+            int idx = formatted.IndexOf("] - ");
+            return idx > 0 ? formatted.Substring(idx + 4) : formatted;
+        }
+
+        private static RevitLinkInstance FindLoadedLinkInstance(Document doc, string linkName)
+        {
+            if (string.IsNullOrWhiteSpace(linkName)) return null;
+            var linkInstances = new FilteredElementCollector(doc)
+                .OfClass(typeof(RevitLinkInstance))
+                .Cast<RevitLinkInstance>()
+                .Where(l =>
+                {
+                    var type = doc.GetElement(l.GetTypeId()) as RevitLinkType;
+                    return type != null && type.Name.Equals(linkName, StringComparison.OrdinalIgnoreCase) && RevitLinkType.IsLoaded(doc, type.Id);
+                });
+            return linkInstances.FirstOrDefault();
+        }
+
     }
 
     /// <summary>
@@ -1383,5 +1841,64 @@ namespace RTS.UI
         public string ContactDetails { get => _contactDetails; set { _contactDetails = value; OnPropertyChanged(nameof(ContactDetails)); } }
         private string _comments;
         public string Comments { get => _comments; set { _comments = value; OnPropertyChanged(nameof(Comments)); } }
+
+        [JsonIgnore]
+        public bool PendingMoveToSharedCoordinates { get; set; }
+
+        [JsonIgnore]
+        public bool IsUnloadAvailable => IsRevitLink && LinkStatus == "Loaded";
+
+        [JsonIgnore]
+        public bool IsReloadAvailable => IsRevitLink;
+
+        [JsonIgnore]
+        public bool IsPlaceholder => !IsRevitLink;
+    }
+
+    public class ProjectRoleContact : INotifyPropertyChanged
+    {
+        public string Role { get; set; }
+        private string _name;
+        public string Name { get => _name; set { _name = value; OnPropertyChanged(nameof(Name)); } }
+        private string _email;
+        public string Email { get => _email; set { _email = value; OnPropertyChanged(nameof(Email)); } }
+        private string _phone;
+        public string Phone { get => _phone; set { _phone = value; OnPropertyChanged(nameof(Phone)); } }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    public class ReviztoStatusToBrushConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            var status = value as string;
+            if (status == "Matched" || (status != null && status.StartsWith("Match on:")))
+                return Brushes.Green;
+            return Brushes.Red;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class ActiveModelStatusToBrushConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            var vm = value as LinkViewModel;
+            if (vm == null) return Brushes.Red;
+            if (vm.LinkStatus == "Loaded") return Brushes.Green;
+            if (vm.IsRevitLink) return Brushes.Orange;
+            return Brushes.Red;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

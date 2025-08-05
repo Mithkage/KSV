@@ -224,6 +224,17 @@ namespace RTS
                 LargeImage = defaultIcon // TODO: Create a specific icon
             };
 
+            // 12. Viewport Alignment Tool
+            PushButtonData pbdViewportAlignment = new PushButtonData(
+                "CmdViewportAlignment",
+                "Align\nViewports",
+                ExecutingAssemblyPath,
+                "RTS.Commands.ViewportAlignmentTool")
+            {
+                ToolTip = "Aligns the center of selected viewports to a reference viewport on the active sheet.",
+                LargeImage = GetEmbeddedPng("ViewportAlignment.png") ?? defaultIcon // Use a specific icon if available
+            };
+
             // --- Misc Tools Buttons ---
 
             // 1. Import BB Cable Lengths
@@ -238,6 +249,17 @@ namespace RTS
             {
                 ToolTip = "Updates 'PC_SWB Load' parameter for Detail Items from an Excel file ('TB_Submains' table) based on the 'PC_SWB To' parameter.",
                 LargeImage = GetEmbeddedPng("MD_Importer.png") ?? defaultIcon
+            };
+
+            // 3. Copy Relative (Door/Light)
+            PushButtonData pbdCopyRelative = new PushButtonData(
+                "CmdCopyRelative",
+                "Copy\nRelative",
+                ExecutingAssemblyPath,
+                "RTS.Commands.CopyRelativeClass")
+            {
+                ToolTip = "Places light fixtures in the host model at locations relative to doors in a linked model, based on a template selection.",
+                LargeImage = GetEmbeddedPng("CopyRelative.png") ?? defaultIcon // Use a specific icon if available
             };
 
             // --- RTS Setup Panel Buttons ---
@@ -291,9 +313,11 @@ namespace RTS
             revitToolsPanel.AddItem(pbdLinkManager);
             revitToolsPanel.AddItem(pbdScheduleLevel);
             revitToolsPanel.AddItem(pbdCastCeiling);
+            revitToolsPanel.AddItem(pbdViewportAlignment);
 
             miscPanel.AddItem(pbdBbImport);
             miscPanel.AddItem(pbdMdImporter);
+            miscPanel.AddItem(pbdCopyRelative);
 
             rtsSetupPanel.AddItem(pbdRtsInitiate);
             rtsSetupPanel.AddItem(pbdRtsMapCables);

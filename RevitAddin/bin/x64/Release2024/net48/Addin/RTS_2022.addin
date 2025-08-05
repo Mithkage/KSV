@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+File: RTS_2022.addin
+Description: This is the Revit Add-in manifest file for the RTS application,
+             specifically configured for Revit 2022. It defines the entry point
+             and metadata for the add-in to be loaded by Revit.
+
+Author: Kyle Vorster
+Company: ReTick Solutions (RTS)
+
+Log:
+- July 17, 2025: Added commented header and initial configuration for Revit 2022.
+-->
+<RevitAddIns>
+	<AddIn Type="Application">
+		<Name>RTS</Name>
+		 <Assembly>C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2022\net48\RTS.dll</Assembly>
+		<!-- UPDATED: A new, unique GUID to prevent conflicts with other add-ins. -->
+		<AddInId>E8A2D6C0-2B3D-4E5F-8A9B-C0D1E2F3A4B5</AddInId>
+		<FullClassName>RTS.App</FullClassName>
+		<VendorId>ReTick_Solutions</VendorId>
+		<VendorDescription>ReTick Solutions, www.reticksolutions.com</VendorDescription>
+	</AddIn>
+</RevitAddIns>

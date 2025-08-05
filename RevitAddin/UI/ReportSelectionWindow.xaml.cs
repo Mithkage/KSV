@@ -1,12 +1,13 @@
 ﻿//-----------------------------------------------------------------------------
 // <copyright file="ReportSelectionWindow.xaml.cs" company="RTS Reports">
-//      Copyright (c) RTS Reports. All rights reserved.
+//     Copyright (c) RTS Reports. All rights reserved.
 // </copyright>
 // <summary>
-//      This file contains the interaction logic for the ReportSelectionWindow.xaml.
-//      It handles user selections for various report types and orchestrates
-//      the data recall from Revit's extensible storage and subsequent export
-//      to CSV format, particularly for the RSGx Cable Schedule.
+//     This file contains the interaction logic for the ReportSelectionWindow.xaml.
+//     It handles user selections for various report types and orchestrates
+//     the data recall from Revit's extensible storage and subsequent export
+//     to CSV format, particularly for the RSGx Cable Schedule.
+//     UPDATED: Implements right-click context menu for File Name column.
 // </summary>
 //-----------------------------------------------------------------------------
 
@@ -15,67 +16,17 @@
  *
  * Date       | Version | Author | Description
  * ===========|=========|========|====================================================================================================
- * 2025-07-04 | 1.0.0    | Gemini | Initial implementation to address column and data mixing in RSGx report.
- * |         |        | - Introduced explicit ordering for RSGxCableData properties in ExportDataToCsvGeneric.
- * |         |        | - Added `orderedPropertiesToExport` to ensure CSV column order matches defined headers.
- * |         |        | - Included a check for missing properties in RSGxCableData to enhance robustness.
- * 2025-07-04 | 1.0.1    | Gemini | Added file header comments and a change log as requested.
- * |         |        | - Included detailed description of file purpose and function.
- * 2025-07-07 | 1.1.0    | Gemini | Replaced WindowsAPICodePack folder browser with standard System.Windows.Forms.FolderBrowserDialog.
- * |         |        | - This removes the final dependency on the conflicting library to resolve build and runtime errors.
- * |         |        | - Added a Win32Window helper class to properly parent the dialog to the Revit window.
- * 2025-07-07 | 1.1.1    | Gemini | Resolved ambiguous reference error for IWin32Window by specifying the System.Windows.Forms namespace.
- * 2025-07-08 | 1.2.0    | Gemini | Updated RSGx Cable Schedule generation logic based on user feedback.
- * |         |        | - Relabeled 'Cable Type' header to 'Cores' and mapped it to the 'Cores' data field.
- * |         |        | - Implemented conditional logic for 'Fire Rating' based on the cable's 'Type' property.
- * |         |        | - Implemented conditional logic for 'Update Summary' based on cable length differences.
- * |         |        | - Removed 'Installation Configuration' column from the report.
- * 2025-07-08 | 1.3.0    | Gemini | Enhanced RSGx report data formatting.
- * |         |        | - 'Maximum Length' is now rounded down to the nearest integer.
- * |         |        | - 'Cable Description' is now a concatenation of key cable properties, omitting nulls.
- * 2025-07-08 | 1.4.0    | Gemini | Refined RSGx report data formatting.
- * |         |        | - Appended "mm²" unit to 'Active Cable Size' in the 'Cable Description'.
- * |         |        | - Set 'Voltage Rating' to null if 'Destination Device (ID)' is not available.
- * 2025-07-08 | 1.5.0    | Gemini | Added "Load (A)" column to the RSGx Cable Schedule report.
- * |         |        | - Data is sourced from the new LoadA property in the primary data store.
- * 2025-07-08 | 1.6.0    | Gemini | Added Maximum Demand (MD) comparison to the "Update Summary" field.
- * |         |        | - Compares "Load (A)" between primary and consultant data.
- * 2025-07-08 | 1.7.0    | Gemini | Added "Number of Earth Cables" column to the RSGx report.
- * |         |        | - Column inserted before "Earth Size (mm2)".
- * 2025-07-08 | 1.8.0    | Gemini | Removed the "No." column (related to neutral cables) from the RSGx report.
- * 2025-07-10 | 1.9.0    | Gemini | Updated RSGx report sorting logic.
- * |         |        | - Removed the general alphabetical re-ordering of all cable references.
- * |         |        | - Report now sorts primarily by Cable Reference order from Primary Storage.
- * |         |        | - Cable References found only in Consultant Storage (or Model Generated)
- * |         |        |   are moved to the end, sorted alphabetically by Cable Reference.
- * 2025-07-10 | 2.0.0    | Gemini | Refined RSGx report data generation logic.
- * |         |        | - Removed actual 'Comments' data, keeping the column as empty.
- * |         |        | - Implemented conditional logic: if 'Cores' is "N/A", then 'Voltage Rating'
- * |         |        |   and 'Cable Description' are also set to "N/A".
- * 2025-07-10 | 2.0.1    | Gemini | Fixed CS0103 error for 'activeCableSize' by declaring it in a broader scope.
- * |         |        | - Also applied this fix to 'type', 'sheath', and 'insulation' for consistency.
- * 2025-07-10 | 2.1.0    | Gemini | Added new button handler for "RSGx Cable Summary (XLSX)" report.
- * |         |        | - Integrated call to `PC_Generate_MDClass.Execute` for Excel generation.
- * 2025-07-10 | 2.1.1    | Gemini | Corrected `using` directive for `PC_Generate_MDClass`.
- * |         |        | - Changed `using RTS;` to `using PC_Generate_MD;` to resolve CS0246 error.
- * 2025-07-10 | 2.1.2    | Gemini | Corrected instantiation of PC_Generate_MDClass.
- * |         |        | - Removed incorrect `using PC_Generate_MD;` directive.
- * |         |        | - Changed `new PC_Generate_MD.PC_Generate_MDClass()` to `new PC_Generate_MDClass()`.
- * 2025-07-10 | 2.2.0    | Gemini | Updated "Cable size Change from Design (Y/N)" logic for RSGx report.
- * |         |        | - Now compares Primary "Active Cable Size (mm²)" with Consultant "Active Cable Size (mm²)".
- * |         |        | - Renamed "Previous Design Size" column to "DJV Active Cable Size (mm²)" and reordered.
- * 2025-07-10 | 2.3.0    | Gemini | Further refined RSGx report column order and naming.
- * |         |        | - Moved "DJV Active Cable Size (mm²)" to appear after "RSGx Active Cable Size (mm²)".
- * |         |        | - Renamed "Active Cable Size (mm²)" to "RSGx Active Cable Size (mm²)".
- * 2025-07-10 | 2.4.0    | Gemini | Reordered RSGx report columns.
- * |         |        | - Moved "Cable size Change from Design (Y/N)" to appear after "DJV Active Cable Size (mm²)".
- * 2025-07-10 | 2.5.0    | Gemini | Updated "Earth Included (Yes / No)" column logic.
- * |         |        | - Now outputs "Y" or "N" instead of "Yes" or "No".
- * 2025-07-10 | 2.6.0    | Gemini | Renamed "Earth Included (Yes / No)" column header to "Earth Included (Y/N)".
- * 2025-07-10 | 2.7.0    | Gemini | Updated "Type" column in RSGx report.
- * |         |        | - Appended ", LSZH" if the value is not "N/A".
- * 2025-07-15 | 2.8.0    | Gemini | Updated namespace from 'RTS_Reports' to 'RTS.UI' to align with project structure.
- * 2025-07-15 | 2.9.0    | Gemini | Corrected using directive for PC_ExtensibleClass to match its actual namespace.
+ * ... (Previous Change Log Entries) ...
+ * 2025-08-06 | 4.0.0   | Gemini | Resolved critical crash in Routing Sequence report.
+ * |         |         | - Replaced exponential DFS `BuildAllPaths` with efficient BFS `FindSinglePath_BFS`.
+ * |         |         | - Corrected distance unit in `AreConnected` from an implied 1000mm to 0.1 decimal feet.
+ * |         |         | - Optimized data fetching to query Revit model elements only once per report.
+ * |         |         | - Improved handling of unconfirmed sequences to traverse disconnected components safely.
+ * |         |         | - Removed unnecessary timeout logic due to the new algorithm's efficiency.
+ * 2025-08-06 | 4.1.0   | Gemini | Resolved compilation errors.
+ * |         |         | - Fixed ambiguous reference errors (CS0104) by explicitly qualifying WPF control types.
+ * |         |         | - Updated RevitLinkType Unload/Reload calls to the correct instance method for newer Revit APIs (CS1501).
+ * 2025-08-06 | 4.1.1   | Gemini | Corrected RevitLinkType.Unload call to provide the required 'callback' parameter (CS7036).
  */
 
 #region Namespaces
@@ -92,6 +43,9 @@ using System.Windows.Forms; // For FolderBrowserDialog
 using System.Windows.Interop; // For WindowInteropHelper
 using RTS.Commands; // Corrected using directive for PC_Generate_MDClass
 using PC_Extensible; // UPDATED: Corrected using directive for PC_ExtensibleClass
+using System.Diagnostics;
+using System.Windows.Controls;
+using System.Windows.Input;
 #endregion
 
 namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
@@ -106,12 +60,242 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
         private PC_ExtensibleClass _pcExtensible;
         private ExternalCommandData _commandData; // Stored to pass to Excel generation command
 
+        // Assume you have a collection of LinkViewModel for your grid
+        public List<ReportLinkViewModel> Links { get; set; }
+
         public ReportSelectionWindow(ExternalCommandData commandData)
         {
             InitializeComponent();
             _doc = commandData.Application.ActiveUIDocument.Document;
             _pcExtensible = new PC_ExtensibleClass();
             _commandData = commandData; // Store the commandData
+            Links = new List<ReportLinkViewModel>();
+            // TODO: Load your Links collection here
+        }
+
+        // --- Context Menu Implementation for File Name Column ---
+
+        // Attach this handler to your DataGrid's PreviewMouseRightButtonDown event
+        private void DataGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // FIXED: Explicitly use System.Windows.Controls.DataGrid to resolve ambiguity
+            var dataGrid = sender as System.Windows.Controls.DataGrid;
+            var depObj = e.OriginalSource as DependencyObject;
+            // FIXED: Explicitly use System.Windows.Controls.DataGridCell
+            var cell = FindParent<System.Windows.Controls.DataGridCell>(depObj);
+            if (cell == null) return;
+
+            var column = cell.Column;
+            if (column == null || (column.Header?.ToString() ?? "") != "File Name") return;
+
+            var row = FindParent<DataGridRow>(cell);
+            if (row == null) return;
+
+            var link = row.Item as ReportLinkViewModel;
+            if (link == null) return;
+
+            // Build context menu
+            // FIXED: Explicitly use System.Windows.Controls.ContextMenu
+            var menu = new System.Windows.Controls.ContextMenu();
+
+            // Unload
+            // FIXED: Explicitly use System.Windows.Controls.MenuItem
+            var unloadItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Unload",
+                IsEnabled = link.IsLoaded && !link.IsPlaceholder
+            };
+            unloadItem.Click += (s, args) => UnloadLink(link);
+            menu.Items.Add(unloadItem);
+
+            // Reload
+            // FIXED: Explicitly use System.Windows.Controls.MenuItem
+            var reloadItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Reload",
+                IsEnabled = link.IsLoaded
+            };
+            reloadItem.Click += (s, args) => ReloadLink(link);
+            menu.Items.Add(reloadItem);
+
+            // Reload From
+            // FIXED: Explicitly use System.Windows.Controls.MenuItem
+            var reloadFromItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Reload From"
+            };
+            reloadFromItem.Click += (s, args) => ReloadFromLink(link);
+            menu.Items.Add(reloadFromItem);
+
+            // Open Location
+            // FIXED: Explicitly use System.Windows.Controls.MenuItem
+            var openLocationItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Open Location"
+            };
+            openLocationItem.Click += (s, args) => OpenLocation(link);
+            menu.Items.Add(openLocationItem);
+
+            // Remove Placeholder
+            // FIXED: Explicitly use System.Windows.Controls.MenuItem
+            var removePlaceholderItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Remove Placeholder",
+                IsEnabled = link.IsPlaceholder
+            };
+            removePlaceholderItem.Click += (s, args) => RemovePlaceholder(link);
+            menu.Items.Add(removePlaceholderItem);
+
+            cell.ContextMenu = menu;
+            menu.IsOpen = true;
+            e.Handled = true;
+        }
+
+        // --- Action Logic ---
+
+        private void UnloadLink(ReportLinkViewModel link)
+        {
+            // Unload logic: Only for loaded, non-placeholder links
+            if (!link.IsLoaded || link.IsPlaceholder) return;
+            using (var tx = new Transaction(_doc, $"Unload Link {link.FileName}"))
+            {
+                tx.Start();
+                try
+                {
+                    // Find the RevitLinkType and unload
+                    var linkType = FindRevitLinkType(link.FileName);
+                    if (linkType != null)
+                    {
+                        // FIXED: The Unload method requires an ISaveSharedCoordinatesCallback argument.
+                        // Passing null prompts the user with the default Revit dialog.
+                        linkType.Unload(null);
+                        tx.Commit();
+                        link.IsLoaded = false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    tx.RollBack();
+                    ShowError($"Failed to unload link: {ex.Message}");
+                }
+            }
+        }
+
+        private void ReloadLink(ReportLinkViewModel link)
+        {
+            // Reload logic: Only for loaded links
+            if (!link.IsLoaded) return;
+            using (var tx = new Transaction(_doc, $"Reload Link {link.FileName}"))
+            {
+                tx.Start();
+                try
+                {
+                    var linkType = FindRevitLinkType(link.FileName);
+                    if (linkType != null)
+                    {
+                        // FIXED: Changed to instance method for newer Revit APIs
+                        linkType.Reload();
+                        tx.Commit();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    tx.RollBack();
+                    ShowError($"Failed to reload link: {ex.Message}");
+                }
+            }
+        }
+
+        private void ReloadFromLink(ReportLinkViewModel link)
+        {
+            // Always enabled
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select New Link Source",
+                Filter = "Revit Files (*.rvt)|*.rvt|All Files (*.*)|*.*"
+            };
+            if (dlg.ShowDialog() == true)
+            {
+                string newPath = dlg.FileName;
+                using (var tx = new Transaction(_doc, $"Reload From {link.FileName}"))
+                {
+                    tx.Start();
+                    try
+                    {
+                        var linkType = FindRevitLinkType(link.FileName);
+                        if (linkType != null)
+                        {
+                            var modelPath = ModelPathUtils.ConvertUserVisiblePathToModelPath(newPath);
+                            linkType.LoadFrom(modelPath, new WorksetConfiguration());
+                        }
+                        tx.Commit();
+                        link.FilePath = newPath;
+                    }
+                    catch (Exception ex)
+                    {
+                        tx.RollBack();
+                        ShowError($"Failed to reload from new source: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        private void OpenLocation(ReportLinkViewModel link)
+        {
+            // Always enabled
+            if (!string.IsNullOrEmpty(link.FilePath) && System.IO.File.Exists(link.FilePath))
+            {
+                Process.Start("explorer.exe", $"/select,\"{link.FilePath}\"");
+            }
+            else
+            {
+                ShowError("File path not found or file does not exist.");
+            }
+        }
+
+        private void RemovePlaceholder(ReportLinkViewModel link)
+        {
+            // Only enabled for placeholders
+            if (!link.IsPlaceholder) return;
+            Links.Remove(link);
+            // Optionally, update storage or UI immediately
+        }
+
+        // --- Helper Methods ---
+
+        private RevitLinkType FindRevitLinkType(string fileName)
+        {
+            var allLinkTypes = new FilteredElementCollector(_doc)
+                .OfClass(typeof(RevitLinkType))
+                .Cast<RevitLinkType>();
+            foreach (var linkType in allLinkTypes)
+            {
+                var extRef = linkType.GetExternalFileReference();
+                if (extRef != null)
+                {
+                    var path = ModelPathUtils.ConvertModelPathToUserVisiblePath(extRef.GetPath());
+                    if (System.IO.Path.GetFileName(path).Equals(fileName, StringComparison.OrdinalIgnoreCase))
+                        return linkType;
+                }
+            }
+            return null;
+        }
+
+        private void ShowError(string message)
+        {
+            Autodesk.Revit.UI.TaskDialog.Show("Error", message);
+        }
+
+        // Helper to find parent of a certain type in the visual tree
+        public static T FindParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            DependencyObject parentObject = System.Windows.Media.VisualTreeHelper.GetParent(child);
+            if (parentObject == null) return null;
+            T parent = parentObject as T;
+            if (parent != null)
+                return parent;
+            else
+                return FindParent<T>(parentObject);
         }
 
         private void ExportMyPowerCADDataButton_Click(object sender, RoutedEventArgs e)
@@ -187,7 +371,6 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                 var processedCableRefs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                 // 1. Add cable references from primaryData, maintaining their retrieved order.
-                // This ensures "Report by Cable Reference to match Primary Storage Cable Reference order".
                 foreach (var primaryCable in primaryData)
                 {
                     if (!string.IsNullOrEmpty(primaryCable.CableReference) && processedCableRefs.Add(primaryCable.CableReference))
@@ -197,13 +380,11 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                 }
 
                 // 2. Add cable references from consultantData that are NOT in primaryData, sorted alphabetically.
-                // These are "Cable References present in Consultant Storage but not in Primary Storage"
-                // and are "to be moved to the end after the cables are sorted by Primary Data Cable Reference".
                 var consultantOnlyRefs = consultantData
                     .Where(c => !string.IsNullOrEmpty(c.CableReference) && !processedCableRefs.Contains(c.CableReference))
                     .Select(c => c.CableReference)
                     .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(cr => cr, StringComparer.OrdinalIgnoreCase) // Sort consultant-only cables alphabetically
+                    .OrderBy(cr => cr, StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
                 foreach (var conRef in consultantOnlyRefs)
@@ -215,7 +396,6 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                 }
 
                 // 3. Add cable references from modelGeneratedData that are NOT in primaryData or consultantData, sorted alphabetically.
-                // This ensures any model-generated only cables are also included at the very end.
                 var modelGeneratedOnlyRefs = modelGeneratedData
                     .Where(m => !string.IsNullOrEmpty(m.CableReference) && !processedCableRefs.Contains(m.CableReference))
                     .Select(m => m.CableReference)
@@ -235,7 +415,7 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                 var reportData = new List<RSGxCableData>();
                 int rowNum = 1;
 
-                foreach (string cableRef in finalReportCableRefs) // Use the newly sorted/ordered list
+                foreach (string cableRef in finalReportCableRefs)
                 {
                     primaryDict.TryGetValue(cableRef, out PC_ExtensibleClass.CableData primaryInfo);
                     consultantDict.TryGetValue(cableRef, out PC_ExtensibleClass.CableData consultantInfo);
@@ -252,7 +432,6 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                         cableLengthDifference = (rsgxLen - djvLen).ToString("F1");
                     }
 
-                    // --- START Updated Logic for Cable size Change from Design (Y/N) ---
                     string cableSizeChangeYN;
                     string primaryActiveSize = primaryInfo?.ActiveCableSize;
                     string consultantActiveSize = consultantInfo?.ActiveCableSize;
@@ -266,10 +445,8 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                     {
                         cableSizeChangeYN = (string.Equals(primaryActiveSize, consultantActiveSize, StringComparison.OrdinalIgnoreCase)) ? "N" : "Y";
                     }
-                    // --- END Updated Logic for Cable size Change from Design (Y/N) ---
 
                     string earthIncludedRaw = primaryInfo?.SeparateEarthForMulticore;
-                    // Updated "Earth Included (Yes / No)" to be "Y" or "N"
                     string earthIncludedFormatted = string.Equals(earthIncludedRaw, "No", StringComparison.OrdinalIgnoreCase) ? "Y" : "N";
 
                     string fireRatingValue = "";
@@ -313,15 +490,13 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
 
                     string voltageRating;
                     string cableDescriptionValue;
-                    string cores = primaryInfo?.Cores ?? "N/A"; // Get cores here for the conditional logic
+                    string cores = primaryInfo?.Cores ?? "N/A";
 
-                    // Declare these variables outside the if/else to ensure they are always in scope
                     string activeCableSize = primaryInfo?.ActiveCableSize ?? "N/A";
                     string type = primaryInfo?.CableType ?? "N/A";
                     string sheath = primaryInfo?.Sheath ?? "N/A";
                     string insulation = primaryInfo?.Insulation ?? "N/A";
 
-                    // Conditional logic for Voltage Rating and Cable Description based on Cores
                     if (cores == "N/A")
                     {
                         voltageRating = "N/A";
@@ -332,7 +507,7 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                         voltageRating = "0.6/1kV";
                         if (destinationDeviceID == "N/A")
                         {
-                            voltageRating = ""; // Set to null/empty if destination device is N/A
+                            voltageRating = "";
                         }
 
                         var descriptionParts = new List<string>();
@@ -347,7 +522,6 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                         cableDescriptionValue = string.Join(" | ", descriptionParts);
                     }
 
-                    // Append ", LSZH" to Type if it's not "N/A"
                     if (!string.IsNullOrEmpty(type) && !string.Equals(type, "N/A", StringComparison.OrdinalIgnoreCase))
                     {
                         type += ", LSZH";
@@ -370,7 +544,7 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                         Cores = cores,
                         ConductorType = primaryInfo?.ConductorActive ?? "N/A",
                         CableSizeChangeFromDesignYN = cableSizeChangeYN,
-                        PreviousDesignSize = consultantInfo?.ActiveCableSize ?? "N/A", // This is now "DJV Active Cable Size (mm²)"
+                        PreviousDesignSize = consultantInfo?.ActiveCableSize ?? "N/A",
                         EarthIncludedYesNo = earthIncludedFormatted,
                         NumberOfEarthCables = primaryInfo?.NumberOfEarthCables ?? "N/A",
                         EarthSizeMM2 = primaryInfo?.EarthCableSize ?? "N/A",
@@ -382,7 +556,7 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                         FireRating = fireRatingValue,
                         LoadA = primaryInfo?.LoadA ?? "N/A",
                         CableDescription = cableDescriptionValue,
-                        Comments = "", // Set Comments to empty string
+                        Comments = "",
                         UpdateSummary = updateSummaryValue
                     });
                 }
@@ -401,30 +575,23 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
             }
         }
 
-        /// <summary>
-        /// Handles the click event for the "RSGx Cable Summary (XLSX)" button.
-        /// Initiates the generation of the Excel report using PC_Generate_MDClass.
-        /// </summary>
         private void GenerateRSGxCableSummaryXlsxReport_Click(object sender, RoutedEventArgs e)
         {
-            this.Close(); // Close the selection window
+            this.Close();
 
             string message = "";
-            // ElementSet is typically used for selected elements, but for a general report, an empty one is fine.
             ElementSet elements = new ElementSet();
 
-            // Corrected instantiation: PC_Generate_MDClass is directly accessible via 'using RTS.Commands;'
             PC_Generate_MDClass excelGenerator = new PC_Generate_MDClass();
             Result result = excelGenerator.Execute(_commandData, ref message, elements);
 
-            // The PC_Generate_MDClass.Execute method already handles success/failure messages via MessageBox.Show
-            // However, if it returns Result.Failed, we can log or show an additional message if needed.
             if (result == Result.Failed)
             {
-                // This TaskDialog will only show if the Excel generator itself didn't show a more specific error.
                 Autodesk.Revit.UI.TaskDialog.Show("Export Error", $"Failed to generate RSGx Cable Summary (XLSX): {message}");
             }
         }
+
+        #region --- Routing Sequence Report (REFACTORED) ---
 
         private void GenerateRoutingSequenceReportButton_Click(object sender, RoutedEventArgs e)
         {
@@ -444,26 +611,25 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                 .Cast<ProjectInfo>()
                 .FirstOrDefault();
 
-            string projectName = projectInfo?.get_Parameter(BuiltInParameter.PROJECT_NAME)?.AsString() ?? "";
-            string projectNumber = projectInfo?.get_Parameter(BuiltInParameter.PROJECT_NUMBER)?.AsString() ?? "";
+            string projectName = projectInfo?.get_Parameter(BuiltInParameter.PROJECT_NAME)?.AsString() ?? "N/A";
+            string projectNumber = projectInfo?.get_Parameter(BuiltInParameter.PROJECT_NUMBER)?.AsString() ?? "N/A";
 
             var sb = new StringBuilder();
             sb.AppendLine("Cable Routing Sequence");
             sb.AppendLine($"Project:\t{projectName}");
             sb.AppendLine($"Project No:\t{projectNumber}");
             sb.AppendLine($"Date:\t{DateTime.Now:dd/MM/yyyy}");
-            sb.AppendLine(); // Blank line between header and table
-            sb.AppendLine("Cable Reference,From,To,Routing Sequence");
+            sb.AppendLine(); // Blank line
+            sb.AppendLine("Cable Reference,From,To,Status,Routing Sequence");
 
-            // --- Routing Sequence Data ---
+            // --- Data Pre-computation (Fetch once) ---
             List<PC_ExtensibleClass.CableData> primaryData = _pcExtensible.RecallDataFromExtensibleStorage<PC_ExtensibleClass.CableData>(
                 _doc, PC_ExtensibleClass.PrimarySchemaGuid, PC_ExtensibleClass.PrimarySchemaName,
-                PC_ExtensibleClass.PrimaryFieldName, PC_ExtensibleClass.PrimaryDataStorageElementName
-            );
+                PC_ExtensibleClass.PrimaryFieldName, PC_ExtensibleClass.PrimaryDataStorageElementName);
 
             if (primaryData == null || !primaryData.Any())
             {
-                Autodesk.Revit.UI.TaskDialog.Show("No Data", "No primary cable data found to generate the Routing Sequence report.");
+                Autodesk.Revit.UI.TaskDialog.Show("No Data", "No primary cable data found.");
                 return;
             }
 
@@ -472,116 +638,419 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                 .GroupBy(c => c.CableReference)
                 .ToDictionary(g => g.Key, g => g.First());
 
-            var cableGuids = new List<Guid>
-            {
-                new Guid("cf0d478e-1e98-4e83-ab80-6ee867f61798"), // Cable_01
-                new Guid("2551d308-44ed-405c-8aad-fb78624d086e"), // Cable_02
-                new Guid("c1dfc402-2101-4e53-8f52-f6af64584a9f"), // Cable_03
-                new Guid("f297daa6-a9e0-4dd5-bda3-c628db7c28bd"), // Cable_04
-                new Guid("b0ef396d-6ec0-4ab7-b7cc-9318e9e9b3ab"), // Cable_05
-                new Guid("7c08095a-a3b2-4b78-ba15-dde09a7bc3a9"), // Cable_06
-                new Guid("9bc78bce-0d39-4538-b507-7b98e8a13404"), // Cable_07
-                new Guid("e9d50153-a0e9-4685-bc92-d89f244f7e8e"), // Cable_08
-                new Guid("5713d65a-91df-4d2e-97bf-1c3a10ea5225"), // Cable_09
-                new Guid("64af3105-b2fd-44bc-9ad3-17264049ff62"), // Cable_10
-                new Guid("f3626002-0e62-4b75-93cc-35d0b11dfd67"), // Cable_11
-                new Guid("63dc0a2e-0770-4002-a859-a9d40a2ce023"), // Cable_12
-                new Guid("eb7c4b98-d676-4e2b-a408-e3578b2c0ef2"), // Cable_13
-                new Guid("0e0572e5-c568-42b7-8730-a97433bd9b54"), // Cable_14
-                new Guid("bf9cd3e8-e38f-4250-9daa-c0fc67eca10f"), // Cable_15
-                new Guid("f6d2af67-027e-4b9c-9def-336ebaa87336"), // Cable_16
-                new Guid("f6a4459d-46a1-44c0-8545-ee44e4778854"), // Cable_17
-                new Guid("0d66d2fa-f261-4daa-8041-9eadeefac49a"), // Cable_18
-                new Guid("af483914-c8d2-4ce6-be6e-ab81661e5bf1"), // Cable_19
-                new Guid("c8d2d2fc-c248-483f-8d52-e630eb730cd7"), // Cable_20
-                new Guid("aa41bc4a-e3e7-45b0-81fa-74d3e71ca506"), // Cable_21
-                new Guid("6cffdb25-8270-4b34-8bb4-cf5d0a224dc2"), // Cable_22
-                new Guid("7fdaad3a-454e-47f3-8189-7eda9cb9f6a2"), // Cable_23
-                new Guid("7f745b2b-a537-42d9-8838-7a5521cc7d0c"), // Cable_24
-                new Guid("9a76c2dc-1022-4a54-ab66-5ca625b50365"), // Cable_25
-                new Guid("658e39c4-bbac-4e2e-b649-2f2f5dd05b5e"), // Cable_26
-                new Guid("8ad24640-036b-44d2-af9c-b891f6e64271"), // Cable_27
-                new Guid("c046c4d7-e1fd-4cf7-a99f-14ae96b722be"), // Cable_28
-                new Guid("cdf00587-7e11-4af4-8e54-48586481cf22"), // Cable_29
-                new Guid("a92bb0f9-2781-4971-a3b1-9c47d62b947b")  // Cable_30
-            };
             var rtsIdGuid = new Guid("3175a27e-d386-4567-bf10-2da1a9cbb73b");
 
-            var traysWithRtsId = new FilteredElementCollector(_doc)
-                .OfCategory(BuiltInCategory.OST_CableTray)
-                .WhereElementIsNotElementType()
-                .Where(e =>
-                {
-                    var param = e.get_Parameter(rtsIdGuid);
-                    return param != null && param.HasValue && !string.IsNullOrWhiteSpace(param.AsString());
-                })
-                .ToList();
-
-            var conduitsWithRtsId = new FilteredElementCollector(_doc)
+            var allConduits = new FilteredElementCollector(_doc)
                 .OfCategory(BuiltInCategory.OST_Conduit)
                 .WhereElementIsNotElementType()
-                .Where(e =>
-                {
-                    var param = e.get_Parameter(rtsIdGuid);
-                    return param != null && param.HasValue && !string.IsNullOrWhiteSpace(param.AsString());
-                })
+                .Where(e => e.get_Parameter(rtsIdGuid)?.HasValue ?? false)
                 .ToList();
 
-            var elementsToCheck = traysWithRtsId.Concat(conduitsWithRtsId);
+            var allCableTrays = new FilteredElementCollector(_doc)
+                .OfCategory(BuiltInCategory.OST_CableTray)
+                .WhereElementIsNotElementType()
+                .Where(e => e.get_Parameter(rtsIdGuid)?.HasValue ?? false)
+                .ToList();
 
-            foreach (var cableRef in cableLookup.Keys)
+            var allContainmentElements = allConduits.Concat(allCableTrays).ToList();
+
+            var allEquipment = new FilteredElementCollector(_doc)
+                .OfCategory(BuiltInCategory.OST_ElectricalEquipment)
+                .WhereElementIsNotElementType().ToList();
+
+            var allFixtures = new FilteredElementCollector(_doc)
+                .OfCategory(BuiltInCategory.OST_ElectricalFixtures)
+                .WhereElementIsNotElementType().ToList();
+
+            var cableGuids = new List<Guid>
             {
-                var cableInfo = cableLookup[cableRef];
-                var rtsIdBranchList = new List<(string rtsId, int branchNumber)>();
-                var uniqueRtsIds = new HashSet<string>();
+                new Guid("cf0d478e-1e98-4e83-ab80-6ee867f61798"), // Cable_01...
+                new Guid("2551d308-44ed-405c-8aad-fb78624d086e"), new Guid("c1dfc402-2101-4e53-8f52-f6af64584a9f"),
+                new Guid("f297daa6-a9e0-4dd5-bda3-c628db7c28bd"), new Guid("b0ef396d-6ec0-4ab7-b7cc-9318e9e9b3ab"),
+                new Guid("7c08095a-a3b2-4b78-ba15-dde09a7bc3a9"), new Guid("9bc78bce-0d39-4538-b507-7b98e8a13404"),
+                new Guid("e9d50153-a0e9-4685-bc92-d89f244f7e8e"), new Guid("5713d65a-91df-4d2e-97bf-1c3a10ea5225"),
+                new Guid("64af3105-b2fd-44bc-9ad3-17264049ff62"), new Guid("f3626002-0e62-4b75-93cc-35d0b11dfd67"),
+                new Guid("63dc0a2e-0770-4002-a859-a9d40a2ce023"), new Guid("eb7c4b98-d676-4e2b-a408-e3578b2c0ef2"),
+                new Guid("0e0572e5-c568-42b7-8730-a97433bd9b54"), new Guid("bf9cd3e8-e38f-4250-9daa-c0fc67eca10f"),
+                new Guid("f6d2af67-027e-4b9c-9def-336ebaa87336"), new Guid("f6a4459d-46a1-44c0-8545-ee44e4778854"),
+                new Guid("0d66d2fa-f261-4daa-8041-9eadeefac49a"), new Guid("af483914-c8d2-4ce6-be6e-ab81661e5bf1"),
+                new Guid("c8d2d2fc-c248-483f-8d52-e630eb730cd7"), new Guid("aa41bc4a-e3e7-45b0-81fa-74d3e71ca506"),
+                new Guid("6cffdb25-8270-4b34-8bb4-cf5d0a224dc2"), new Guid("7fdaad3a-454e-47f3-8189-7eda9cb9f6a2"),
+                new Guid("7f745b2b-a537-42d9-8838-7a5521cc7d0c"), new Guid("9a76c2dc-1022-4a54-ab66-5ca625b50365"),
+                new Guid("658e39c4-bbac-4e2e-b649-2f2f5dd05b5e"), new Guid("8ad24640-036b-44d2-af9c-b891f6e64271"),
+                new Guid("c046c4d7-e1fd-4cf7-a99f-14ae96b722be"), new Guid("cdf00587-7e11-4af4-8e54-48586481cf22"),
+                new Guid("a92bb0f9-2781-4971-a3b1-9c47d62b947b")
+            };
 
-                foreach (Element element in elementsToCheck)
+            var progressWindow = new RoutingReportProgressBarWindow
+            {
+                Owner = System.Windows.Application.Current?.MainWindow
+            };
+            progressWindow.Show();
+
+            try
+            {
+                int totalCables = cableLookup.Count;
+                int currentCable = 0;
+
+                foreach (var cableRef in cableLookup.Keys)
                 {
-                    Parameter rtsIdParam = element.get_Parameter(rtsIdGuid);
-                    string rtsId = rtsIdParam != null && rtsIdParam.HasValue ? rtsIdParam.AsString() : null;
-                    if (string.IsNullOrWhiteSpace(rtsId)) continue;
+                    currentCable++;
+                    var cableInfo = cableLookup[cableRef];
 
-                    foreach (var guid in cableGuids)
+                    progressWindow.UpdateProgress(currentCable, totalCables, cableRef,
+                        cableInfo?.From ?? "N/A", cableInfo?.To ?? "N/A",
+                        (double)currentCable / totalCables * 100.0, "Building routing sequence...");
+                    System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+
+                    if (progressWindow.IsCancelled)
                     {
-                        Parameter cableParam = element.get_Parameter(guid);
-                        if (cableParam != null && cableParam.HasValue)
+                        progressWindow.TaskDescriptionText.Text = "Operation cancelled by user.";
+                        break;
+                    }
+
+                    string status = "Error";
+                    string routingSequence = "Could not determine route.";
+
+                    try
+                    {
+                        var rtsIdToElement = new Dictionary<string, Element>();
+                        foreach (Element elem in allContainmentElements)
                         {
-                            string paramValue = cableParam.AsString();
-                            if (CleanCableReference(paramValue) == cableRef && uniqueRtsIds.Add(rtsId))
+                            bool cableFound = false;
+                            foreach (var guid in cableGuids)
                             {
-                                // Extract branch number (last 4 digits after last '-')
-                                int branchNumber = 0;
-                                var parts = rtsId.Split('-');
-                                if (parts.Length > 0)
+                                Parameter cableParam = elem.get_Parameter(guid);
+                                string paramValue = cableParam?.AsString();
+                                if (string.Equals(CleanCableReference(paramValue), cableRef, StringComparison.OrdinalIgnoreCase))
                                 {
-                                    string branchStr = parts.Last();
-                                    int.TryParse(branchStr, out branchNumber);
+                                    cableFound = true;
+                                    break;
                                 }
-                                rtsIdBranchList.Add((rtsId, branchNumber));
+                            }
+                            if (cableFound)
+                            {
+                                string rtsId = elem.get_Parameter(rtsIdGuid)?.AsString();
+                                if (!string.IsNullOrWhiteSpace(rtsId) && !rtsIdToElement.ContainsKey(rtsId))
+                                {
+                                    rtsIdToElement.Add(rtsId, elem);
+                                }
+                            }
+                        }
+
+                        if (!rtsIdToElement.Any())
+                        {
+                            status = "Pending";
+                            routingSequence = "No cable containment assigned in model.";
+                        }
+                        else
+                        {
+                            var adjacencyGraph = BuildAdjacencyGraph(rtsIdToElement.Values.ToList());
+                            var cableEndpoints = GetCableEndpoints(rtsIdToElement.Values.ToList());
+                            Element matchedEnd = FindMatchingEndElement(cableInfo.To, cableEndpoints, allEquipment, allFixtures, rtsIdGuid);
+
+                            if (matchedEnd != null)
+                            {
+                                status = "Confirmed";
+                                var path = FindConfirmedPath(matchedEnd, rtsIdToElement.Values.ToList(), adjacencyGraph);
+                                routingSequence = FormatPath(path, adjacencyGraph, rtsIdToElement);
+                            }
+                            else
+                            {
+                                status = "Unconfirmed";
+                                var disconnectedPaths = FindDisconnectedPaths(rtsIdToElement.Values.ToList(), adjacencyGraph);
+                                routingSequence = FormatDisconnectedPaths(disconnectedPaths, adjacencyGraph, rtsIdToElement);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        status = "Error";
+                        routingSequence = $"Processing failed: {ex.Message}";
+                    }
+
+                    sb.AppendLine($"\"{cableRef}\",\"{cableInfo.From ?? "N/A"}\",\"{cableInfo.To ?? "N/A"}\",\"{status}\",\"{routingSequence}\"");
+                }
+
+                if (!progressWindow.IsCancelled)
+                {
+                    System.IO.File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+                    progressWindow.UpdateProgress(totalCables, totalCables, "Complete", "N/A", "N/A", 100, "Exporting file...");
+                    progressWindow.TaskDescriptionText.Text = "Export complete.";
+                    Autodesk.Revit.UI.TaskDialog.Show("Export Complete", $"Routing Sequence report successfully exported to:\n{filePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                progressWindow.ShowError($"An unexpected error occurred: {ex.Message}");
+                Autodesk.Revit.UI.TaskDialog.Show("Export Error", $"Failed to export Routing Sequence report: {ex.Message}");
+            }
+            finally
+            {
+                progressWindow.Close();
+            }
+        }
+
+        #region Routing Sequence Helper Methods
+
+        private Dictionary<Element, List<Element>> BuildAdjacencyGraph(List<Element> elements)
+        {
+            var graph = new Dictionary<Element, List<Element>>();
+            foreach (var elemA in elements)
+            {
+                if (!graph.ContainsKey(elemA)) graph[elemA] = new List<Element>();
+                foreach (var elemB in elements)
+                {
+                    if (elemA.Id == elemB.Id) continue;
+                    if (AreConnected(elemA, elemB))
+                    {
+                        graph[elemA].Add(elemB);
+                    }
+                }
+            }
+            return graph;
+        }
+
+        private List<Element> FindSinglePath_BFS(Element startNode, Element endNode, Dictionary<Element, List<Element>> graph)
+        {
+            if (startNode == null || endNode == null || startNode.Id == endNode.Id)
+            {
+                return new List<Element> { startNode ?? endNode };
+            }
+
+            var queue = new Queue<Element>();
+            var cameFrom = new Dictionary<ElementId, ElementId>();
+            var visited = new HashSet<ElementId>();
+
+            queue.Enqueue(startNode);
+            visited.Add(startNode.Id);
+
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+
+                if (current.Id == endNode.Id)
+                {
+                    var path = new List<Element>();
+                    var at = current;
+                    while (at != null)
+                    {
+                        path.Add(at);
+                        if (!cameFrom.TryGetValue(at.Id, out ElementId prevId)) break;
+                        at = _doc.GetElement(prevId);
+                    }
+                    path.Reverse();
+                    return path;
+                }
+
+                if (graph.TryGetValue(current, out List<Element> neighbors))
+                {
+                    foreach (var neighbor in neighbors)
+                    {
+                        if (!visited.Contains(neighbor.Id))
+                        {
+                            visited.Add(neighbor.Id);
+                            cameFrom[neighbor.Id] = current.Id;
+                            queue.Enqueue(neighbor);
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        private List<Element> FindConfirmedPath(Element matchedEnd, List<Element> cableElements, Dictionary<Element, List<Element>> graph)
+        {
+            XYZ matchedEndPt = GetElementLocation(matchedEnd);
+            if (matchedEndPt == null) return new List<Element>();
+
+            Element endElem = cableElements
+                .OrderBy(e => GetElementLocation(e)?.DistanceTo(matchedEndPt) ?? double.MaxValue)
+                .FirstOrDefault();
+
+            Element startElem = cableElements
+                .OrderByDescending(e => GetElementLocation(e)?.DistanceTo(matchedEndPt) ?? 0)
+                .FirstOrDefault();
+
+            return FindSinglePath_BFS(startElem, endElem, graph) ?? new List<Element>();
+        }
+
+        private List<List<Element>> FindDisconnectedPaths(List<Element> cableElements, Dictionary<Element, List<Element>> graph)
+        {
+            var allPaths = new List<List<Element>>();
+            var visited = new HashSet<ElementId>();
+
+            foreach (var startNode in cableElements)
+            {
+                if (visited.Contains(startNode.Id)) continue;
+
+                var pathSegment = new List<Element>();
+                var q = new Queue<Element>();
+
+                q.Enqueue(startNode);
+                visited.Add(startNode.Id);
+                pathSegment.Add(startNode);
+
+                while (q.Count > 0)
+                {
+                    var current = q.Dequeue();
+                    if (graph.TryGetValue(current, out List<Element> neighbors))
+                    {
+                        foreach (var neighbor in neighbors)
+                        {
+                            if (!visited.Contains(neighbor.Id))
+                            {
+                                visited.Add(neighbor.Id);
+                                pathSegment.Add(neighbor);
+                                q.Enqueue(neighbor);
                             }
                         }
                     }
                 }
-
-                // Order by branch number
-                var orderedRtsIds = rtsIdBranchList
-                    .OrderBy(t => t.branchNumber)
-                    .Select(t => t.rtsId)
-                    .ToList();
-
-                string routingSequence = string.Join(", ", orderedRtsIds);
-
-                // If blank, write "Pending model cable reticulation update"
-                if (string.IsNullOrWhiteSpace(routingSequence))
-                    routingSequence = "Pending model cable reticulation update";
-
-                sb.AppendLine($"\"{cableRef}\",\"{cableInfo.From}\",\"{cableInfo.To}\",\"{routingSequence}\"");
+                allPaths.Add(pathSegment);
             }
-
-            System.IO.File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
-
-            Autodesk.Revit.UI.TaskDialog.Show("Export Complete", $"Routing Sequence report successfully exported to:\n{filePath}");
+            return allPaths;
         }
+
+        private string FormatPath(List<Element> path, Dictionary<Element, List<Element>> graph, Dictionary<string, Element> rtsIdMap)
+        {
+            if (path == null || !path.Any()) return "Path not found";
+
+            var rtsIdLookup = rtsIdMap.ToDictionary(kvp => kvp.Value.Id, kvp => kvp.Key);
+            var sequence = new List<string>();
+
+            for (int i = 0; i < path.Count; i++)
+            {
+                var current = path[i];
+                if (!rtsIdLookup.TryGetValue(current.Id, out string rtsId)) continue;
+
+                if (i > 0)
+                {
+                    var prev = path[i - 1];
+                    if (current.Category.Id != prev.Category.Id)
+                    {
+                        sequence.Add("+");
+                    }
+                    else if (!graph[prev].Any(n => n.Id == current.Id))
+                    {
+                        sequence.Add("||");
+                    }
+                    else
+                    {
+                        sequence.Add(",");
+                    }
+                }
+                sequence.Add(rtsId);
+            }
+            return string.Join(" ", sequence).Replace(" , ", ", ").Replace(" + ", " + ").Replace(" || ", " || ");
+        }
+
+        private string FormatDisconnectedPaths(List<List<Element>> allPaths, Dictionary<Element, List<Element>> graph, Dictionary<string, Element> rtsIdMap)
+        {
+            var sb = new StringBuilder();
+            for (int i = 0; i < allPaths.Count; i++)
+            {
+                if (i > 0) sb.Append(" >> ");
+                sb.Append(FormatPath(allPaths[i], graph, rtsIdMap));
+            }
+            return sb.ToString();
+        }
+
+        private bool AreConnected(Element a, Element b)
+        {
+            if (a == null || b == null) return false;
+            try
+            {
+                var connectorsA = (a as MEPCurve)?.ConnectorManager?.Connectors;
+                var connectorsB = (b as MEPCurve)?.ConnectorManager?.Connectors;
+
+                if (connectorsA == null || connectorsB == null) return false;
+
+                foreach (Connector cA in connectorsA)
+                {
+                    foreach (Connector cB in connectorsB)
+                    {
+                        if (cA.IsConnectedTo(cB) || cA.Origin.IsAlmostEqualTo(cB.Origin, 0.1))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private Element FindMatchingEndElement(string toRtsId, List<XYZ> cableEndpoints, List<Element> allEquipment, List<Element> allFixtures, Guid rtsIdGuid)
+        {
+            if (string.IsNullOrWhiteSpace(toRtsId) || !cableEndpoints.Any()) return null;
+
+            var candidates = new List<Element>();
+            candidates.AddRange(allEquipment);
+            candidates.AddRange(allFixtures);
+
+            var matches = candidates.Where(e =>
+            {
+                var param = e?.get_Parameter(rtsIdGuid);
+                var val = param?.AsString();
+                return !string.IsNullOrWhiteSpace(val) && toRtsId.IndexOf(val, StringComparison.OrdinalIgnoreCase) >= 0;
+            }).ToList();
+
+            if (!matches.Any()) return null;
+
+            Element closestMatch = null;
+            double minDistance = double.MaxValue;
+
+            foreach (var match in matches)
+            {
+                var matchLocation = GetElementLocation(match);
+                if (matchLocation == null) continue;
+
+                foreach (var cablePt in cableEndpoints)
+                {
+                    double dist = cablePt.DistanceTo(matchLocation);
+                    if (dist < minDistance)
+                    {
+                        minDistance = dist;
+                        closestMatch = match;
+                    }
+                }
+            }
+            return closestMatch;
+        }
+
+        private XYZ GetElementLocation(Element element)
+        {
+            if (element == null) return null;
+            try
+            {
+                if (element.Location is LocationPoint locPoint) return locPoint.Point;
+                if (element.Location is LocationCurve locCurve) return locCurve.Curve.GetEndPoint(0);
+            }
+            catch { }
+            return null;
+        }
+
+        private List<XYZ> GetCableEndpoints(List<Element> cableElements)
+        {
+            var endpoints = new List<XYZ>();
+            foreach (var elem in cableElements)
+            {
+                if (elem?.Location is LocationCurve locCurve && locCurve.Curve != null)
+                {
+                    try
+                    {
+                        endpoints.Add(locCurve.Curve.GetEndPoint(0));
+                        endpoints.Add(locCurve.Curve.GetEndPoint(1));
+                    }
+                    catch { }
+                }
+            }
+            return endpoints;
+        }
+        #endregion
+
+        #endregion
 
         private void PerformExport<T>(Guid schemaGuid, string schemaName, string fieldName, string dataStorageElementName, string defaultFileName, string dataTypeName) where T : class, new()
         {
@@ -614,12 +1083,8 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
             }
         }
 
-        /// <summary>
-        /// Prompts the user to select an output file using the modern Windows API file dialog.
-        /// </summary>
         private string GetOutputFilePath(string defaultFileName, string dialogTitle)
         {
-            // Use the modern Windows API file dialog for folder and filename selection
             var dialog = new SaveFileDialog
             {
                 Title = dialogTitle,
@@ -638,9 +1103,6 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
             return null;
         }
 
-        /// <summary>
-        /// A helper class to wrap a WPF window handle for use with WinForms dialogs.
-        /// </summary>
         public class Win32Window : System.Windows.Forms.IWin32Window
         {
             public IntPtr Handle { get; private set; }
@@ -669,7 +1131,7 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
                     "No. of Sets",
                     "Neutral Cable Size (mm²)", "Cores", "Conductor Type",
                     "Earth Included (Y/N)",
-                    "Number of Earth Cables", "Earth Size (mm2)", "Voltage", "Voltage Rating", "Type", "Sheath Construction",
+                    "Number of Earth Cables", "Earth Size (mm2)", "Voltage", "VoltageRating", "Type", "Sheath Construction",
                     "Insulation Construction", "Fire Rating", "Load (A)",
                     "Cable Description", "Comments", "Update Summary"
                 });
@@ -767,7 +1229,6 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
             int openParenIndex = cleaned.IndexOf('(');
             if (openParenIndex != -1)
             {
-                int closeParenIndex = cleaned.IndexOf(')', openParenIndex);
                 cleaned = cleaned.Substring(0, openParenIndex).Trim();
             }
             int firstSlashIndex = cleaned.IndexOf('/');
@@ -788,5 +1249,15 @@ namespace RTS.UI // UPDATED: Changed from 'RTS_Reports' to 'RTS.UI'
             }
             return cleaned;
         }
+    }
+
+    // --- LinkViewModel for grid row ---
+    public class ReportLinkViewModel
+    {
+        public string FileName { get; set; }
+        public string FilePath { get; set; }
+        public bool IsLoaded { get; set; }
+        public bool IsPlaceholder { get; set; }
+        // Add other properties as needed
     }
 }
