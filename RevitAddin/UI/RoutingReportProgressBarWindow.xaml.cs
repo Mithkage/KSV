@@ -25,13 +25,13 @@ namespace RTS.UI
         /// <param name="taskDescription">Task description</param>
         public void UpdateProgress(int currentRoute, int totalRoutes, string cableReference, string fromDevice, string toDevice, double percent, string taskDescription)
         {
-            RouteProgressText.Text = $"Route {currentRoute} of {totalRoutes}: {cableReference}";
+            RouteProgressText.Text = cableReference;
             ProgressBar.Value = percent;
             TaskDescriptionText.Text = taskDescription;
 
-            CableReferenceText.Text = $"Cable Reference: {cableReference}";
-            FromText.Text = $"From: {fromDevice}";
-            ToText.Text = $"To: {toDevice}";
+            CableReferenceText.Text = cableReference;
+            FromText.Text = fromDevice;
+            ToText.Text = toDevice;
         }
 
         public void ShowError(string message)

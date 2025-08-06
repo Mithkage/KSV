@@ -131,3 +131,5 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Up2Date
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.pdb
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\UI\RoutingReportProgressBarWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\UI\RoutingReportProgressBarWindow.g.cs

@@ -14,6 +14,8 @@ Change Log:
 - August 3, 2025: Added context menu options to the "File Name" column in the Dashboard tab.
 - August 6, 2025: Applied the "File Name" context menu to the Management tab for UI consistency.
 - August 6, 2025: Changed ComboBox fields in the 'Contacts' tab to standard text input fields for direct user entry.
+- August 6, 2025: Removed loading indicator and standardized column widths across all tabs.
+- August 6, 2025: Corrected XAML structure by moving the action buttons StackPanel inside the main Grid.
 -->
 <Window x:Class="RTS.UI.LinkManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -28,7 +30,6 @@ Change Log:
         Topmost="True"
         Background="#FFE0F2F1"
         MinWidth="900" MinHeight="450">
-    <!-- Icon="pack://application:,,,/Resources/RTS_Icon.png" -->
 
     <!-- Resource Dictionary for Styles -->
     <Window.Resources>
@@ -211,7 +212,6 @@ Change Log:
 
             <!-- Header Title -->
             <DockPanel Grid.Column="0" LastChildFill="True">
-                <!-- <Image Source="pack://application:,,,/Resources/RTS_Icon.png" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,10,0"/> -->
                 <TextBlock FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#FF333333"><Run Text="Link "/><Run Text="Hub"/></TextBlock>
             </DockPanel>
 
@@ -226,6 +226,7 @@ Change Log:
 
         <!-- Project Roles & Contacts Grid -->
         <DataGrid x:Name="ProjectRolesGrid"
+                  Grid.Row="1"
                   AutoGenerateColumns="False"
                   HeadersVisibility="Column"
                   CanUserAddRows="False"
@@ -233,6 +234,7 @@ Change Log:
                   CanUserResizeColumns="True"
                   Margin="0,10,0,10"
                   Height="110"
+                  VerticalAlignment="Top"
                   ItemsSource="{Binding ProjectRoles}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Role" Binding="{Binding Role}" IsReadOnly="True" Width="2*"/>
@@ -243,8 +245,8 @@ Change Log:
         </DataGrid>
 
         <!-- TabControl -->
-        <TabControl Grid.Row="1">
-            <!-- Dashboard Tab (NEW) -->
+        <TabControl Grid.Row="1" x:Name="MainTabControl" Margin="0,130,0,0">
+            <!-- Dashboard Tab -->
             <TabItem x:Name="Dashboard_Tab" Header="Dashboard">
                 <DataGrid x:Name="DashboardDataGrid"
                           ItemsSource="{Binding Links}"
@@ -258,33 +260,10 @@ Change Log:
                           BorderBrush="#FF00796B"
                           BorderThickness="1"
                           SelectionMode="Extended"
-                          Margin="0,10,0,0">
+                          Margin="0,10,0,0"
+                          ContextMenuOpening="LinksDataGrid_ContextMenuOpening">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="File Name" SortMemberPath="LinkName" Width="3*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding LinkName, UpdateSourceTrigger=PropertyChanged}">
-                                        <TextBlock.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Header="Unload"
-                                                          IsEnabled="{Binding Path=IsUnloadAvailable}"
-                                                          Click="FileName_Unload_Click"/>
-                                                <MenuItem Header="Reload"
-                                                          IsEnabled="{Binding Path=IsReloadAvailable}"
-                                                          Click="FileName_Reload_Click"/>
-                                                <MenuItem Header="Reload From"
-                                                          Click="FileName_ReloadFrom_Click"/>
-                                                <MenuItem Header="Open Location"
-                                                          Click="FileName_OpenLocation_Click"/>
-                                                <MenuItem Header="Remove Placeholder"
-                                                          IsEnabled="{Binding Path=IsPlaceholder}"
-                                                          Click="FileName_RemovePlaceholder_Click"/>
-                                            </ContextMenu>
-                                        </TextBlock.ContextMenu>
-                                    </TextBlock>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="File Name" Binding="{Binding LinkName, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkName" Width="3*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                         <DataGridTextColumn Header="Description" Binding="{Binding LinkDescription, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkDescription" Width="2.25*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                         <DataGridTemplateColumn Header="Discipline" SortMemberPath="SelectedDiscipline" Width="1*" CellStyle="{StaticResource DisciplineCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
                             <DataGridTemplateColumn.CellTemplate>
@@ -293,24 +272,18 @@ Change Log:
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <!-- Link Status column added before other status columns -->
                         <DataGridTextColumn Header="Link&#x0a;Status" Binding="{Binding LinkStatus}" IsReadOnly="True" SortMemberPath="LinkStatus" Width="1*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                         <DataGridTemplateColumn Header="Project&#x0a;Status" Width="1*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}" SortMemberPath="LinkStatus">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Ellipse Width="12" Height="12"
-                                             Fill="{Binding ., Converter={StaticResource ActiveModelStatusToBrushConverter}}"
-                                             Stroke="Black" StrokeThickness="1"
-                                             ToolTip="{Binding LinkStatus}"/>
+                                    <Ellipse Width="12" Height="12" Fill="{Binding ., Converter={StaticResource ActiveModelStatusToBrushConverter}}" Stroke="Black" StrokeThickness="1" ToolTip="{Binding LinkStatus}"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn Header="Revizto&#x0a;Status" Width="1*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}" SortMemberPath="ReviztoStatus">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Ellipse Width="12" Height="12"
-                                             Fill="{Binding ReviztoStatus, Converter={StaticResource ReviztoStatusToBrushConverter}}"
-                                             Stroke="Black" StrokeThickness="1"/>
+                                    <Ellipse Width="12" Height="12" Fill="{Binding ReviztoStatus, Converter={StaticResource ReviztoStatusToBrushConverter}}" Stroke="Black" StrokeThickness="1"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -334,34 +307,10 @@ Change Log:
                           BorderBrush="#FF00796B"
                           BorderThickness="1"
                           SelectionMode="Extended"
-                          Margin="0,10,0,0">
+                          Margin="0,10,0,0"
+                          ContextMenuOpening="LinksDataGrid_ContextMenuOpening">
                     <DataGrid.Columns>
-                        <!-- UPDATED: Changed to DataGridTemplateColumn to include the context menu -->
-                        <DataGridTemplateColumn Header="File Name" SortMemberPath="LinkName" Width="3*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding LinkName, UpdateSourceTrigger=PropertyChanged}">
-                                        <TextBlock.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Header="Unload"
-                                                          IsEnabled="{Binding Path=IsUnloadAvailable}"
-                                                          Click="FileName_Unload_Click"/>
-                                                <MenuItem Header="Reload"
-                                                          IsEnabled="{Binding Path=IsReloadAvailable}"
-                                                          Click="FileName_Reload_Click"/>
-                                                <MenuItem Header="Reload From"
-                                                          Click="FileName_ReloadFrom_Click"/>
-                                                <MenuItem Header="Open Location"
-                                                          Click="FileName_OpenLocation_Click"/>
-                                                <MenuItem Header="Remove Placeholder"
-                                                          IsEnabled="{Binding Path=IsPlaceholder}"
-                                                          Click="FileName_RemovePlaceholder_Click"/>
-                                            </ContextMenu>
-                                        </TextBlock.ContextMenu>
-                                    </TextBlock>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="File Name" Binding="{Binding LinkName, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkName" Width="3*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                         <DataGridTextColumn Header="Description" Binding="{Binding LinkDescription, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkDescription" Width="2.25*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                         <DataGridTemplateColumn Header="Discipline" SortMemberPath="SelectedDiscipline" Width="1*" CellStyle="{StaticResource DisciplineCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
                             <DataGridTemplateColumn.CellTemplate>
@@ -378,27 +327,20 @@ Change Log:
                             </DataGridTemplateColumn.CellTemplate>
                             <DataGridTemplateColumn.CellEditingTemplate>
                                 <DataTemplate>
-                                    <ComboBox ItemsSource="{Binding AvailableWorksets}"
-                                              SelectedItem="{Binding LinkWorkset, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <ComboBox ItemsSource="{Binding AvailableWorksets}" SelectedItem="{Binding LinkWorkset, UpdateSourceTrigger=PropertyChanged}"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellEditingTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn Header="Pin" SortMemberPath="IsPinned" Width="0.4*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <CheckBox IsEnabled="{Binding IsRevitLink}" 
-                                              Style="{StaticResource PinCheckBoxStyle}"
-                                              HorizontalAlignment="Center" 
-                                              VerticalAlignment="Center"
-                                              Click="PinCheckBox_Click"/>
+                                    <CheckBox IsEnabled="{Binding IsRevitLink}" Style="{StaticResource PinCheckBoxStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" Click="PinCheckBox_Click"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Shared Coordinates" Binding="{Binding LinkCoordinates}" IsReadOnly="True" SortMemberPath="LinkCoordinates" Width="2.8*">
                             <DataGridTextColumn.HeaderStyle>
-                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ColumnHeaderFilterStyle}">
-                                    <!-- ... -->
-                                </Style>
+                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ColumnHeaderFilterStyle}"/>
                             </DataGridTextColumn.HeaderStyle>
                             <DataGridTextColumn.CellStyle>
                                 <Style TargetType="DataGridCell" BasedOn="{StaticResource CoordinatesCellStyle}">
@@ -413,9 +355,10 @@ Change Log:
                 </DataGrid>
             </TabItem>
 
-            <!-- Responsibility Tab -->
+            <!-- Contacts Tab -->
             <TabItem x:Name="Contacts_Tab" Header="Contacts">
                 <DataGrid ItemsSource="{Binding Links}"
+                          RowHeight="40"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
                           CanUserDeleteRows="False"
@@ -427,7 +370,6 @@ Change Log:
                           SelectionMode="Extended"
                           Margin="0,10,0,0">
                     <DataGrid.Columns>
-                        <!-- UPDATED: Changed ComboBox columns to Text columns for direct user input -->
                         <DataGridTextColumn Header="File Name" Binding="{Binding LinkName, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkName" Width="3*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                         <DataGridTextColumn Header="Description" Binding="{Binding LinkDescription, UpdateSourceTrigger=PropertyChanged}" SortMemberPath="LinkDescription" Width="2.25*" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}"/>
                         <DataGridTemplateColumn Header="Discipline" SortMemberPath="SelectedDiscipline" Width="1*" CellStyle="{StaticResource DisciplineCellStyle}" HeaderStyle="{StaticResource ColumnHeaderFilterStyle}">
