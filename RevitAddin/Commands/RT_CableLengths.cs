@@ -2,13 +2,11 @@
 // C# Revit 2022 and 2024 Add-in for finding cable lengths via cable tray and conduit elements
 
 // ### PREPROCESSOR DIRECTIVES MUST BE AT THE VERY TOP ###
-#if REVIT2024 || REVIT2023 || REVIT2022 // Use ForgeTypeId for 2022 and newer
+#if REVIT2024_OR_GREATER || REVIT2022 // Use ForgeTypeId for 2022 and newer
 #define USE_FORGE_TYPE_ID
-#elif YOUR_SYMBOL_FOR_VERSIONS_OLDER_THAN_2022 // e.g., REVIT2021 - if you support them
-    // Define symbols for versions older than 2022 if you need to differentiate further
 #else
     // This error will trigger if a recognized Revit version symbol isn't defined
-#error "Revit compilation symbol (e.g., REVIT2024, REVIT2023, REVIT2022) not defined in project build settings."
+#error "Revit compilation symbol (REVIT2024_OR_GREATER or REVIT2022) not defined in project build settings."
 #endif
 
 // Standard using statements will go below this block

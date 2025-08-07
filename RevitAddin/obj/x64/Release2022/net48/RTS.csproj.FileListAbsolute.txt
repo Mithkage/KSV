@@ -4,8 +4,6 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\Initiate
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\InputWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\PC_Extensible_Window.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\ProgressBarWindow.baml
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\ReportSelectionWindow.baml
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\RoutingReportProgressBarWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\ScheduleSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\UserSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\CastCeilingWindow.g.cs
@@ -15,8 +13,6 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\LinkMana
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\PC_Extensible_Window.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\ProfileSettingsWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\ProgressBarWindow.g.cs
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\ReportSelectionWindow.g.cs
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\RoutingReportProgressBarWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\ScheduleSelectionWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\UserSelectionWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\GeneratedInternalTypeHelper.g.cs
@@ -53,3 +49,7 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.csproj.
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.csproj.Up2Date
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\RTS.pdb
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\Progress\RoutingReportProgressBarWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\Windows\ReportSelectionWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\Progress\RoutingReportProgressBarWindow.g.cs
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2022\net48\UI\Windows\ReportSelectionWindow.g.cs

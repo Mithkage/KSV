@@ -1,11 +1,9 @@
 // ### PREPROCESSOR DIRECTIVES MUST BE AT THE VERY TOP ###
-#if REVIT2024 || REVIT2023 || REVIT2022 // Use ForgeTypeId for 2022 and newer
+#if REVIT2024_OR_GREATER || REVIT2022 // Use ForgeTypeId for 2022 and newer
 #define USE_FORGE_TYPE_ID
-#elif YOUR_SYMBOL_FOR_VERSIONS_OLDER_THAN_2022 // e.g., REVIT2021 - if you support them
-    // Define symbols for versions older than 2022 if you need to differentiate further
 #else
     // This error will trigger if a recognized Revit version symbol isn't defined
-#error "Revit compilation symbol (e.g., REVIT2024, REVIT2023, REVIT2022) not defined in project build settings."
+#error "Revit compilation symbol (REVIT2024_OR_GREATER or REVIT2022) not defined in project build settings."
 #endif
 
 // Conditionally use ForgeTypeId alias
@@ -383,7 +381,7 @@ namespace RTS.Commands
                         return param.Set(value ?? string.Empty);
                     case StorageType.ElementId:
                         // *** CORRECTED BLOCK START ***
-#if REVIT2024 || REVIT2023
+#if REVIT2024_OR_GREATER || REVIT2023
                         // For Revit 2023 and newer, ElementId constructor takes long (Int64)
                         return long.TryParse(value, out long idValLong) && param.Set(new ElementId(idValLong));
 #elif REVIT2022
@@ -394,7 +392,7 @@ namespace RTS.Commands
                         // Add an #error or specific handling if you don't support older versions.
                         return int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out int idValInt) && param.Set(new ElementId(idValInt));
 #endif
-                    // *** CORRECTED BLOCK END ***
+                        // *** CORRECTED BLOCK END ***
                     default:
                         // Fallback: try setting as string if Revit can convert it.
                         // This might not work for all types and can throw exceptions if conversion is not possible.
@@ -434,7 +432,7 @@ namespace RTS.Commands
                     if (id == null || id == ElementId.InvalidElementId) return string.Empty;
 
                     string idRepresentationText;
-#if REVIT2024 || REVIT2023
+#if REVIT2024_OR_GREATER || REVIT2023
                         idRepresentationText = id.Value.ToString(CultureInfo.InvariantCulture);
 #elif REVIT2022
                     idRepresentationText = id.IntegerValue.ToString(CultureInfo.InvariantCulture);

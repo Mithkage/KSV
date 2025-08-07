@@ -3,16 +3,52 @@
   "WorkspaceRootPath": "C:\\Users\\kyles\\source\\repos\\KSV\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\reports\\generators\\routingsequencereportgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\reports\\generators\\routingsequencereportgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\commands\\rt_trayid.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\commands\\rt_trayid.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\routingreportprogressbarwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
-      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\routingreportprogressbarwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\commands\\pc_swb_importer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\commands\\pc_swb_importer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\reportselectionwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\reportselectionwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\commands\\rt_cablelengths.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\commands\\rt_cablelengths.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\commands\\rts_mapcables.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\commands\\rts_mapcables.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\reports\\base\\reportgeneratorbase.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\reports\\base\\reportgeneratorbase.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\progress\\routingreportprogressbarwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\progress\\routingreportprogressbarwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\progress\\routingreportprogressbarwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\progress\\routingreportprogressbarwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\reports\\generators\\powercaddatareportgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\reports\\generators\\powercaddatareportgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\progressbarwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\progressbarwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\windows\\reportselectionwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\windows\\reportselectionwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\reports\\generators\\rsgxcablesummarygenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\reports\\generators\\rsgxcablesummarygenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\profilesettingswindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -21,18 +57,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\progressbarwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\progressbarwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\routingreportprogressbarwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\routingreportprogressbarwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\progressbarwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
-      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\progressbarwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\reportselectionwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
-      "RelativeMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|solutionrelative:revitaddin\\ui\\reportselectionwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{D7327CFE-8AF8-1CE1-77E7-B1C0506B3230}|RevitAddin\\RTS.csproj|c:\\users\\kyles\\source\\repos\\ksv\\revitaddin\\ui\\linkmanagerwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -55,40 +79,14 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "RT_TrayID.cs",
-              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\RT_TrayID.cs",
-              "RelativeDocumentMoniker": "RevitAddin\\Commands\\RT_TrayID.cs",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\RT_TrayID.cs",
-              "RelativeToolTip": "RevitAddin\\Commands\\RT_TrayID.cs",
-              "ViewState": "AgIAAOcBAAAAAAAAAAAowB8CAABUAAAAAAAAAA==",
+              "Title": "RoutingSequenceReportGenerator.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\RoutingSequenceReportGenerator.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\Reports\\Generators\\RoutingSequenceReportGenerator.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\RoutingSequenceReportGenerator.cs",
+              "RelativeToolTip": "RevitAddin\\Reports\\Generators\\RoutingSequenceReportGenerator.cs",
+              "ViewState": "AgIAABwAAAAAAAAAAAA8wFAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-06T04:45:11.752Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "ProfileSettingsWindow.xaml.cs",
-              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProfileSettingsWindow.xaml.cs",
-              "RelativeDocumentMoniker": "RevitAddin\\UI\\ProfileSettingsWindow.xaml.cs",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProfileSettingsWindow.xaml.cs",
-              "RelativeToolTip": "RevitAddin\\UI\\ProfileSettingsWindow.xaml.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-06T04:31:48.732Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "ProgressBarWindow.xaml.cs",
-              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProgressBarWindow.xaml.cs",
-              "RelativeDocumentMoniker": "RevitAddin\\UI\\ProgressBarWindow.xaml.cs",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProgressBarWindow.xaml.cs",
-              "RelativeToolTip": "RevitAddin\\UI\\ProgressBarWindow.xaml.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-06T04:11:39.067Z",
+              "WhenOpened": "2025-08-07T05:42:57.99Z",
               "EditorCaption": ""
             },
             {
@@ -97,44 +95,141 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "ReportSelectionWindow.xaml",
-              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ReportSelectionWindow.xaml",
-              "RelativeDocumentMoniker": "RevitAddin\\UI\\ReportSelectionWindow.xaml",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ReportSelectionWindow.xaml",
-              "RelativeToolTip": "RevitAddin\\UI\\ReportSelectionWindow.xaml",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-08-06T02:08:33.457Z",
+              "DocumentIndex": 2,
+              "Title": "PC_SWB_Importer.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\PC_SWB_Importer.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\Commands\\PC_SWB_Importer.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\PC_SWB_Importer.cs",
+              "RelativeToolTip": "RevitAddin\\Commands\\PC_SWB_Importer.cs",
+              "ViewState": "AgIAAP4AAAAAAAAAAAAQwIYBAABTAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-07T01:44:55.082Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "RT_TrayID.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\RT_TrayID.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\Commands\\RT_TrayID.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\RT_TrayID.cs",
+              "RelativeToolTip": "RevitAddin\\Commands\\RT_TrayID.cs",
+              "ViewState": "AgIAAAgAAAAAAAAAAAAAABgBAAA5AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-07T00:19:59.541Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "RT_CableLengths.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\RT_CableLengths.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\Commands\\RT_CableLengths.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\RT_CableLengths.cs",
+              "RelativeToolTip": "RevitAddin\\Commands\\RT_CableLengths.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAMIAAAAYAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-07T01:45:14.644Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "RTS_MapCables.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\RTS_MapCables.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\Commands\\RTS_MapCables.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Commands\\RTS_MapCables.cs",
+              "RelativeToolTip": "RevitAddin\\Commands\\RTS_MapCables.cs",
+              "ViewState": "AgIAAFQAAAAAAAAAAAAAAIQAAABsAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-07T00:43:39.107Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "ReportGeneratorBase.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Base\\ReportGeneratorBase.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\Reports\\Base\\ReportGeneratorBase.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Base\\ReportGeneratorBase.cs",
+              "RelativeToolTip": "RevitAddin\\Reports\\Base\\ReportGeneratorBase.cs",
+              "ViewState": "AgIAAEEAAAAAAAAAAAAAwKgAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-06T23:39:06.851Z"
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 6,
+              "Title": "RoutingReportProgressBarWindow.xaml.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\Progress\\RoutingReportProgressBarWindow.xaml.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\UI\\Progress\\RoutingReportProgressBarWindow.xaml.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\Progress\\RoutingReportProgressBarWindow.xaml.cs",
+              "RelativeToolTip": "RevitAddin\\UI\\Progress\\RoutingReportProgressBarWindow.xaml.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAADMAAAAfAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-06T23:36:53.922Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "PowerCADDataReportGenerator.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\PowerCADDataReportGenerator.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\Reports\\Generators\\PowerCADDataReportGenerator.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\PowerCADDataReportGenerator.cs",
+              "RelativeToolTip": "RevitAddin\\Reports\\Generators\\PowerCADDataReportGenerator.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAADEAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-06T23:31:51.293Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "RSGxCableSummaryGenerator.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\RSGxCableSummaryGenerator.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\Reports\\Generators\\RSGxCableSummaryGenerator.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\RSGxCableSummaryGenerator.cs",
+              "RelativeToolTip": "RevitAddin\\Reports\\Generators\\RSGxCableSummaryGenerator.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-06T23:20:11.273Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
               "Title": "ProgressBarWindow.xaml",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProgressBarWindow.xaml",
               "RelativeDocumentMoniker": "RevitAddin\\UI\\ProgressBarWindow.xaml",
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProgressBarWindow.xaml",
               "RelativeToolTip": "RevitAddin\\UI\\ProgressBarWindow.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-08-06T00:08:15.919Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-06T00:08:15.919Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 10,
               "Title": "ReportSelectionWindow.xaml.cs",
-              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ReportSelectionWindow.xaml.cs",
-              "RelativeDocumentMoniker": "RevitAddin\\UI\\ReportSelectionWindow.xaml.cs",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ReportSelectionWindow.xaml.cs",
-              "RelativeToolTip": "RevitAddin\\UI\\ReportSelectionWindow.xaml.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAACIAAAADAAAAAAAAAA==",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\Windows\\ReportSelectionWindow.xaml.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\UI\\Windows\\ReportSelectionWindow.xaml.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\Windows\\ReportSelectionWindow.xaml.cs",
+              "RelativeToolTip": "RevitAddin\\UI\\Windows\\ReportSelectionWindow.xaml.cs",
+              "ViewState": "AgIAAB4AAAAAAAAAAAAewFwAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-05T23:32:45.814Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-05T23:32:45.814Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 7,
+              "Title": "RoutingReportProgressBarWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\Progress\\RoutingReportProgressBarWindow.xaml",
+              "RelativeDocumentMoniker": "RevitAddin\\UI\\Progress\\RoutingReportProgressBarWindow.xaml",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\Progress\\RoutingReportProgressBarWindow.xaml",
+              "RelativeToolTip": "RevitAddin\\UI\\Progress\\RoutingReportProgressBarWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2025-08-05T23:46:41.046Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 14,
               "Title": "LinkManagerWindow.xaml.cs",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "RelativeDocumentMoniker": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
@@ -142,45 +237,42 @@
               "RelativeToolTip": "RevitAddin\\UI\\LinkManagerWindow.xaml.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-06T00:07:55.519Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-06T00:07:55.519Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 13,
+              "Title": "ProgressBarWindow.xaml.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProgressBarWindow.xaml.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\UI\\ProgressBarWindow.xaml.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProgressBarWindow.xaml.cs",
+              "RelativeToolTip": "RevitAddin\\UI\\ProgressBarWindow.xaml.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-06T04:11:39.067Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
+              "Title": "ProfileSettingsWindow.xaml.cs",
+              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProfileSettingsWindow.xaml.cs",
+              "RelativeDocumentMoniker": "RevitAddin\\UI\\ProfileSettingsWindow.xaml.cs",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\ProfileSettingsWindow.xaml.cs",
+              "RelativeToolTip": "RevitAddin\\UI\\ProfileSettingsWindow.xaml.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-06T04:31:48.732Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 15,
               "Title": "LinkManagerWindow.xaml",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml",
               "RelativeDocumentMoniker": "RevitAddin\\UI\\LinkManagerWindow.xaml",
               "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\LinkManagerWindow.xaml",
               "RelativeToolTip": "RevitAddin\\UI\\LinkManagerWindow.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-08-06T00:07:18.125Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "RoutingReportProgressBarWindow.xaml.cs",
-              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\RoutingReportProgressBarWindow.xaml.cs",
-              "RelativeDocumentMoniker": "RevitAddin\\UI\\RoutingReportProgressBarWindow.xaml.cs",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\RoutingReportProgressBarWindow.xaml.cs",
-              "RelativeToolTip": "RevitAddin\\UI\\RoutingReportProgressBarWindow.xaml.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAowDAAAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-05T23:49:17.424Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "RoutingReportProgressBarWindow.xaml",
-              "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\RoutingReportProgressBarWindow.xaml",
-              "RelativeDocumentMoniker": "RevitAddin\\UI\\RoutingReportProgressBarWindow.xaml",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\UI\\RoutingReportProgressBarWindow.xaml",
-              "RelativeToolTip": "RevitAddin\\UI\\RoutingReportProgressBarWindow.xaml",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-08-05T23:46:41.046Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-06T00:07:18.125Z"
             }
           ]
         }
