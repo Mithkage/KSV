@@ -146,6 +146,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<EmbeddedResource Remove="Resources\RTS Logo.png" />
+		<EmbeddedResource Remove="Resources\RTS_Icon.ico" />
 		<EmbeddedResource Remove="Resources\RTS_Icon.png" />
 	</ItemGroup>
 	<ItemGroup>
@@ -170,6 +171,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<Resource Include="Resources\RTS Logo.png" />
+		<Resource Include="Resources\RTS_Icon.ico" />
 		<Resource Include="Resources\RTS_Icon.png" />
 	</ItemGroup>
 

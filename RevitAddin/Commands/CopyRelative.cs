@@ -1,21 +1,20 @@
 ﻿//
 // File: CopyRelative.cs
 // Company: ReTick Solutions Pty Ltd
-// Function: This script places instances of a user-selected lighting fixture in the active model.
-//           The placement is based on a geometric relationship (offset and rotation)
-//           established from a user-selected "template" door in a linked model and a "template"
-//           light fixture in the host model. The script then iterates through all other doors
-//           of the same type in the linked model and creates new light fixtures at the
-//           corresponding relative locations and rotations.
+// Function: This script places instances of a user-selected family instance (e.g., lighting fixture,
+//           electrical outlet, etc.) in the active model. The placement is based on a geometric
+//           relationship established from a user-selected "template" reference element (e.g., a door)
+//           in either the host or a linked model, and a "template" element to copy in the host model.
+//           The script then iterates through all other elements of the same type as the reference
+//           and creates new elements at the corresponding relative locations.
 //
 // Change Log:
-// 2025-08-01: Initial version of the script created.
-// 2025-08-01: Updated namespace to RTS.Commands.
-// 2025-08-02: Implemented improved error handling, code refactoring into helper methods,
-//             and an optimized element collector for better performance and readability.
-// 2025-08-04: Renamed file to CopyRelative.cs and class to CopyRelativeClass.
-// 2025-08-04: Fixed compiler errors CS0103 and CS0122 by correcting variable scope
-//             and adding a missing namespace reference.
+// ... (previous logs)
+// 2025-08-08: (Improvement) Implemented ISelectionFilter for a better user experience, preventing invalid selections.
+// 2025-08-08: (Improvement) Generalized the reference element; it can now be any FamilyInstance, not just a door.
+// 2025-08-08: (Improvement) Added robustness check for available 3D views for host finding.
+// 2025-08-08: (Improvement) Corrected the calculation for skipped elements in user feedback.
+// 2025-08-08: (Fix) Corrected compiler error CS0117 by removing invalid 'OST_FaceBased' category from filter.
 //
 using System;
 using System.Collections.Generic;
@@ -23,7 +22,7 @@ using System.Linq;
 using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Structure; // Added to resolve CS0122
+using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 
@@ -36,9 +35,9 @@ namespace RTS.Commands
         private Document _doc;
 
         public Result Execute(
-          ExternalCommandData commandData,
-          ref string message,
-          ElementSet elements)
+            ExternalCommandData commandData,
+            ref string message,
+            ElementSet elements)
         {
             _uidoc = commandData.Application.ActiveUIDocument;
             _doc = _uidoc.Document;
@@ -46,27 +45,39 @@ namespace RTS.Commands
             try
             {
                 // Get the template elements from user selection
-                FamilyInstance templateDoor;
-                FamilyInstance templateLight;
-                if (!GetTemplateElements(out templateDoor, out templateLight))
+                if (!GetTemplateElements(out FamilyInstance templateReferenceElement, out RevitLinkInstance linkInstance, out FamilyInstance elementToCopy))
                 {
-                    // The error message is already set by the helper method
-                    return Result.Failed;
+                    return Result.Cancelled;
                 }
 
                 // Calculate the geometric relationship
-                XYZ baseRelativeVector;
-                double rotationAngle;
-                CalculateGeometricRelationship(templateDoor, templateLight, out baseRelativeVector, out rotationAngle);
+                if (!CalculateGeometricRelationship(templateReferenceElement, elementToCopy, linkInstance, out Transform relativeTransform))
+                {
+                    return Result.Failed;
+                }
 
-                // Find all target doors
-                List<FamilyInstance> targetDoors = FindAllTargetDoors(templateDoor);
+                // Find all target elements
+                List<FamilyInstance> targetElements = FindAllTargetElements(templateReferenceElement, linkInstance);
 
-                // Place new light fixtures
-                PlaceNewLights(targetDoors, templateLight, templateDoor, baseRelativeVector, rotationAngle);
+                // Place new elements
+                int placedCount = PlaceNewElements(targetElements, elementToCopy, templateReferenceElement, linkInstance, relativeTransform);
+                int skippedCount = targetElements.Count - 1 - placedCount; // -1 for the template reference itself
 
-                TaskDialog.Show("Success", $"Successfully placed {targetDoors.Count - 1} new light fixtures.");
+                string categoryName = elementToCopy.Category.Name;
+
+                // Provide detailed feedback
+                string feedback = $"Successfully placed {placedCount} new {categoryName} elements.";
+                if (skippedCount > 0)
+                {
+                    feedback += $"\nSkipped {skippedCount} locations due to invalid target geometry.";
+                }
+                TaskDialog.Show("Success", feedback);
+
                 return Result.Succeeded;
+            }
+            catch (OperationCanceledException)
+            {
+                return Result.Cancelled;
             }
             catch (Exception ex)
             {
@@ -77,193 +88,271 @@ namespace RTS.Commands
         }
 
         /// <summary>
-        /// Prompts the user to select the template door and light, and validates the selections.
+        /// Prompts the user to select template elements using selection filters for a better UX.
         /// </summary>
-        private bool GetTemplateElements(out FamilyInstance templateDoor, out FamilyInstance templateLight)
+        private bool GetTemplateElements(out FamilyInstance templateReferenceElement, out RevitLinkInstance linkInstance, out FamilyInstance elementToCopy)
         {
-            templateDoor = null;
-            templateLight = null;
+            templateReferenceElement = null;
+            linkInstance = null;
+            elementToCopy = null;
 
-            // Step 1: User selects the template door in the linked model
-            try
+            // Step 1: Select the template reference element (any FamilyInstance)
+            var referenceFilter = new FamilyInstanceSelectionFilter();
+            Reference referenceElementRef = _uidoc.Selection.PickObject(ObjectType.Element, referenceFilter, "Select a template reference element (e.g., door, window, desk).");
+
+            Element pickedElement = _doc.GetElement(referenceElementRef.ElementId);
+            if (pickedElement is RevitLinkInstance)
             {
-                Reference doorRef = _uidoc.Selection.PickObject(
-                    ObjectType.LinkedElement,
-                    "Select a template door in the linked model.");
-
-                RevitLinkInstance linkInstance = _doc.GetElement(doorRef.ElementId) as RevitLinkInstance;
-                if (linkInstance == null)
-                {
-                    TaskDialog.Show("Selection Error", "The selected element is not in a linked model.");
-                    return false;
-                }
-
+                linkInstance = pickedElement as RevitLinkInstance;
                 Document linkedDoc = linkInstance.GetLinkDocument();
                 if (linkedDoc == null)
                 {
-                    TaskDialog.Show("Selection Error", "Could not get the linked document.");
+                    TaskDialog.Show("Selection Error", "Could not get the linked document. Ensure the link is loaded.");
                     return false;
                 }
+                templateReferenceElement = linkedDoc.GetElement(referenceElementRef.LinkedElementId) as FamilyInstance;
+            }
+            else
+            {
+                templateReferenceElement = pickedElement as FamilyInstance;
+            }
 
-                templateDoor = linkedDoc.GetElement(doorRef.LinkedElementId) as FamilyInstance;
-                if (templateDoor == null)
-                {
-                    TaskDialog.Show("Selection Error", "The selected element is not a family instance (door).");
-                    return false;
-                }
-            }
-            catch (OperationCanceledException)
+            if (templateReferenceElement == null) return false; // Should not happen with filter, but good practice
+
+            // Step 2: Select the element to copy (specific categories)
+            var supportedCategories = new List<BuiltInCategory>
             {
-                return false; // User cancelled
-            }
-            catch (Exception ex)
+                BuiltInCategory.OST_LightingFixtures,
+                BuiltInCategory.OST_ElectricalFixtures,
+                BuiltInCategory.OST_ElectricalEquipment,
+                BuiltInCategory.OST_LightingDevices,
+                BuiltInCategory.OST_CommunicationDevices
+            };
+            var elementToCopyFilter = new FamilyInstanceSelectionFilter(supportedCategories);
+            Reference elementToCopyRef = _uidoc.Selection.PickObject(ObjectType.Element, elementToCopyFilter, "Select the template element to copy (e.g., light, switch, outlet).");
+
+            elementToCopy = _doc.GetElement(elementToCopyRef.ElementId) as FamilyInstance;
+
+            return elementToCopy != null;
+        }
+
+        /// <summary>
+        /// Creates a local coordinate system (Transform) from a FamilyInstance's location and orientation.
+        /// </summary>
+        private Transform CreateTransformFromInstance(FamilyInstance instance)
+        {
+            if (!(instance.Location is LocationPoint locationPoint)) return null;
+
+            var origin = locationPoint.Point;
+            var basisX = instance.HandOrientation.Normalize();
+            var basisZ = instance.FacingOrientation.Normalize();
+            var basisY = basisZ.CrossProduct(basisX).Normalize();
+
+            var transform = Transform.Identity;
+            transform.Origin = origin;
+            transform.BasisX = basisX;
+            transform.BasisY = basisY;
+            transform.BasisZ = basisZ;
+
+            return transform;
+        }
+
+        /// <summary>
+        /// Calculates the relative transformation from the reference element's coordinate system to the element to copy's.
+        /// </summary>
+        private bool CalculateGeometricRelationship(FamilyInstance templateReference, FamilyInstance elementToCopy, RevitLinkInstance linkInstance, out Transform relativeTransform)
+        {
+            relativeTransform = null;
+            Transform linkTransform = linkInstance?.GetTotalTransform() ?? Transform.Identity;
+
+            Transform referenceTransform = CreateTransformFromInstance(templateReference);
+            Transform elementToCopyTransform = CreateTransformFromInstance(elementToCopy);
+
+            if (referenceTransform == null || elementToCopyTransform == null)
             {
-                TaskDialog.Show("Error", "An error occurred during door selection: " + ex.Message);
+                TaskDialog.Show("Error", "Could not determine the location of one or both template elements.");
                 return false;
             }
 
-            // Step 2: User selects the template light fixture in the host model
-            try
-            {
-                Reference lightRef = _uidoc.Selection.PickObject(
-                    ObjectType.Element,
-                    "Select the light fixture to copy.");
-
-                templateLight = _doc.GetElement(lightRef.ElementId) as FamilyInstance;
-                if (templateLight == null)
-                {
-                    TaskDialog.Show("Selection Error", "The selected element is not a family instance (light fixture).");
-                    return false;
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                return false; // User cancelled
-            }
-            catch (Exception ex)
-            {
-                TaskDialog.Show("Error", "An error occurred during light fixture selection: " + ex.Message);
-                return false;
-            }
-
+            Transform referenceTransformInHost = linkTransform.Multiply(referenceTransform);
+            relativeTransform = referenceTransformInHost.Inverse.Multiply(elementToCopyTransform);
             return true;
         }
 
         /// <summary>
-        /// Calculates the relative offset and rotation angle between the template door and light.
+        /// Finds all elements of the same type as the template reference element in the source document (host or link).
         /// </summary>
-        private void CalculateGeometricRelationship(FamilyInstance templateDoor, FamilyInstance templateLight,
-            out XYZ baseRelativeVector, out double rotationAngle)
+        private List<FamilyInstance> FindAllTargetElements(FamilyInstance templateReferenceElement, RevitLinkInstance linkInstance)
         {
-            // Get locations and orientations
-            XYZ templateDoorOrigin = (templateDoor.Location as LocationPoint).Point;
-            XYZ templateDoorFacing = templateDoor.FacingOrientation.Normalize();
-            XYZ templateLightOrigin = (templateLight.Location as LocationPoint).Point;
-            XYZ templateLightFacing = templateLight.FacingOrientation.Normalize();
+            Document sourceDoc = linkInstance?.GetLinkDocument() ?? _doc;
+            if (sourceDoc == null) return new List<FamilyInstance>();
 
-            // Calculate the vector from the door to the light
-            XYZ relativeOffset = templateLightOrigin - templateDoorOrigin;
+            var referenceTypeId = templateReferenceElement.GetTypeId();
 
-            // Calculate the rotation angle between the facing vectors
-            rotationAngle = templateLightFacing.AngleOnPlaneTo(templateDoorFacing, XYZ.BasisZ);
-            Transform rotationTransform = Transform.CreateRotation(XYZ.BasisZ, rotationAngle);
-
-            // Rotate the relative offset vector to align it with the door's facing direction.
-            // This 'baseRelativeVector' represents the offset in a normalized coordinate system
-            // and will be re-rotated for each new door.
-            baseRelativeVector = rotationTransform.Inverse.OfVector(relativeOffset);
-        }
-
-        /// <summary>
-        /// Finds all doors of the same type as the template door in the linked model.
-        /// </summary>
-        private List<FamilyInstance> FindAllTargetDoors(FamilyInstance templateDoor)
-        {
-            // Fix for CS0103: Access the linked document directly from the template door
-            Document linkedDoc = templateDoor.Document;
-            ElementId doorTypeId = templateDoor.GetTypeId();
-
-            // Use an optimized FilteredElementCollector with a native category filter
-            return new FilteredElementCollector(linkedDoc)
-                .OfCategory(BuiltInCategory.OST_Doors)
+#if REVIT2024_OR_GREATER
+            return new FilteredElementCollector(sourceDoc)
+                .OfCategory((BuiltInCategory)templateReferenceElement.Category.Id.Value)
                 .OfClass(typeof(FamilyInstance))
-                .Where(fi => fi.GetTypeId() == doorTypeId)
+                .Where(fi => fi.GetTypeId() == referenceTypeId)
                 .Cast<FamilyInstance>()
                 .ToList();
+#else
+            return new FilteredElementCollector(sourceDoc)
+                .OfCategory((BuiltInCategory)templateReferenceElement.Category.Id.IntegerValue)
+                .OfClass(typeof(FamilyInstance))
+                .Where(fi => fi.GetTypeId() == referenceTypeId)
+                .Cast<FamilyInstance>()
+                .ToList();
+#endif
         }
 
         /// <summary>
-        /// Places new light fixtures based on the calculated geometric relationship.
+        /// Finds a host element by casting rays from a given point.
         /// </summary>
-        private void PlaceNewLights(List<FamilyInstance> targetDoors, FamilyInstance templateLight, FamilyInstance templateDoor,
-            XYZ baseRelativeVector, double rotationAngle)
+        private Element GetHostElementAtPoint(Document doc, XYZ point)
         {
-            FamilySymbol lightSymbol = _doc.GetElement(templateLight.GetTypeId()) as FamilySymbol;
-
-            if (!lightSymbol.IsActive)
+            View3D view3D = new FilteredElementCollector(doc).OfClass(typeof(View3D)).Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
+            if (view3D == null)
             {
-                using (Transaction activateTrans = new Transaction(_doc, "Activate FamilySymbol"))
+                // This is a critical failure for host finding. We can't proceed without a 3D view.
+                // For this tool, we will allow unhosted placement, so we just return null.
+                // A more advanced implementation could warn the user here.
+                return null;
+            }
+
+            var categories = new List<BuiltInCategory>
+            {
+                BuiltInCategory.OST_Ceilings,
+                BuiltInCategory.OST_Floors,
+                BuiltInCategory.OST_Roofs,
+                BuiltInCategory.OST_Walls
+            };
+            var categoryFilter = new ElementMulticategoryFilter(categories);
+
+            var intersector = new ReferenceIntersector(categoryFilter, FindReferenceTarget.Face, view3D)
+            {
+                FindReferencesInRevitLinks = false
+            };
+
+            var refUp = intersector.FindNearest(point, XYZ.BasisZ);
+            var refDown = intersector.FindNearest(point, -XYZ.BasisZ);
+
+            if (refUp != null && refDown != null)
+            {
+                return refUp.Proximity < refDown.Proximity ? doc.GetElement(refUp.GetReference()) : doc.GetElement(refDown.GetReference());
+            }
+            return (refUp != null) ? doc.GetElement(refUp.GetReference()) : (refDown != null) ? doc.GetElement(refDown.GetReference()) : null;
+        }
+
+        /// <summary>
+        /// Places new elements based on the calculated geometric relationship and the target elements.
+        /// </summary>
+        private int PlaceNewElements(List<FamilyInstance> targetElements, FamilyInstance elementToCopy, FamilyInstance templateReferenceElement, RevitLinkInstance linkInstance, Transform relativeTransform)
+        {
+            var elementSymbol = elementToCopy.Symbol;
+            int placedCount = 0;
+
+            if (!elementSymbol.IsActive)
+            {
+                using (var activateTrans = new Transaction(_doc, "Activate Family Symbol"))
                 {
                     activateTrans.Start();
-                    lightSymbol.Activate();
+                    elementSymbol.Activate();
                     activateTrans.Commit();
                 }
             }
 
-            using (Transaction trans = new Transaction(_doc, "Place Lights by Door"))
+            Transform linkTransform = linkInstance?.GetTotalTransform() ?? Transform.Identity;
+
+            using (var trans = new Transaction(_doc, $"Place {elementToCopy.Category.Name} by Reference"))
             {
                 trans.Start();
 
-                // Using a try-finally block for robust transaction handling
-                try
+                foreach (var targetElement in targetElements)
                 {
-                    foreach (FamilyInstance targetDoor in targetDoors)
+                    if (targetElement.Id == templateReferenceElement.Id) continue;
+
+                    Transform targetTransform = CreateTransformFromInstance(targetElement);
+                    if (targetTransform == null) continue;
+
+                    Transform targetTransformInHost = linkTransform.Multiply(targetTransform);
+                    Transform newElementTransform = targetTransformInHost.Multiply(relativeTransform);
+                    XYZ newElementLocation = newElementTransform.Origin;
+
+                    var hostElement = GetHostElementAtPoint(_doc, newElementLocation);
+
+                    FamilyInstance newElement = _doc.Create.NewFamilyInstance(
+                        newElementLocation,
+                        elementSymbol,
+                        hostElement,
+                        StructuralType.NonStructural);
+
+                    if (newElement == null) continue;
+
+                    if (newElement.Location is LocationPoint newElementLocationPoint)
                     {
-                        // Skip the template door to avoid creating a duplicate light at its location
-                        if (targetDoor.Id == templateDoor.Id)
+                        double angle = XYZ.BasisX.AngleOnPlaneTo(newElementTransform.BasisX, XYZ.BasisZ);
+
+                        if (Math.Abs(angle) > 1e-9)
                         {
-                            continue;
-                        }
-
-                        LocationPoint targetDoorLocation = targetDoor.Location as LocationPoint;
-                        if (targetDoorLocation == null) continue;
-
-                        XYZ targetDoorOrigin = targetDoorLocation.Point;
-                        XYZ targetDoorFacing = targetDoor.FacingOrientation.Normalize();
-
-                        // Calculate the rotation needed for the current door
-                        double targetDoorRotationAngle = XYZ.BasisX.AngleOnPlaneTo(targetDoorFacing, XYZ.BasisZ);
-                        Transform targetDoorRotationTransform = Transform.CreateRotation(XYZ.BasisZ, targetDoorRotationAngle);
-
-                        // Apply the door's rotation to the base relative vector to find the new light's location
-                        XYZ newLightVector = targetDoorRotationTransform.OfVector(baseRelativeVector);
-                        XYZ newLightLocation = targetDoorOrigin + newLightVector;
-
-                        // Calculate the final light rotation
-                        double newLightRotation = targetDoorLocation.Rotation + rotationAngle;
-
-                        // Create the new family instance
-                        FamilyInstance newLight = _doc.Create.NewFamilyInstance(
-                            newLightLocation,
-                            lightSymbol,
-                            StructuralType.NonStructural); // Fix for CS0122
-
-                        // Rotate the new light instance
-                        LocationPoint newLightLocationPoint = newLight.Location as LocationPoint;
-                        if (newLightLocationPoint != null)
-                        {
-                            newLightLocationPoint.Rotate(Line.CreateBound(newLightLocation, newLightLocation + XYZ.BasisZ), newLightRotation);
+                            var axis = Line.CreateBound(newElementLocation, newElementLocation + XYZ.BasisZ);
+                            ElementTransformUtils.RotateElement(_doc, newElement.Id, axis, angle);
                         }
                     }
+                    placedCount++;
                 }
-                finally
-                {
-                    if (trans.GetStatus() == TransactionStatus.Started)
-                    {
-                        trans.Commit();
-                    }
-                }
+
+                trans.Commit();
             }
+            return placedCount;
+        }
+    }
+
+    /// <summary>
+    /// A selection filter to allow the user to select only FamilyInstance elements,
+    /// optionally restricted to a list of specific categories.
+    /// </summary>
+    public class FamilyInstanceSelectionFilter : ISelectionFilter
+    {
+        private readonly List<BuiltInCategory> _allowedCategories;
+
+        /// <summary>
+        /// Constructor to allow any FamilyInstance.
+        /// </summary>
+        public FamilyInstanceSelectionFilter()
+        {
+            _allowedCategories = null; // Null means all categories are allowed
+        }
+
+        /// <summary>
+        /// Constructor to restrict to specific categories.
+        /// </summary>
+        public FamilyInstanceSelectionFilter(List<BuiltInCategory> allowedCategories)
+        {
+            _allowedCategories = allowedCategories;
+        }
+
+        public bool AllowElement(Element elem)
+        {
+            if (!(elem is FamilyInstance)) return false;
+
+            if (_allowedCategories == null || _allowedCategories.Count == 0)
+            {
+                return true; // No category restriction
+            }
+
+#if REVIT2024_OR_GREATER
+            return _allowedCategories.Contains((BuiltInCategory)elem.Category.Id.Value);
+#else
+            return _allowedCategories.Contains((BuiltInCategory)elem.Category.Id.IntegerValue);
+#endif
+        }
+
+        public bool AllowReference(Reference reference, XYZ position)
+        {
+            // Set to true if you need to select geometry within an element, like a face or edge.
+            // For this tool, we only need to select the element itself, so false is correct.
+            return false;
         }
     }
 }

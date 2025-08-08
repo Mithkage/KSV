@@ -14,6 +14,9 @@
 // Company: ReTick Solutions (RTS)
 //
 // Log:
+// - August 15, 2025: Updated split button names and icons to use generic category representations.
+// - August 14, 2025: Updated all button tooltips to better describe functionality and relationship to workflow.
+// - August 12, 2025: Major reorganization of ribbon panels into functional groups: "Project Setup", "Data Exchange", "MEP Tools", and "Document Tools".
 // - July 30, 2025: Added buttons for ScheduleFloor and CastCeiling commands.
 // - July 16, 2025: Added standard file header comment.
 // - July 16, 2025: Added the 'Link Manager' button to the 'Revit Tools' panel.
@@ -79,250 +82,281 @@ namespace RTS
             }
 
             // --- Create Ribbon Panels (Order of creation determines position) ---
-            RibbonPanel pcadPanel = application.GetRibbonPanels(tabName).FirstOrDefault(p => p.Name == "PCAD Tools") ?? application.CreateRibbonPanel(tabName, "PCAD Tools");
-            RibbonPanel revitToolsPanel = application.GetRibbonPanels(tabName).FirstOrDefault(p => p.Name == "Revit Tools") ?? application.CreateRibbonPanel(tabName, "Revit Tools");
-            RibbonPanel miscPanel = application.GetRibbonPanels(tabName).FirstOrDefault(p => p.Name == "Misc Tools") ?? application.CreateRibbonPanel(tabName, "Misc Tools");
-            RibbonPanel rtsSetupPanel = application.GetRibbonPanels(tabName).FirstOrDefault(p => p.Name == "RTS") ?? application.CreateRibbonPanel(tabName, "RTS");
+            // New functional panels based on workflows
+            RibbonPanel projectSetupPanel = application.GetRibbonPanels(tabName).FirstOrDefault(p => p.Name == "Project Setup") 
+                ?? application.CreateRibbonPanel(tabName, "Project Setup");
+                
+            RibbonPanel dataExchangePanel = application.GetRibbonPanels(tabName).FirstOrDefault(p => p.Name == "Data Exchange") 
+                ?? application.CreateRibbonPanel(tabName, "Data Exchange");
+                
+            RibbonPanel mepToolsPanel = application.GetRibbonPanels(tabName).FirstOrDefault(p => p.Name == "MEP Tools") 
+                ?? application.CreateRibbonPanel(tabName, "MEP Tools");
+                
+            RibbonPanel documentToolsPanel = application.GetRibbonPanels(tabName).FirstOrDefault(p => p.Name == "Document Tools") 
+                ?? application.CreateRibbonPanel(tabName, "Document Tools");
 
             // --- Load default and specific icons ---
             BitmapImage defaultIcon = GetEmbeddedPng("Icon.png");
 
-            // --- PCAD Tools Buttons ---
+            // --- Load category icons for split buttons ---
+            BitmapImage parameterSetupIcon = GetEmbeddedPng("ParameterSetup_Icon.png") ?? defaultIcon;
+            BitmapImage importDataIcon = GetEmbeddedPng("ImportData_Icon.png") ?? defaultIcon;
+            BitmapImage exportDataIcon = GetEmbeddedPng("ExportData_Icon.png") ?? defaultIcon;
+            BitmapImage electricalToolsIcon = GetEmbeddedPng("ElectricalTools_Icon.png") ?? defaultIcon;
+            BitmapImage cableTrayToolsIcon = GetEmbeddedPng("CableTrayTools_Icon.png") ?? defaultIcon;
+            BitmapImage positioningToolsIcon = GetEmbeddedPng("PositioningTools_Icon.png") ?? defaultIcon;
+            BitmapImage viewToolsIcon = GetEmbeddedPng("ViewTools_Icon.png") ?? defaultIcon;
 
-            // 1. PC SWB Exporter
-            PushButtonData pbdPcSwbExporter = new PushButtonData("CmdPcSwbExporter", "Export\nSWB Data", ExecutingAssemblyPath, "RTS.Commands.PC_SWB_ExporterClass")
+            // --- Create All Button Definitions ---
+
+            // Project Setup - Parameter Setup
+            PushButtonData pbdRtsInitiate = new PushButtonData("CmdRtsInitiate", "Initialize\nParameters", ExecutingAssemblyPath, "RTS.Commands.RTS_InitiateClass")
             {
-                ToolTip = "Exports data for PowerCAD SWB import.",
-                LargeImage = defaultIcon
-            };
-
-            // 2. PC SWB Importer
-            PushButtonData pbdPcSwbImporter = new PushButtonData("CmdPcSwbImporter", "Import\nSWB Data", ExecutingAssemblyPath, "RTS.Commands.PC_SWB_ImporterClass")
-            {
-                ToolTip = "Imports cable data from a PowerCAD SWB CSV export file into filtered Detail Item parameters.",
-                LargeImage = defaultIcon
-            };
-
-            // 3. Import Cable Summary Data
-            PushButtonData pbdPcCableImporter = new PushButtonData("CmdPcCableImporter", "Import Cable\nSummary", ExecutingAssemblyPath, "RTS.Commands.PC_Cable_ImporterClass")
-            {
-                ToolTip = "Imports Cable Summary data from PowerCAD into SLD.",
-                LargeImage = defaultIcon
-            };
-
-            // 4. PC Clear Data
-            PushButtonData pbdPcClearData = new PushButtonData("CmdPcClearData", "Clear PCAD\nData", ExecutingAssemblyPath, "RTS.Commands.PC_Clear_DataClass")
-            {
-                ToolTip = "Clears specific PowerCAD-related parameters from Detail Items where PC_PowerCAD is 'Yes'.",
-                LargeImage = defaultIcon
-            };
-
-            // 5. PC Generate MD Report
-            PushButtonData pbdPcGenerateMd = new PushButtonData("CmdPcGenerateMd", "Generate\nMD Report", ExecutingAssemblyPath, "RTS.Commands.PC_Generate_MDClass")
-            {
-                ToolTip = "Generates an Excel report with Cover Page, Authority, and Submains data.",
-                LargeImage = GetEmbeddedPng("PC_Generate_MD.png") ?? defaultIcon
-            };
-
-            // 6. PC_Extensible: Process & Save Cable Data
-            PushButtonData pbdPcExtensible = new PushButtonData("CmdPcExtensible", "Process & Save\nCable Data", ExecutingAssemblyPath, "PC_Extensible.PC_ExtensibleClass")
-            {
-                ToolTip = "Processes the Cleaned Cable Schedule and saves its data to project extensible storage.",
-                LargeImage = GetEmbeddedPng("PC_Extensible.png") ?? defaultIcon
-            };
-
-            // 7. PC_WireData: Update Electrical Wires
-            PushButtonData pbdPcWireData = new PushButtonData("CmdPcWireData", "Update Electrical\nWires", ExecutingAssemblyPath, "RTS.Commands.PC_WireDataClass")
-            {
-                ToolTip = "Reads cleaned cable data from extensible storage and updates electrical wires in the model.",
-                LargeImage = GetEmbeddedPng("PC_WireData.png") ?? defaultIcon
-            };
-
-            // 8. PC_Updater: Update CSV file
-            PushButtonData pbdPcUpdater = new PushButtonData("CmdPcUpdater", "Update PCAD\nCSV", ExecutingAssemblyPath, "RTS.Commands.PC_UpdaterClass")
-            {
-                ToolTip = "Updates 'Cable Length' in a PowerCAD CSV export using lengths from Model Generated Data.",
-                LargeImage = GetEmbeddedPng("PC_Updater.png") ?? defaultIcon
-            };
-
-            // --- Revit Tools Buttons ---
-
-            // 1. RT Cable Lengths
-            PushButtonData pbdRtCableLengths = new PushButtonData("CmdRTCableLengths", "Update Cable\nLengths", ExecutingAssemblyPath, "RTS.Commands.RTCableLengthsCommand")
-            {
-                ToolTip = "Calculates and updates 'PC_Cable Length' on Detail Items based on 'PC_SWB To' and summed lengths of Conduits/Cable Trays.",
-                LargeImage = GetEmbeddedPng("RT_CableLengths.png") ?? defaultIcon
-            };
-
-            // 2. RT Panel Connect
-            PushButtonData pbdRtPanelConnect = new PushButtonData("CmdRtPanelConnect", "Connect\nPanels", ExecutingAssemblyPath, "RTS.Commands.RT_PanelConnectClass")
-            {
-                ToolTip = "Powers electrical panels by connecting them to their source panel based on a CSV file.",
-                LargeImage = defaultIcon
-            };
-
-            // 3. RT Tray Occupancy
-            PushButtonData pbdRtTrayOccupancy = new PushButtonData("CmdRtTrayOccupancy", "Process\nTray Data", ExecutingAssemblyPath, "RTS.Commands.RT_TrayOccupancyClass")
-            {
-                ToolTip = "Parses a PowerCAD cable schedule to extract and clean data for export.",
-                LargeImage = GetEmbeddedPng("RT_TrayOccupancy.png") ?? defaultIcon
-            };
-
-            // 4. RT Tray ID
-            PushButtonData pbdRtTrayId = new PushButtonData("CmdRtTrayId", "Update Tray\nIDs", ExecutingAssemblyPath, "RTS.Commands.RT_TrayIDClass")
-            {
-                ToolTip = "Generates and updates unique IDs for cable tray elements.",
-                LargeImage = defaultIcon
-            };
-
-            // 5. RT Tray Conduits
-            PushButtonData pbdRtTrayConduits = new PushButtonData("CmdRtTrayConduits", "Create Tray\nConduits", ExecutingAssemblyPath, "RTS.Commands.RT_TrayConduitsClass")
-            {
-                ToolTip = "Models conduits along cable trays based on cable data.",
-                LargeImage = GetEmbeddedPng("RT_TrayConduits.png") ?? defaultIcon
-            };
-
-            // 6. RT Uppercase
-            PushButtonData pbdRtUppercase = new PushButtonData("CmdRtUppercase", "Uppercase\nText", ExecutingAssemblyPath, "RTS.Commands.RT_UpperCaseClass")
-            {
-                ToolTip = "Converts view names, sheet names, sheet numbers, and specific sheet parameters to uppercase, with exceptions.",
-                LargeImage = GetEmbeddedPng("RT_UpperCase.png") ?? defaultIcon
-            };
-
-            // 7. RT Wire Route
-            PushButtonData pbdRtWireRoute = new PushButtonData("CmdRtWireRoute", "Wire\nRoute", ExecutingAssemblyPath, "RTS.Commands.RT_WireRouteClass")
-            {
-                ToolTip = "Routes electrical wires through conduits based on matching RTS_ID.",
-                LargeImage = GetEmbeddedPng("RT_WireRoute.png") ?? defaultIcon
-            };
-
-            // 8. RT_Isolate
-            PushButtonData pbdRtIsolate = new PushButtonData("CmdRtIsolate", "Isolate by\nID/Cable", ExecutingAssemblyPath, "RTS.Commands.RT_IsolateClass")
-            {
-                ToolTip = "Isolates elements in the active view based on 'RTS_ID' or 'RTS_Cable_XX' parameter values.",
-                LargeImage = GetEmbeddedPng("RT_Isolate.png") ?? defaultIcon
-            };
-
-            // 9. Link Manager
-            PushButtonData pbdLinkManager = new PushButtonData("CmdLinkManager", "Link\nManager", ExecutingAssemblyPath, "RTS.Commands.LinkManagerCommand")
-            {
-                ToolTip = "Opens a window to manage Revit links and their associated metadata.",
-                LargeImage = GetEmbeddedPng("LinkManager.png") ?? defaultIcon
-            };
-
-            // 10. Schedule Level
-            PushButtonData pbdScheduleLevel = new PushButtonData("CmdScheduleLevel", "Schedule\nLevel", ExecutingAssemblyPath, "RTS.Commands.ScheduleFloorClass")
-            {
-                ToolTip = "Updates the schedule level of lighting fixtures based on the closest floor in a linked model.",
-                LargeImage = defaultIcon // TODO: Create a specific icon
-            };
-
-            // 11. Cast to Ceiling/Slab
-            PushButtonData pbdCastCeiling = new PushButtonData("CmdCastCeiling", "Cast to\nCeiling/Slab", ExecutingAssemblyPath, "RTS.Commands.CastCeilingClass")
-            {
-                ToolTip = "Moves MEP elements vertically to the nearest ceiling or slab from linked models.",
-                LargeImage = defaultIcon // TODO: Create a specific icon
-            };
-
-            // 12. Viewport Alignment Tool
-            PushButtonData pbdViewportAlignment = new PushButtonData(
-                "CmdViewportAlignment",
-                "Align\nViewports",
-                ExecutingAssemblyPath,
-                "RTS.Commands.ViewportAlignmentTool")
-            {
-                ToolTip = "Aligns the center of selected viewports to a reference viewport on the active sheet.",
-                LargeImage = GetEmbeddedPng("ViewportAlignment.png") ?? defaultIcon // Use a specific icon if available
-            };
-
-            // --- Misc Tools Buttons ---
-
-            // 1. Import BB Cable Lengths
-            PushButtonData pbdBbImport = new PushButtonData("CmdBbCableLengthImport", "Import\n BB Lengths", ExecutingAssemblyPath, "RTS.Commands.BB_CableLengthImport")
-            {
-                ToolTip = "Imports Bluebeam cable measurements into SLD components.",
-                LargeImage = GetEmbeddedPng("BB_Import.png") ?? defaultIcon
-            };
-
-            // 2. MD Importer - Update Detail Item Loads from Excel
-            PushButtonData pbdMdImporter = new PushButtonData("CmdMdExcelUpdater", "Update SWB\nLoads (Excel)", ExecutingAssemblyPath, "RTS.Commands.MD_ImporterClass")
-            {
-                ToolTip = "Updates 'PC_SWB Load' parameter for Detail Items from an Excel file ('TB_Submains' table) based on the 'PC_SWB To' parameter.",
-                LargeImage = GetEmbeddedPng("MD_Importer.png") ?? defaultIcon
-            };
-
-            // 3. Copy Relative (Door/Light)
-            PushButtonData pbdCopyRelative = new PushButtonData(
-                "CmdCopyRelative",
-                "Copy\nRelative",
-                ExecutingAssemblyPath,
-                "RTS.Commands.CopyRelativeClass")
-            {
-                ToolTip = "Places light fixtures in the host model at locations relative to doors in a linked model, based on a template selection.",
-                LargeImage = GetEmbeddedPng("CopyRelative.png") ?? defaultIcon // Use a specific icon if available
-            };
-
-            // --- RTS Setup Panel Buttons ---
-
-            // 1. RTS Initiate Parameters
-            PushButtonData pbdRtsInitiate = new PushButtonData("CmdRtsInitiate", "Initiate\nRTS Params", ExecutingAssemblyPath, "RTS.Commands.RTS_InitiateClass")
-            {
-                ToolTip = "Ensures required RTS Shared Parameters (like PC_PowerCAD) are added to the project.",
+                ToolTip = "Sets up required shared parameters needed for RTS tools. Must be run before using other tools.",
                 LargeImage = GetEmbeddedPng("RTS_Initiate.png") ?? defaultIcon
             };
 
-            // 2. RTS Map Cables
-            PushButtonData pbdRtsMapCables = new PushButtonData("CmdRtsMapCables", "Map\nCables", ExecutingAssemblyPath, "RTS.Commands.RTS_MapCablesClass")
+            PushButtonData pbdRtsMapCables = new PushButtonData("CmdRtsMapCables", "Map\nParameters", ExecutingAssemblyPath, "RTS.Commands.RTS_MapCablesClass")
             {
-                ToolTip = "Maps RTS parameters with client parameters using a CSV mapping file.",
+                ToolTip = "Maps standard RTS parameters to custom project parameters using a CSV file.",
                 LargeImage = GetEmbeddedPng("RTS_MapCables.png") ?? defaultIcon
             };
 
-            // 3. RTS Generate Schedules
+            PushButtonData pbdPcClearData = new PushButtonData("CmdPcClearData", "Clear\nData", ExecutingAssemblyPath, "RTS.Commands.PC_Clear_DataClass")
+            {
+                ToolTip = "Clears PowerCAD-related parameters from elements while keeping core identifiers intact.",
+                LargeImage = defaultIcon
+            };
+
+            // Project Setup - Documentation
             PushButtonData pbdRtsGenerateSchedules = new PushButtonData("CmdRtsGenerateSchedules", "Generate\nSchedules", ExecutingAssemblyPath, "RTS.Addin.Commands.RTS_Schedules.RTS_SchedulesClass")
             {
-                ToolTip = "Deletes and recreates a standard set of project schedules.",
+                ToolTip = "Creates or refreshes a standard set of electrical schedules based on RTS parameters.",
                 LargeImage = GetEmbeddedPng("RTS_Schedules.png") ?? defaultIcon
             };
 
-            // 4. RTS Reports
-            PushButtonData pbdRtsReports = new PushButtonData("CmdRtsReports", "RTS\nReports", ExecutingAssemblyPath, "RTS.Addin.Commands.RTS_Reports.ShowReportsWindowCommand")
+            PushButtonData pbdRtsReports = new PushButtonData("CmdRtsReports", "Generate\nReports", ExecutingAssemblyPath, "RTS.Addin.Commands.RTS_Reports.ShowReportsWindowCommand")
             {
-                ToolTip = "Generates various reports from extensible storage data.",
+                ToolTip = "Creates detailed reports from project data for documentation and coordination.",
                 LargeImage = GetEmbeddedPng("RTS_Reports.png") ?? defaultIcon
             };
 
-            // --- Add buttons to their respective panels ---
-            pcadPanel.AddItem(pbdPcSwbExporter);
-            pcadPanel.AddItem(pbdPcSwbImporter);
-            pcadPanel.AddItem(pbdPcCableImporter);
-            pcadPanel.AddItem(pbdPcClearData);
-            pcadPanel.AddItem(pbdPcGenerateMd);
-            pcadPanel.AddItem(pbdPcExtensible);
-            pcadPanel.AddItem(pbdPcWireData);
-            pcadPanel.AddItem(pbdPcUpdater);
+            // Data Exchange - Import Tools
+            PushButtonData pbdPcSwbImporter = new PushButtonData("CmdPcSwbImporter", "Import\nSWB Data", ExecutingAssemblyPath, "RTS.Commands.PC_SWB_ImporterClass")
+            {
+                ToolTip = "Imports switchboard and cable data from PowerCAD CSV exports into Revit.",
+                LargeImage = defaultIcon
+            };
 
-            revitToolsPanel.AddItem(pbdRtCableLengths);
-            revitToolsPanel.AddItem(pbdRtPanelConnect);
-            revitToolsPanel.AddItem(pbdRtTrayOccupancy);
-            revitToolsPanel.AddItem(pbdRtTrayId);
-            revitToolsPanel.AddItem(pbdRtTrayConduits);
-            revitToolsPanel.AddItem(pbdRtUppercase);
-            revitToolsPanel.AddItem(pbdRtWireRoute);
-            revitToolsPanel.AddItem(pbdRtIsolate);
-            revitToolsPanel.AddItem(pbdLinkManager);
-            revitToolsPanel.AddItem(pbdScheduleLevel);
-            revitToolsPanel.AddItem(pbdCastCeiling);
-            revitToolsPanel.AddItem(pbdViewportAlignment);
+            PushButtonData pbdPcCableImporter = new PushButtonData("CmdPcCableImporter", "Import Cable\nSummary", ExecutingAssemblyPath, "RTS.Commands.PC_Cable_ImporterClass")
+            {
+                ToolTip = "Imports cable information from PowerCAD Cable Summary documents into Single Line Diagrams.",
+                LargeImage = defaultIcon
+            };
 
-            miscPanel.AddItem(pbdBbImport);
-            miscPanel.AddItem(pbdMdImporter);
-            miscPanel.AddItem(pbdCopyRelative);
+            PushButtonData pbdBbImport = new PushButtonData("CmdBbCableLengthImport", "Import\nBluebeam", ExecutingAssemblyPath, "RTS.Commands.BB_CableLengthImport")
+            {
+                ToolTip = "Imports cable length measurements from Bluebeam markups into Revit elements.",
+                LargeImage = GetEmbeddedPng("BB_Import.png") ?? defaultIcon
+            };
 
-            rtsSetupPanel.AddItem(pbdRtsInitiate);
-            rtsSetupPanel.AddItem(pbdRtsMapCables);
-            rtsSetupPanel.AddItem(pbdRtsGenerateSchedules);
-            rtsSetupPanel.AddItem(pbdRtsReports);
+            PushButtonData pbdMdImporter = new PushButtonData("CmdMdExcelUpdater", "Update SWB\nLoads", ExecutingAssemblyPath, "RTS.Commands.MD_ImporterClass")
+            {
+                ToolTip = "Updates switchboard load parameters from Excel spreadsheets using TB_Submains table.",
+                LargeImage = GetEmbeddedPng("MD_Importer.png") ?? defaultIcon
+            };
+
+            // Data Exchange - Export Tools
+            PushButtonData pbdPcSwbExporter = new PushButtonData("CmdPcSwbExporter", "Export\nSWB Data", ExecutingAssemblyPath, "RTS.Commands.PC_SWB_ExporterClass")
+            {
+                ToolTip = "Exports switchboard and cable data for use in PowerCAD or other tools.",
+                LargeImage = defaultIcon
+            };
+
+            PushButtonData pbdPcGenerateMd = new PushButtonData("CmdPcGenerateMd", "Generate MD\nReport", ExecutingAssemblyPath, "RTS.Commands.PC_Generate_MDClass")
+            {
+                ToolTip = "Creates a Maximum Demand Excel report with Cover Page, Authority, and Submains details.",
+                LargeImage = GetEmbeddedPng("PC_Generate_MD.png") ?? defaultIcon
+            };
+
+            // Data Exchange - Data Management
+            PushButtonData pbdPcExtensible = new PushButtonData("CmdPcExtensible", "Process & Store\nCable Data", ExecutingAssemblyPath, "PC_Extensible.PC_ExtensibleClass")
+            {
+                ToolTip = "Processes cable schedules and stores data in project extensible storage for use by other tools.",
+                LargeImage = GetEmbeddedPng("PC_Extensible.png") ?? defaultIcon
+            };
+
+            PushButtonData pbdPcUpdater = new PushButtonData("CmdPcUpdater", "Update PCAD\nCSV", ExecutingAssemblyPath, "RTS.Commands.PC_UpdaterClass")
+            {
+                ToolTip = "Updates cable lengths in PowerCAD CSV exports using data from the Revit model.",
+                LargeImage = GetEmbeddedPng("PC_Updater.png") ?? defaultIcon
+            };
+
+            // MEP Tools - Electrical
+            PushButtonData pbdPcWireData = new PushButtonData("CmdPcWireData", "Update\nWires", ExecutingAssemblyPath, "RTS.Commands.PC_WireDataClass")
+            {
+                ToolTip = "Creates or updates electrical wires in the Revit model based on cable data.",
+                LargeImage = GetEmbeddedPng("PC_WireData.png") ?? defaultIcon
+            };
+
+            PushButtonData pbdRtWireRoute = new PushButtonData("CmdRtWireRoute", "Route\nWires", ExecutingAssemblyPath, "RTS.Commands.RT_WireRouteClass")
+            {
+                ToolTip = "Automatically routes electrical wires through conduits based on matching RTS_ID parameters.",
+                LargeImage = GetEmbeddedPng("RT_WireRoute.png") ?? defaultIcon
+            };
+
+            PushButtonData pbdRtCableLengths = new PushButtonData("CmdRTCableLengths", "Update Cable\nLengths", ExecutingAssemblyPath, "RTS.Commands.RTCableLengthsCommand")
+            {
+                ToolTip = "Calculates and updates cable lengths based on conduit/tray paths and connections.",
+                LargeImage = GetEmbeddedPng("RT_CableLengths.png") ?? defaultIcon
+            };
+
+            PushButtonData pbdRtPanelConnect = new PushButtonData("CmdRtPanelConnect", "Connect\nPanels", ExecutingAssemblyPath, "RTS.Commands.RT_PanelConnectClass")
+            {
+                ToolTip = "Creates power connections between electrical panels based on source/destination data.",
+                LargeImage = defaultIcon
+            };
+
+            // MEP Tools - Cable Tray
+            PushButtonData pbdRtTrayOccupancy = new PushButtonData("CmdRtTrayOccupancy", "Process\nTray Data", ExecutingAssemblyPath, "RTS.Commands.RT_TrayOccupancyClass")
+            {
+                ToolTip = "Analyzes cable tray requirements based on cable schedule data and routing.",
+                LargeImage = GetEmbeddedPng("RT_TrayOccupancy.png") ?? defaultIcon
+            };
+
+            PushButtonData pbdRtTrayId = new PushButtonData("CmdRtTrayId", "Update Tray\nIDs", ExecutingAssemblyPath, "RTS.Commands.RT_TrayIDClass")
+            {
+                ToolTip = "Assigns unique identifiers to cable tray elements for coordination and scheduling.",
+                LargeImage = defaultIcon
+            };
+
+            PushButtonData pbdRtTrayConduits = new PushButtonData("CmdRtTrayConduits", "Create Tray\nConduits", ExecutingAssemblyPath, "RTS.Commands.RT_TrayConduitsClass")
+            {
+                ToolTip = "Creates conduit runs along cable trays based on cable requirements and routes.",
+                LargeImage = GetEmbeddedPng("RT_TrayConduits.png") ?? defaultIcon
+            };
+
+            // MEP Tools - Element Positioning
+            PushButtonData pbdCopyRelative = new PushButtonData("CmdCopyRelative", "Copy\nRelative", ExecutingAssemblyPath, "RTS.Commands.CopyRelativeClass")
+            {
+                ToolTip = "Places elements (like fixtures) in consistent positions relative to reference elements (like doors).",
+                LargeImage = GetEmbeddedPng("CopyRelative.png") ?? defaultIcon
+            };
+
+            PushButtonData pbdScheduleLevel = new PushButtonData("CmdScheduleLevel", "Schedule\nLevel", ExecutingAssemblyPath, "RTS.Commands.ScheduleFloorClass")
+            {
+                ToolTip = "Automatically updates element schedule level parameters based on nearby floor elements.",
+                LargeImage = defaultIcon
+            };
+
+            PushButtonData pbdCastCeiling = new PushButtonData("CmdCastCeiling", "Cast to\nCeiling", ExecutingAssemblyPath, "RTS.Commands.CastCeilingClass")
+            {
+                ToolTip = "Moves MEP elements vertically to align with the nearest ceiling or slab surface.",
+                LargeImage = defaultIcon
+            };
+
+            // Document Tools - View Tools
+            PushButtonData pbdRtIsolate = new PushButtonData("CmdRtIsolate", "Isolate by\nID/Cable", ExecutingAssemblyPath, "RTS.Commands.RT_IsolateClass")
+            {
+                ToolTip = "Temporarily isolates elements in the current view based on RTS_ID or cable parameters.",
+                LargeImage = GetEmbeddedPng("RT_Isolate.png") ?? defaultIcon
+            };
+
+            PushButtonData pbdViewportAlignment = new PushButtonData("CmdViewportAlignment", "Align\nViewports", ExecutingAssemblyPath, "RTS.Commands.ViewportAlignmentTool")
+            {
+                ToolTip = "Aligns selected viewports on sheets by centering them with a reference viewport.",
+                LargeImage = GetEmbeddedPng("ViewportAlignment.png") ?? defaultIcon
+            };
+
+            PushButtonData pbdRtUppercase = new PushButtonData("CmdRtUppercase", "Uppercase\nText", ExecutingAssemblyPath, "RTS.Commands.RT_UpperCaseClass")
+            {
+                ToolTip = "Converts view names, sheet titles, numbers, and other text elements to uppercase.",
+                LargeImage = GetEmbeddedPng("RT_UpperCase.png") ?? defaultIcon
+            };
+
+            // Document Tools - Project Management
+            PushButtonData pbdLinkManager = new PushButtonData("CmdLinkManager", "Link\nManager", ExecutingAssemblyPath, "RTS.Commands.LinkManagerCommand")
+            {
+                ToolTip = "Centralized interface for managing Revit links and tracking associated metadata.",
+                LargeImage = GetEmbeddedPng("LinkManager.png") ?? defaultIcon
+            };
+
+            // --- Add buttons to their respective panels based on the new organization ---
+
+            // Project Setup Panel
+            SplitButtonData splitSetupData = new SplitButtonData("ProjectSetupSplit", "Parameter\nTools")
+            {
+                LargeImage = parameterSetupIcon
+            };
+            SplitButton splitSetupButton = projectSetupPanel.AddItem(splitSetupData) as SplitButton;
+            splitSetupButton.AddPushButton(pbdRtsInitiate);
+            splitSetupButton.AddPushButton(pbdRtsMapCables);
+            splitSetupButton.AddPushButton(pbdPcClearData);
+            projectSetupPanel.AddItem(pbdRtsGenerateSchedules);
+            projectSetupPanel.AddItem(pbdRtsReports);
+
+            // Data Exchange Panel
+            SplitButtonData splitImportData = new SplitButtonData("ImportDataSplit", "Import\nTools")
+            {
+                LargeImage = importDataIcon
+            };
+            SplitButton splitImportButton = dataExchangePanel.AddItem(splitImportData) as SplitButton;
+            splitImportButton.AddPushButton(pbdPcSwbImporter);
+            splitImportButton.AddPushButton(pbdPcCableImporter);
+            splitImportButton.AddPushButton(pbdBbImport);
+            splitImportButton.AddPushButton(pbdMdImporter);
+
+            SplitButtonData splitExportData = new SplitButtonData("ExportDataSplit", "Export\nTools")
+            {
+                LargeImage = exportDataIcon
+            };
+            SplitButton splitExportButton = dataExchangePanel.AddItem(splitExportData) as SplitButton;
+            splitExportButton.AddPushButton(pbdPcSwbExporter);
+            splitExportButton.AddPushButton(pbdPcGenerateMd);
+            
+            dataExchangePanel.AddItem(pbdPcExtensible);
+            dataExchangePanel.AddItem(pbdPcUpdater);
+
+            // MEP Tools Panel
+            SplitButtonData splitElectricalData = new SplitButtonData("ElectricalSplit", "Electrical\nTools")
+            {
+                LargeImage = electricalToolsIcon
+            };
+            SplitButton splitElectricalButton = mepToolsPanel.AddItem(splitElectricalData) as SplitButton;
+            splitElectricalButton.AddPushButton(pbdPcWireData);
+            splitElectricalButton.AddPushButton(pbdRtWireRoute);
+            splitElectricalButton.AddPushButton(pbdRtCableLengths);
+            splitElectricalButton.AddPushButton(pbdRtPanelConnect);
+
+            SplitButtonData splitTrayData = new SplitButtonData("CableTraySplit", "Cable Tray\nTools")
+            {
+                LargeImage = cableTrayToolsIcon
+            };
+            SplitButton splitTrayButton = mepToolsPanel.AddItem(splitTrayData) as SplitButton;
+            splitTrayButton.AddPushButton(pbdRtTrayOccupancy);
+            splitTrayButton.AddPushButton(pbdRtTrayId);
+            splitTrayButton.AddPushButton(pbdRtTrayConduits);
+
+            SplitButtonData splitPositioningData = new SplitButtonData("PositioningSplit", "Positioning\nTools")
+            {
+                LargeImage = positioningToolsIcon
+            };
+            SplitButton splitPositioningButton = mepToolsPanel.AddItem(splitPositioningData) as SplitButton;
+            splitPositioningButton.AddPushButton(pbdCopyRelative);
+            splitPositioningButton.AddPushButton(pbdScheduleLevel);
+            splitPositioningButton.AddPushButton(pbdCastCeiling);
+
+            // Document Tools Panel
+            SplitButtonData splitViewData = new SplitButtonData("ViewToolsSplit", "View\nTools")
+            {
+                LargeImage = viewToolsIcon
+            };
+            SplitButton splitViewButton = documentToolsPanel.AddItem(splitViewData) as SplitButton;
+            splitViewButton.AddPushButton(pbdRtIsolate);
+            splitViewButton.AddPushButton(pbdViewportAlignment);
+            splitViewButton.AddPushButton(pbdRtUppercase);
+            
+            documentToolsPanel.AddItem(pbdLinkManager);
         }
 
         private BitmapImage GetEmbeddedPng(string imageName)
@@ -352,7 +386,7 @@ namespace RTS
     }
 }
 
-// This namespace now contains the command to launch your window.
+// This namespace contains the command to launch your window.
 // Ensure all other command classes (e.g., PC_SWB_ExporterClass) are defined in their respective namespaces.
 // This specific namespace for RTS_Reports is assumed to be at the root level,
 // or its path would also need to be updated if it moved under 'Commands'.

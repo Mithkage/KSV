@@ -44,8 +44,6 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.g.resou
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.GeneratedMSBuildEditorConfig.editorconfig
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.CoreCompileInputs.cache
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.sourcelink.json
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Fody.CopyLocal.cache
-C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Fody.RuntimeCopyLocal.cache
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Up2Date
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.pdb
@@ -53,3 +51,5 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\UI\Progress
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\UI\Windows\ReportSelectionWindow.baml
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\UI\Progress\RoutingReportProgressBarWindow.g.cs
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\UI\Windows\ReportSelectionWindow.g.cs
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Fody.CopyLocal.cache
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Release2024\net48\RTS.csproj.Fody.RuntimeCopyLocal.cache

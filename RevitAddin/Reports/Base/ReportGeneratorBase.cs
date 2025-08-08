@@ -1,6 +1,6 @@
 //-----------------------------------------------------------------------------
-// <copyright file="ReportGeneratorBase.cs" company="RTS Reports">
-//     Copyright (c) RTS Reports. All rights reserved.
+// <copyright file="ReportGeneratorBase.cs" company="ReTick Solutions Pty Ltd">
+//     Copyright (c) ReTick Solutions Pty Ltd. All rights reserved.
 // </copyright>
 // <summary>
 //     Base class for report generation, containing common functionality.
