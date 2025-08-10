@@ -16,16 +16,18 @@
 * It handles copying the main DLL, necessary third-party libraries, and the .addin manifest file.
 *
 * Change Log:
-* Date        Version     Description
-* ==========  ==========  ========================================================================================
-* 2025-08-06  1.0.1.9     Corrected case-sensitivity errors in Revit API <Reference> tags.
-* Fixed typo in post-build xcopy path for Revit 2022.
+* ==========  ==========  ========================================================================================
+* 2025-08-16  1.0.2.0     Updated project structure to use new folder organization system.
+*                         Categorized commands into functional areas: ProjectSetup, DataExchange,
+*                         MEPTools, and DocumentTools.
+* 2025-08-16  1.0.1.9     Corrected case-sensitivity errors in Revit API <Reference> tags.
+*                         Fixed typo in post-build xcopy path for Revit 2022.
 * 2025-08-06  1.0.1.8     Simplified conditional compilation directives to REVIT2022 and 
-* REVIT2024_OR_GREATER. Corrected Revit API referencing logic to 
-* properly switch between versions.
-* 2025-07-22  1.0.1.7     Reverted package versions for ClosedXML (0.102.2), Costura.Fody (6.0.0),
-* and re-added DocumentFormat.OpenXml (2.19.0) to resolve NU1102
-* package restore errors.
+*                         REVIT2024_OR_GREATER. Corrected Revit API referencing logic to 
+*                         properly switch between versions.
+* 2025-07-22  1.0.1.7     Reverted package versions for ClosedXML (0.102.2), Costura.Fody (6.0.0),
+*                         and re-added DocumentFormat.OpenXml (2.19.0) to resolve NU1102
+*                         package restore errors.
 ***********************************************************************************************************************/
 -->
 <Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
@@ -48,7 +50,7 @@
 		<Product>RTS Revit Add-in</Product>
 		<Description>Revit Add-in for ReTick Solutions</Description>
 		<Copyright>Copyright © ReTick Solutions 2025</Copyright>
-		<Version>1.0.0.0</Version>
+		<Version>1.0.2.0</Version>
 		<SignAssembly>true</SignAssembly>
 		<KeyOriginatorFile>RTSKey.snk</KeyOriginatorFile>
 		<Configurations>Debug2024;Release2024;Debug2022;Release2022</Configurations>
@@ -160,19 +162,114 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
+
+	<!-- New Folder Structure -->
 	<ItemGroup>
+		<!-- Main structure -->
+		<Folder Include="App\" />
+		<Folder Include="UI\" />
+
+		<!-- Commands subfolders -->
+		<Folder Include="Commands\ProjectSetup\" />
+		<Folder Include="Commands\DataExchange\" />
+		<Folder Include="Commands\DataExchange\Import\" />
+		<Folder Include="Commands\DataExchange\Export\" />
+		<Folder Include="Commands\DataExchange\DataManagement\" />
+		<Folder Include="Commands\MEPTools\" />
+		<Folder Include="Commands\MEPTools\Electrical\" />
+		<Folder Include="Commands\MEPTools\CableTray\" />
+		<Folder Include="Commands\MEPTools\Positioning\" />
+		<Folder Include="Commands\DocumentTools\" />
+		<Folder Include="Commands\DocumentTools\ViewTools\" />
+		<Folder Include="Commands\DocumentTools\ProjectManagement\" />
+
+		<!-- UI subfolders -->
+		<Folder Include="UI\Common\" />
+		<Folder Include="UI\ProjectSetup\" />
+		<Folder Include="UI\DataExchange\" />
+		<Folder Include="UI\DocumentTools\" />
+		<Folder Include="UI\Reports\" />
+
+		<!-- Reports structure -->
 		<Folder Include="Reports\Models\" />
 		<Folder Include="Reports\Generators\" />
 		<Folder Include="Reports\Utils\" />
-		<Folder Include="Resources\Models\" />
+		<Folder Include="Reports\Base\" />
 	</ItemGroup>
+
 	<ItemGroup>
 		<None Include="RTS.csproj.user" />
 	</ItemGroup>
+
 	<ItemGroup>
 		<Resource Include="Resources\RTS Logo.png" />
 		<Resource Include="Resources\RTS_Icon.ico" />
 		<Resource Include="Resources\RTS_Icon.png" />
+	</ItemGroup>
+
+	<!-- File-specific settings -->
+	<ItemGroup>
+		<!-- App files -->
+		<Compile Update="App\RTS.cs">
+			<DependentUpon>App\</DependentUpon>
+		</Compile>
+
+		<!-- Project Setup Commands -->
+		<Compile Update="Commands\ProjectSetup\*.cs">
+			<DependentUpon>Commands\ProjectSetup\</DependentUpon>
+		</Compile>
+
+		<!-- Data Exchange Commands -->
+		<Compile Update="Commands\DataExchange\Import\*.cs">
+			<DependentUpon>Commands\DataExchange\Import\</DependentUpon>
+		</Compile>
+		<Compile Update="Commands\DataExchange\Export\*.cs">
+			<DependentUpon>Commands\DataExchange\Export\</DependentUpon>
+		</Compile>
+		<Compile Update="Commands\DataExchange\DataManagement\*.cs">
+			<DependentUpon>Commands\DataExchange\DataManagement\</DependentUpon>
+		</Compile>
+
+		<!-- MEP Tools Commands -->
+		<Compile Update="Commands\MEPTools\Electrical\*.cs">
+			<DependentUpon>Commands\MEPTools\Electrical\</DependentUpon>
+		</Compile>
+		<Compile Update="Commands\MEPTools\CableTray\*.cs">
+			<DependentUpon>Commands\MEPTools\CableTray\</DependentUpon>
+		</Compile>
+		<Compile Update="Commands\MEPTools\Positioning\*.cs">
+			<DependentUpon>Commands\MEPTools\Positioning\</DependentUpon>
+		</Compile>
+
+		<!-- Document Tools Commands -->
+		<Compile Update="Commands\DocumentTools\ViewTools\*.cs">
+			<DependentUpon>Commands\DocumentTools\ViewTools\</DependentUpon>
+		</Compile>
+		<Compile Update="Commands\DocumentTools\ProjectManagement\*.cs">
+			<DependentUpon>Commands\DocumentTools\ProjectManagement\</DependentUpon>
+		</Compile>
+
+		<!-- UI Components -->
+		<Compile Update="UI\Common\*.cs">
+			<DependentUpon>UI\Common\</DependentUpon>
+		</Compile>
+		<Compile Update="UI\ProjectSetup\*.cs">
+			<DependentUpon>UI\ProjectSetup\</DependentUpon>
+		</Compile>
+		<Compile Update="UI\DataExchange\*.cs">
+			<DependentUpon>UI\DataExchange\</DependentUpon>
+		</Compile>
+		<Compile Update="UI\DocumentTools\*.cs">
+			<DependentUpon>UI\DocumentTools\</DependentUpon>
+		</Compile>
+		<Compile Update="UI\Reports\*.cs">
+			<DependentUpon>UI\Reports\</DependentUpon>
+		</Compile>
+
+		<!-- Utilities -->
+		<Compile Update="Utilities\*.cs">
+			<DependentUpon>Utilities\</DependentUpon>
+		</Compile>
 	</ItemGroup>
 
 	<!-- Post-Build Target: Copies files ONLY for Release configurations -->

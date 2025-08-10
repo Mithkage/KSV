@@ -9,7 +9,8 @@
 
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using RTS.Commands;
+using RTS.Commands.DataExchange.DataManagement;
+using RTS.Commands.DataExchange.Export;
 using RTS.Reports.Base;
 
 namespace RTS.Reports.Generators
@@ -19,7 +20,7 @@ namespace RTS.Reports.Generators
     /// </summary>
     public class RSGxCableSummaryGenerator : ReportGeneratorBase
     {
-        public RSGxCableSummaryGenerator(Document doc, ExternalCommandData commandData, PC_Extensible.PC_ExtensibleClass pcExtensible) 
+        public RSGxCableSummaryGenerator(Document doc, ExternalCommandData commandData, PC_ExtensibleClass pcExtensible) 
             : base(doc, commandData, pcExtensible)
         {
         }

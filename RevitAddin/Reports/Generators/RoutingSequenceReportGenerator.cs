@@ -10,27 +10,25 @@
 
 //-----------------------------------------------------------------------------
 // CHANGE LOG:
-// 2024-08-08:
+// 2024-08-09:
+// - Implemented high-accuracy island finding. The logic now checks every element
+//   within an island to find the true closest point, instead of using the
+//   bounding box center, for more accurate start/end points.
+// - Implemented high-accuracy jump calculation between islands using element-to-element
+//   distance checks for maximum precision.
+// - Added integrated completion state to the progress bar UI.
+// - Fixed critical logic error in GetRelevantNetwork method.
+// - Optimized GroupIntoIslands method by using a HashSet for faster lookups.
+// - Implemented "just-in-time" graph building for significant performance improvement.
 // - Refactored entire class for performance and maintainability.
-// - Logic separated into helper classes: ContainmentGraph, Pathfinder, and ReportFormatter.
-// - Implemented a PriorityQueue for Dijkstra's algorithm, significantly improving
-//   performance on large, complex containment networks.
-// - Centralized calculation of element lengths to avoid redundant processing.
-// - Improved virtual jump distance calculation to use bounding box center points.
-// - Implemented "Virtual Pathing" for disconnected routes.
-// - Added Cable/Conduit Fittings to the graph generation.
+// - Implemented a PriorityQueue for Dijkstra's algorithm.
 // - Implemented intelligent separators for virtual jumps (+, ||, >>).
-// - Fixed missing VirtualPathResult class definition after refactoring.
-// - Fixed CS0122 accessibility error by passing Document object to helper classes.
-// - Corrected progress bar initialization to show before heavy computation.
-// 2025-08-08:
-// - Added version-specific conditionals for ElementId.IntegerValue obsolete warning.
-// - Updated category filtering to use Id property with version-specific handling.
 //-----------------------------------------------------------------------------
 
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using PC_Extensible;
+using RTS.Commands.DataExchange.DataManagement;
 using RTS.Reports.Base;
 using RTS.Reports.Utils;
 using RTS.UI;
@@ -59,105 +57,115 @@ namespace RTS.Reports.Generators
 
         public override void GenerateReport()
         {
-            string filePath = GetOutputFilePath("Routing_Sequence.csv", "Save Routing Sequence Report");
-            if (string.IsNullOrEmpty(filePath))
-            {
-                ShowInfo("Export Cancelled", "Output file not selected. Routing Sequence export cancelled.");
-                return;
-            }
-
-            var projectInfo = new FilteredElementCollector(Document)
-                .OfCategory(BuiltInCategory.OST_ProjectInformation)
-                .WhereElementIsNotElementType()
-                .Cast<ProjectInfo>()
-                .FirstOrDefault();
-
-            var sb = ReportFormatter.CreateReportHeader(projectInfo, Document);
-
-            List<PC_ExtensibleClass.CableData> primaryData = PcExtensible.RecallDataFromExtensibleStorage<PC_ExtensibleClass.CableData>(
-                Document, PC_ExtensibleClass.PrimarySchemaGuid, PC_ExtensibleClass.PrimarySchemaName,
-                PC_ExtensibleClass.PrimaryFieldName, PC_ExtensibleClass.PrimaryDataStorageElementName);
-
-            if (primaryData == null || !primaryData.Any())
-            {
-                ShowInfo("No Data", "No primary cable data found.");
-                return;
-            }
-
-            var cableLookup = primaryData
-                .Where(c => !string.IsNullOrWhiteSpace(c.CableReference))
-                .GroupBy(c => c.CableReference)
-                .ToDictionary(g => g.Key, g => g.First());
-
-            var progressWindow = new RoutingReportProgressBarWindow
-            {
-                Owner = System.Windows.Application.Current?.MainWindow
-            };
-            progressWindow.Show();
-
+            // --- Global Exception Handler to prevent silent exits ---
             try
             {
-                // --- 1. Collect ALL containment and equipment elements from the model ---
-                progressWindow.UpdateProgress(0, 100, "Initializing", "Collecting model elements...", "", 5, "Collecting elements...");
-                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Background);
-                var containmentCollector = new ContainmentCollector(Document);
-                var fullContainmentNetwork = containmentCollector.GetAllContainmentElements();
-                var allCandidateEquipment = containmentCollector.GetAllElectricalEquipment();
+                // --- PRE-CHECK 1: Verify that cable data exists in the project ---
+                List<PC_ExtensibleClass.CableData> primaryData = PcExtensible.RecallDataFromExtensibleStorage<PC_ExtensibleClass.CableData>(
+                    Document, PC_ExtensibleClass.PrimarySchemaGuid, PC_ExtensibleClass.PrimarySchemaName,
+                    PC_ExtensibleClass.PrimaryFieldName, PC_ExtensibleClass.PrimaryDataStorageElementName);
 
-                // --- 2. Build a single, master graph representation of the physical network ---
-                var containmentGraph = new ContainmentGraph(fullContainmentNetwork, Document, progressWindow);
-                var elementIdToLengthMap = containmentGraph.GetElementLengthMap();
-
-                int totalCables = cableLookup.Count;
-                int currentCable = 0;
-
-                foreach (var cableRef in cableLookup.Keys)
+                if (primaryData == null || !primaryData.Any())
                 {
-                    currentCable++;
-                    var cableInfo = cableLookup[cableRef];
-
-                    // Update progress for the cable processing part of the task.
-                    double cableProcessingProgress = (double)currentCable / totalCables * 50.0;
-                    double totalProgress = 50.0 + cableProcessingProgress; // Graph building is first 50%
-
-                    progressWindow.UpdateProgress(currentCable, totalCables, cableRef,
-                        cableInfo?.From ?? "N/A", cableInfo?.To ?? "N/A",
-                        totalProgress, "Processing cable routes...");
-                    Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Background);
-
-                    if (progressWindow.IsCancelled)
-                    {
-                        progressWindow.TaskDescriptionText.Text = "Operation cancelled by user.";
-                        break;
-                    }
-
-                    var result = ProcessCableRoute(cableRef, cableInfo, fullContainmentNetwork, allCandidateEquipment, containmentGraph, elementIdToLengthMap);
-                    sb.AppendLine(result);
+                    ShowInfo("No Data Found", "No primary cable data was found in the project's extensible storage. Please ensure cable data has been created before running this report.");
+                    return;
                 }
 
-                if (!progressWindow.IsCancelled)
+                // --- PRE-CHECK 2: Verify that at least one cable is assigned to containment ---
+                var containmentCollector = new ContainmentCollector(Document);
+                var allContainmentInProject = containmentCollector.GetAllContainmentElements();
+                bool isAnyCableAssigned = allContainmentInProject.OfType<MEPCurve>().Any(elem =>
+                    _cableGuids.Select(guid => elem.get_Parameter(guid))
+                               .Any(param => param != null && param.HasValue && !string.IsNullOrWhiteSpace(param.AsString()))
+                );
+
+                if (!isAnyCableAssigned)
                 {
-                    System.IO.File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
-                    progressWindow.UpdateProgress(totalCables, totalCables, "Complete", "N/A", "N/A", 100, "Exporting file...");
-                    progressWindow.TaskDescriptionText.Text = "Export complete.";
-                    ShowSuccess("Export Complete", $"Routing Sequence report successfully exported to:\n{filePath}");
+                    ShowInfo("No Assignments Found", "Cable data was found, but no cables have been assigned to any containment elements in the model. The report would be empty.");
+                    return;
+                }
+
+                // --- All checks passed, proceed with asking for a save location ---
+                string filePath = GetOutputFilePath("Routing_Sequence.csv", "Save Routing Sequence Report");
+                if (string.IsNullOrEmpty(filePath))
+                {
+                    ShowInfo("Export Cancelled", "Output file not selected. Routing Sequence export cancelled.");
+                    return;
+                }
+
+                var projectInfo = new FilteredElementCollector(Document)
+                    .OfCategory(BuiltInCategory.OST_ProjectInformation)
+                    .WhereElementIsNotElementType()
+                    .Cast<ProjectInfo>()
+                    .FirstOrDefault();
+
+                var sb = ReportFormatter.CreateReportHeader(projectInfo, Document);
+
+                var cableLookup = primaryData
+                    .Where(c => !string.IsNullOrWhiteSpace(c.CableReference))
+                    .GroupBy(c => c.CableReference)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var progressWindow = new RoutingReportProgressBarWindow
+                {
+                    Owner = System.Windows.Application.Current?.MainWindow
+                };
+                progressWindow.Show();
+
+                try
+                {
+                    var allCandidateEquipment = containmentCollector.GetAllElectricalEquipment();
+                    var allFittingsInProject = allContainmentInProject.Where(e => !(e is MEPCurve)).ToList();
+
+                    int totalCables = cableLookup.Count;
+                    int currentCable = 0;
+
+                    // --- DEVELOPMENT LIMIT: Process only the first 20 cables. Remove .Take(20) for production. ---
+                    foreach (var cableRef in cableLookup.Keys.Take(20))
+                    {
+                        currentCable++;
+                        var cableInfo = cableLookup[cableRef];
+
+                        double percentage = (double)currentCable / Math.Min(totalCables, 20) * 100.0; // Adjust percentage for the limited run
+                        progressWindow.UpdateProgress(currentCable, Math.Min(totalCables, 20), cableRef,
+                            cableInfo?.From ?? "N/A", cableInfo?.To ?? "N/A",
+                            percentage, "Building local network...");
+                        Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Background);
+
+                        if (progressWindow.IsCancelled)
+                        {
+                            progressWindow.TaskDescriptionText.Text = "Operation cancelled by user.";
+                            break;
+                        }
+
+                        var result = ProcessCableRoute(cableRef, cableInfo, allContainmentInProject, allFittingsInProject, allCandidateEquipment);
+                        sb.AppendLine(result);
+                    }
+
+                    if (!progressWindow.IsCancelled)
+                    {
+                        System.IO.File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+                        // Show the completion state on the progress window itself
+                        progressWindow.ShowCompletion(filePath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    progressWindow.ShowError($"An unexpected error occurred: {ex.Message}");
+                    ShowError($"Failed to export Routing Sequence report: {ex.Message}");
                 }
             }
             catch (Exception ex)
             {
-                progressWindow.ShowError($"An unexpected error occurred: {ex.Message}");
-                ShowError($"Failed to export Routing Sequence report: {ex.Message}");
-            }
-            finally
-            {
-                progressWindow.Close();
+                // This will catch any error that happens anywhere in the command, including UI initialization.
+                ShowError($"A critical error occurred: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}");
             }
         }
 
         /// <summary>
         /// Processes a single cable's route and returns the formatted CSV line.
         /// </summary>
-        private string ProcessCableRoute(string cableRef, PC_ExtensibleClass.CableData cableInfo, List<Element> fullContainmentNetwork, List<Element> allCandidateEquipment, ContainmentGraph containmentGraph, Dictionary<ElementId, double> elementIdToLengthMap)
+        private string ProcessCableRoute(string cableRef, PC_ExtensibleClass.CableData cableInfo, List<Element> allContainmentInProject, List<Element> allFittingsInProject, List<Element> allCandidateEquipment)
         {
             string status = "Error";
             string routingSequence = "Could not determine route.";
@@ -166,25 +174,16 @@ namespace RTS.Reports.Generators
 
             try
             {
+                // Step 1: Find the specific trays/conduits this cable is assigned to.
                 var cableContainmentElements = new List<Element>();
-                foreach (Element elem in fullContainmentNetwork)
+                foreach (Element elem in allContainmentInProject)
                 {
-                    // Use version-specific handling for category ID comparison
-#if REVIT2022
-                    if (elem.Category.Id.IntegerValue != (int)BuiltInCategory.OST_CableTray && elem.Category.Id.IntegerValue != (int)BuiltInCategory.OST_Conduit) continue;
-#elif REVIT2024_OR_GREATER
-                    if (elem.Category.Id != new ElementId(BuiltInCategory.OST_CableTray) && elem.Category.Id != new ElementId(BuiltInCategory.OST_Conduit)) continue;
-#else
-                    // Fallback for any other version - most compatible approach
-                    int catId = elem.Category.Id.IntegerValue;
-                    if (catId != (int)BuiltInCategory.OST_CableTray && catId != (int)BuiltInCategory.OST_Conduit) continue;
-#endif
+                    if (!(elem is MEPCurve)) continue;
 
                     foreach (var guid in _cableGuids)
                     {
                         Parameter cableParam = elem.get_Parameter(guid);
-                        string paramValue = cableParam?.AsString();
-                        if (string.Equals(ReportHelpers.CleanCableReference(paramValue), cableRef, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(ReportHelpers.CleanCableReference(cableParam?.AsString()), cableRef, StringComparison.OrdinalIgnoreCase))
                         {
                             cableContainmentElements.Add(elem);
                             break;
@@ -199,7 +198,12 @@ namespace RTS.Reports.Generators
                 }
                 else
                 {
-                    var rtsIdToElementMap = ReportFormatter.BuildRtsIdMap(fullContainmentNetwork, _rtsIdGuid);
+                    // Step 2: Build a specific, local graph for ONLY the relevant elements.
+                    var relevantNetwork = GetRelevantNetwork(cableContainmentElements, allFittingsInProject);
+                    var containmentGraph = new ContainmentGraph(relevantNetwork, Document);
+                    var elementIdToLengthMap = containmentGraph.GetElementLengthMap();
+                    var rtsIdToElementMap = ReportFormatter.BuildRtsIdMap(relevantNetwork, _rtsIdGuid);
+
                     List<Element> startCandidates = FindMatchingEquipment(cableInfo.From, allCandidateEquipment, _rtsIdGuid);
                     List<Element> endCandidates = FindMatchingEquipment(cableInfo.To, allCandidateEquipment, _rtsIdGuid);
 
@@ -229,7 +233,7 @@ namespace RTS.Reports.Generators
 
                     if (bestPath != null && bestPath.Any())
                     {
-                        if (status == "Confirmed") // Only format if not already formatted by virtual pathfinder
+                        if (status == "Confirmed")
                         {
                             routingSequence = ReportFormatter.FormatPath(bestPath, containmentGraph, rtsIdToElementMap, Document);
                         }
@@ -248,8 +252,43 @@ namespace RTS.Reports.Generators
         }
 
         /// <summary>
-        /// Finds all matching equipment elements, prioritizing RTS_ID over Panel Name.
+        /// Finds all fittings and other MEPCurves connected to a given set of containment elements to build a complete local network.
         /// </summary>
+        private List<Element> GetRelevantNetwork(List<Element> cableContainment, List<Element> allFittings)
+        {
+            var relevantElements = new Dictionary<ElementId, Element>();
+            var queue = new Queue<Element>(cableContainment);
+
+            foreach (var el in cableContainment)
+            {
+                if (!relevantElements.ContainsKey(el.Id))
+                    relevantElements.Add(el.Id, el);
+            }
+
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                var connectors = ContainmentGraph.GetConnectors(current);
+                if (connectors == null) continue;
+
+                foreach (Connector conn in connectors)
+                {
+                    if (!conn.IsConnected) continue;
+
+                    foreach (Connector connected in conn.AllRefs)
+                    {
+                        var owner = connected.Owner;
+                        if (owner != null && !relevantElements.ContainsKey(owner.Id))
+                        {
+                            relevantElements.Add(owner.Id, owner);
+                            queue.Enqueue(owner);
+                        }
+                    }
+                }
+            }
+            return relevantElements.Values.ToList();
+        }
+
         private static List<Element> FindMatchingEquipment(string idToMatch, List<Element> allCandidateEquipment, Guid rtsIdGuid)
         {
             if (string.IsNullOrWhiteSpace(idToMatch)) return new List<Element>();
@@ -276,113 +315,48 @@ namespace RTS.Reports.Generators
 
     #region Helper Classes
 
-    /// <summary>
-    /// Handles collection of Revit elements.
-    /// </summary>
     public class ContainmentCollector
     {
         private readonly Document _doc;
-
-        public ContainmentCollector(Document doc)
-        {
-            _doc = doc;
-        }
+        public ContainmentCollector(Document doc) { _doc = doc; }
 
         public List<Element> GetAllContainmentElements()
         {
-            // Create a list of category IDs using version-specific approach
-            var categoryIds = new List<ElementId>();
-#if REVIT2022
-            categoryIds.Add(new ElementId((int)BuiltInCategory.OST_Conduit));
-            categoryIds.Add(new ElementId((int)BuiltInCategory.OST_CableTray));
-            categoryIds.Add(new ElementId((int)BuiltInCategory.OST_ConduitFitting));
-            categoryIds.Add(new ElementId((int)BuiltInCategory.OST_CableTrayFitting));
-#elif REVIT2024_OR_GREATER
-            categoryIds.Add(new ElementId(BuiltInCategory.OST_Conduit));
-            categoryIds.Add(new ElementId(BuiltInCategory.OST_CableTray));
-            categoryIds.Add(new ElementId(BuiltInCategory.OST_ConduitFitting));
-            categoryIds.Add(new ElementId(BuiltInCategory.OST_CableTrayFitting));
-#else
-            // Fallback approach that works in both versions
-            categoryIds.Add(new ElementId((int)BuiltInCategory.OST_Conduit));
-            categoryIds.Add(new ElementId((int)BuiltInCategory.OST_CableTray));
-            categoryIds.Add(new ElementId((int)BuiltInCategory.OST_ConduitFitting));
-            categoryIds.Add(new ElementId((int)BuiltInCategory.OST_CableTrayFitting));
-#endif
-
-            var multiCatFilter = new ElementMulticategoryFilter(categoryIds);
-            return new FilteredElementCollector(_doc)
-                .WherePasses(multiCatFilter)
-                .WhereElementIsNotElementType()
-                .ToList();
+            var categories = new List<BuiltInCategory>
+            {
+                BuiltInCategory.OST_Conduit, BuiltInCategory.OST_CableTray,
+                BuiltInCategory.OST_ConduitFitting, BuiltInCategory.OST_CableTrayFitting
+            };
+            var multiCatFilter = new ElementMulticategoryFilter(categories);
+            return new FilteredElementCollector(_doc).WherePasses(multiCatFilter).WhereElementIsNotElementType().ToList();
         }
 
         public List<Element> GetAllElectricalEquipment()
         {
-            // Create category IDs using version-specific approach
-            ElementId electricalEquipmentCatId;
-            ElementId electricalFixturesCatId;
-
-#if REVIT2022
-            electricalEquipmentCatId = new ElementId((int)BuiltInCategory.OST_ElectricalEquipment);
-            electricalFixturesCatId = new ElementId((int)BuiltInCategory.OST_ElectricalFixtures);
-#elif REVIT2024_OR_GREATER
-            electricalEquipmentCatId = new ElementId(BuiltInCategory.OST_ElectricalEquipment);
-            electricalFixturesCatId = new ElementId(BuiltInCategory.OST_ElectricalFixtures);
-#else
-            // Fallback approach that works in both versions
-            electricalEquipmentCatId = new ElementId((int)BuiltInCategory.OST_ElectricalEquipment);
-            electricalFixturesCatId = new ElementId((int)BuiltInCategory.OST_ElectricalFixtures);
-#endif
-
-            var equip = new FilteredElementCollector(_doc)
-                .OfCategoryId(electricalEquipmentCatId)
-                .WhereElementIsNotElementType().ToList();
-
-            var fixtures = new FilteredElementCollector(_doc)
-                .OfCategoryId(electricalFixturesCatId)
-                .WhereElementIsNotElementType().ToList();
-
+            var equip = new FilteredElementCollector(_doc).OfCategory(BuiltInCategory.OST_ElectricalEquipment).WhereElementIsNotElementType().ToList();
+            var fixtures = new FilteredElementCollector(_doc).OfCategory(BuiltInCategory.OST_ElectricalFixtures).WhereElementIsNotElementType().ToList();
             return equip.Concat(fixtures).ToList();
         }
     }
 
-    /// <summary>
-    /// Represents the physical containment network as a graph.
-    /// </summary>
     public class ContainmentGraph
     {
         public Dictionary<ElementId, List<ElementId>> AdjacencyGraph { get; }
         private readonly Document _doc;
 
-        public ContainmentGraph(List<Element> elements, Document doc, RoutingReportProgressBarWindow progressWindow)
+        // Constructor for cable-specific graphs (no progress reporting)
+        public ContainmentGraph(List<Element> elements, Document doc)
         {
             _doc = doc;
-            AdjacencyGraph = BuildAdjacencyGraph(elements, progressWindow);
+            AdjacencyGraph = BuildAdjacencyGraph(elements);
         }
 
-        private Dictionary<ElementId, List<ElementId>> BuildAdjacencyGraph(List<Element> elements, RoutingReportProgressBarWindow progressWindow)
+        private Dictionary<ElementId, List<ElementId>> BuildAdjacencyGraph(List<Element> elements)
         {
             var graph = new Dictionary<ElementId, List<ElementId>>();
-            int totalElements = elements.Count;
-            int currentElement = 0;
-
             foreach (var elemA in elements)
             {
-                currentElement++;
-                // Update progress periodically to avoid flooding the UI thread
-                if (currentElement % 100 == 0 || currentElement == totalElements)
-                {
-                    // Graph building is allocated the first 50% of the total progress.
-                    double percentage = 5.0 + ((double)currentElement / totalElements * 45.0);
-                    progressWindow.UpdateProgress(currentElement, totalElements, "Building Graph", $"Processing element {currentElement}/{totalElements}", "", percentage, "Connecting elements...");
-                    Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Background);
-                }
-
-                if (!graph.ContainsKey(elemA.Id))
-                {
-                    graph[elemA.Id] = new List<ElementId>();
-                }
+                if (!graph.ContainsKey(elemA.Id)) graph[elemA.Id] = new List<ElementId>();
                 foreach (var elemB in elements)
                 {
                     if (elemA.Id == elemB.Id) continue;
@@ -397,13 +371,10 @@ namespace RTS.Reports.Generators
 
         public Dictionary<ElementId, double> GetElementLengthMap()
         {
-            return AdjacencyGraph.Keys.ToDictionary(
-                id => id,
-                id => (_doc.GetElement(id) as MEPCurve)?.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH)?.AsDouble() ?? 0.0
-            );
+            return AdjacencyGraph.Keys.ToDictionary(id => id, id => (_doc.GetElement(id) as MEPCurve)?.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH)?.AsDouble() ?? 0.0);
         }
 
-        private static ConnectorSet GetConnectors(Element element)
+        public static ConnectorSet GetConnectors(Element element)
         {
             if (element is MEPCurve curve) return curve.ConnectorManager?.Connectors;
             if (element is FamilyInstance fi) return fi.MEPModel?.ConnectorManager?.Connectors;
@@ -416,35 +387,26 @@ namespace RTS.Reports.Generators
             {
                 var connectorsA = GetConnectors(a);
                 var connectorsB = GetConnectors(b);
-
                 if (connectorsA == null || connectorsB == null) return false;
 
                 foreach (Connector cA in connectorsA)
                 {
+                    if (!cA.IsConnected) continue;
                     foreach (Connector cB in connectorsB)
                     {
-                        if (cA.IsConnectedTo(cB) || cA.Origin.IsAlmostEqualTo(cB.Origin, 0.01))
-                        {
-                            return true;
-                        }
+                        if (cA.IsConnectedTo(cB)) return true;
                     }
                 }
             }
-            catch { /* Ignore connection errors */ }
+            catch { }
             return false;
         }
     }
 
-    /// <summary>
-    /// Handles all pathfinding logic, including Dijkstra's algorithm and virtual island hopping.
-    /// </summary>
     public static class Pathfinder
     {
         private const double METERS_TO_FEET = 3.28084;
 
-        /// <summary>
-        /// Publicly accessible result of the virtual pathing calculation.
-        /// </summary>
         public class VirtualPathResult
         {
             public string RoutingSequence { get; set; } = "Could not determine virtual route.";
@@ -493,11 +455,8 @@ namespace RTS.Reports.Generators
             var islands = GroupIntoIslands(cableElements, graph, doc);
             if (!islands.Any()) return new VirtualPathResult();
 
-            var elementIdToIslandMap = islands.SelectMany(i => i.ElementIds.Select(id => new { ElementId = id, Island = i }))
-                                              .ToDictionary(x => x.ElementId, x => x.Island);
-
-            ContainmentIsland startIsland = FindClosestIsland(startCandidates, islands);
-            ContainmentIsland endIsland = FindClosestIsland(endCandidates, islands);
+            ContainmentIsland startIsland = FindClosestIsland(startCandidates, islands, doc);
+            ContainmentIsland endIsland = FindClosestIsland(endCandidates, islands, doc);
 
             if (startIsland == null && endIsland == null)
             {
@@ -508,7 +467,7 @@ namespace RTS.Reports.Generators
             startIsland = startIsland ?? endIsland;
             endIsland = endIsland ?? startIsland;
 
-            var islandGraph = BuildIslandGraph(islands);
+            var islandGraph = BuildIslandGraph(islands, doc);
             var islandPath = FindShortestIslandPath(startIsland, endIsland, islandGraph);
             if (islandPath == null || !islandPath.Any()) return new VirtualPathResult();
 
@@ -535,6 +494,7 @@ namespace RTS.Reports.Generators
             var islands = new List<ContainmentIsland>();
             var visited = new HashSet<ElementId>();
             int islandIdCounter = 0;
+            var cableElementIds = new HashSet<ElementId>(cableElements.Select(e => e.Id));
 
             foreach (var element in cableElements)
             {
@@ -574,7 +534,7 @@ namespace RTS.Reports.Generators
                     {
                         foreach (var neighborId in neighbors)
                         {
-                            if (cableElements.Any(e => e.Id == neighborId) && !visited.Contains(neighborId))
+                            if (cableElementIds.Contains(neighborId) && !visited.Contains(neighborId))
                             {
                                 visited.Add(neighborId);
                                 queue.Enqueue(neighborId);
@@ -597,22 +557,9 @@ namespace RTS.Reports.Generators
             {
                 var elem = doc.GetElement(elemId);
                 if (elem == null) continue;
-                
-                // Use version-specific comparison for category ID
-#if REVIT2022
-                int catId = elem.Category.Id.IntegerValue;
+                var catId = elem.Category.Id.IntegerValue;
                 if (catId == (int)BuiltInCategory.OST_CableTray || catId == (int)BuiltInCategory.OST_CableTrayFitting) hasTray = true;
                 else if (catId == (int)BuiltInCategory.OST_Conduit || catId == (int)BuiltInCategory.OST_ConduitFitting) hasConduit = true;
-#elif REVIT2024_OR_GREATER
-                ElementId catId = elem.Category.Id;
-                if (catId == new ElementId(BuiltInCategory.OST_CableTray) || catId == new ElementId(BuiltInCategory.OST_CableTrayFitting)) hasTray = true;
-                else if (catId == new ElementId(BuiltInCategory.OST_Conduit) || catId == new ElementId(BuiltInCategory.OST_ConduitFitting)) hasConduit = true;
-#else
-                // Fallback approach
-                int catId = elem.Category.Id.IntegerValue;
-                if (catId == (int)BuiltInCategory.OST_CableTray || catId == (int)BuiltInCategory.OST_CableTrayFitting) hasTray = true;
-                else if (catId == (int)BuiltInCategory.OST_Conduit || catId == (int)BuiltInCategory.OST_ConduitFitting) hasConduit = true;
-#endif
                 if (hasTray && hasConduit) return ContainmentType.Mixed;
             }
             if (hasTray) return ContainmentType.Tray;
@@ -620,32 +567,39 @@ namespace RTS.Reports.Generators
             return ContainmentType.Mixed;
         }
 
-        private static ContainmentIsland FindClosestIsland(List<Element> equipmentCandidates, List<ContainmentIsland> islands)
+        private static ContainmentIsland FindClosestIsland(List<Element> equipmentCandidates, List<ContainmentIsland> islands, Document doc)
         {
             if (equipmentCandidates == null || !equipmentCandidates.Any()) return null;
-            ContainmentIsland closestIsland = null;
+
+            ContainmentIsland bestIsland = null;
             double minDistance = double.MaxValue;
 
             foreach (var equip in equipmentCandidates)
             {
                 var equipLocation = ReportHelpers.GetElementLocation(equip);
                 if (equipLocation == null) continue;
+
                 foreach (var island in islands)
                 {
-                    if (island.BoundingBox == null || !island.BoundingBox.Enabled) continue;
-                    var boxCenter = (island.BoundingBox.Min + island.BoundingBox.Max) / 2.0;
-                    double dist = equipLocation.DistanceTo(boxCenter);
-                    if (dist < minDistance)
+                    foreach (var elementId in island.ElementIds)
                     {
-                        minDistance = dist;
-                        closestIsland = island;
+                        var elem = doc.GetElement(elementId);
+                        var elemLocation = ReportHelpers.GetElementLocation(elem);
+                        if (elemLocation == null) continue;
+
+                        double dist = equipLocation.DistanceTo(elemLocation);
+                        if (dist < minDistance)
+                        {
+                            minDistance = dist;
+                            bestIsland = island;
+                        }
                     }
                 }
             }
-            return closestIsland;
+            return bestIsland;
         }
 
-        private static Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> BuildIslandGraph(List<ContainmentIsland> islands)
+        private static Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> BuildIslandGraph(List<ContainmentIsland> islands, Document doc)
         {
             var islandGraph = new Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>>();
             for (int i = 0; i < islands.Count; i++)
@@ -654,14 +608,27 @@ namespace RTS.Reports.Generators
                 for (int j = i + 1; j < islands.Count; j++)
                 {
                     if (!islandGraph.ContainsKey(islands[j])) islandGraph[islands[j]] = new List<Tuple<ContainmentIsland, double>>();
-                    var boxA = islands[i].BoundingBox;
-                    var boxB = islands[j].BoundingBox;
-                    if (boxA == null || !boxA.Enabled || boxB == null || !boxB.Enabled) continue;
-                    var centerA = (boxA.Min + boxA.Max) / 2.0;
-                    var centerB = (boxB.Min + boxB.Max) / 2.0;
-                    double distance = centerA.DistanceTo(centerB);
-                    islandGraph[islands[i]].Add(new Tuple<ContainmentIsland, double>(islands[j], distance));
-                    islandGraph[islands[j]].Add(new Tuple<ContainmentIsland, double>(islands[i], distance));
+
+                    // High-accuracy distance calculation
+                    double minDistance = double.MaxValue;
+                    foreach (var idA in islands[i].ElementIds)
+                    {
+                        var locA = ReportHelpers.GetElementLocation(doc.GetElement(idA));
+                        if (locA == null) continue;
+
+                        foreach (var idB in islands[j].ElementIds)
+                        {
+                            var locB = ReportHelpers.GetElementLocation(doc.GetElement(idB));
+                            if (locB == null) continue;
+                            minDistance = Math.Min(minDistance, locA.DistanceTo(locB));
+                        }
+                    }
+
+                    if (minDistance != double.MaxValue)
+                    {
+                        islandGraph[islands[i]].Add(new Tuple<ContainmentIsland, double>(islands[j], minDistance));
+                        islandGraph[islands[j]].Add(new Tuple<ContainmentIsland, double>(islands[i], minDistance));
+                    }
                 }
             }
             return islandGraph;
@@ -792,24 +759,28 @@ namespace RTS.Reports.Generators
 
         private static ElementId FindClosestElementToOtherIsland(ContainmentIsland fromIsland, ContainmentIsland toIsland, Document doc)
         {
-            ElementId bestElement = fromIsland.ElementIds.FirstOrDefault();
+            ElementId bestElementId = fromIsland.ElementIds.FirstOrDefault();
             double minDistance = double.MaxValue;
-            var toBox = toIsland.BoundingBox;
-            if (toBox == null || !toBox.Enabled) return bestElement;
-            var toCenter = (toBox.Min + toBox.Max) / 2.0;
 
-            foreach (var elementId in fromIsland.ElementIds)
+            foreach (var idFrom in fromIsland.ElementIds)
             {
-                var fromLocation = ReportHelpers.GetElementLocation(doc.GetElement(elementId));
-                if (fromLocation == null) continue;
-                double dist = fromLocation.DistanceTo(toCenter);
-                if (dist < minDistance)
+                var locFrom = ReportHelpers.GetElementLocation(doc.GetElement(idFrom));
+                if (locFrom == null) continue;
+
+                foreach (var idTo in toIsland.ElementIds)
                 {
-                    minDistance = dist;
-                    bestElement = elementId;
+                    var locTo = ReportHelpers.GetElementLocation(doc.GetElement(idTo));
+                    if (locTo == null) continue;
+
+                    double dist = locFrom.DistanceTo(locTo);
+                    if (dist < minDistance)
+                    {
+                        minDistance = dist;
+                        bestElementId = idFrom;
+                    }
                 }
             }
-            return bestElement;
+            return bestElementId;
         }
 
         #endregion

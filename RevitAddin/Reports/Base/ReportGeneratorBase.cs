@@ -9,6 +9,7 @@
 
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using RTS.Commands.DataExchange.DataManagement;
 using System;
 using System.Collections.Generic;
 using System.Linq; // Added System.Linq for LINQ extension methods
@@ -26,9 +27,9 @@ namespace RTS.Reports.Base
     {
         protected Document Document { get; private set; }
         protected ExternalCommandData CommandData { get; private set; }
-        protected PC_Extensible.PC_ExtensibleClass PcExtensible { get; private set; }
+        protected PC_ExtensibleClass PcExtensible { get; private set; }
 
-        public ReportGeneratorBase(Document doc, ExternalCommandData commandData, PC_Extensible.PC_ExtensibleClass pcExtensible)
+        public ReportGeneratorBase(Document doc, ExternalCommandData commandData, PC_ExtensibleClass pcExtensible)
         {
             Document = doc;
             CommandData = commandData;
@@ -64,20 +65,12 @@ namespace RTS.Reports.Base
         /// </summary>
         protected string GetOutputFilePath(string defaultFileName, string dialogTitle)
         {
-            var dialog = new SaveFileDialog
-            {
-                Title = dialogTitle,
-                FileName = defaultFileName,
-                Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                OverwritePrompt = true
-            };
-
-            if (dialog.ShowDialog() == DialogResult.OK)
-            {
-                return dialog.FileName;
-            }
-            return null;
+            return RTS.Utilities.FileDialogs.PromptForSaveFile(
+                defaultFileName,
+                dialogTitle,
+                "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+                null,
+                "csv");
         }
 
         /// <summary>
