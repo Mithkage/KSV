@@ -9,20 +9,16 @@
 // displaying, and saving Revit link metadata to Extensible Storage.
 //
 // Log:
+// - 2025-08-11: Corrected WorksetId API usage to be compatible with both Revit 2022 and 2024.
+// - 2025-08-11: Updated methods relying on ProfileSettings to use the new data structure.
+// - 2025-08-11: Corrected duplicate key exception in LoadLinksInBackground by grouping items before creating dictionaries.
 // - 2025-08-06: Implemented asynchronous data loading for better UI responsiveness.
-// - 2025-08-06: Refactored LoadLinks for performance using dictionaries.
-// - 2025-08-06: Updated DataGrid sorting to use ICollectionView.SortDescriptions.
-// - 2025-08-06: Made File Name context menu actions synchronous for immediate user feedback.
-// - 2025-08-06: Simplified comments for clarity.
-// - 2025-08-06: Resolved compilation errors related to namespace ambiguity and static member access.
-// - 2025-08-06: Removed loading indicator logic from the code-behind.
 //
 
 #region Namespaces
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.UI;
-using ClosedXML.Excel;
 using Microsoft.VisualBasic.FileIO; // Required for TextFieldParser
 using Microsoft.Win32;
 using RTS.UI;
@@ -34,7 +30,6 @@ using System.Diagnostics; // Required for Process.Start
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Reflection; // Required for Assembly.GetExecutingAssembly
 using System.Text; // Required for StringBuilder
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -281,8 +276,19 @@ namespace RTS.UI
             var linkInstancesGroupedByType = new FilteredElementCollector(_doc).OfClass(typeof(RevitLinkInstance)).Cast<RevitLinkInstance>().GroupBy(inst => inst.GetTypeId()).ToDictionary(g => g.Key, g => g.ToList());
             var availableWorksetNames = _doc.IsWorkshared ? new FilteredWorksetCollector(_doc).OfKind(WorksetKind.UserWorkset).Select(w => w.Name).ToList() : new List<string>();
 
-            var savedProfilesDict = savedProfiles.ToDictionary(p => p.LinkName, p => p, StringComparer.OrdinalIgnoreCase);
-            var reviztoRecordsDict = reviztoRecords.ToDictionary(r => Path.GetFileNameWithoutExtension(r.LinkName), r => r, StringComparer.OrdinalIgnoreCase);
+            var savedProfilesDict = savedProfiles
+                .GroupBy(p => p.LinkName, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var reviztoRecordsDict = reviztoRecords
+                .GroupBy(r => Path.GetFileNameWithoutExtension(r.LinkName), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(r => {
+                        DateTime.TryParse(r.LastModified, out DateTime dt);
+                        return dt;
+                    }).First(),
+                    StringComparer.OrdinalIgnoreCase);
 
             var finalLinkList = new List<LinkViewModel>();
             var processedProfileKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -671,10 +677,13 @@ namespace RTS.UI
                                 {
                                     var instance = _doc.GetElement(instanceId);
                                     if (instance == null) continue;
+
+                                    // CORRECTED: WorksetId uses .IntegerValue for both Revit 2022 and 2024
                                     if (instance.WorksetId.IntegerValue != targetWorksetId.IntegerValue)
                                     {
                                         instance.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM)?.Set(targetWorksetId.IntegerValue);
                                     }
+
                                     if (vm.IsPinned.HasValue && instance.Pinned != vm.IsPinned.Value)
                                     {
                                         instance.Pinned = vm.IsPinned.Value;
@@ -1195,9 +1204,12 @@ namespace RTS.UI
         {
             var settingsList = RecallDataFromExtensibleStorage<ProfileSettings>(_doc, ProfileSettingsWindow.SettingsSchemaGuid, ProfileSettingsWindow.SettingsSchemaName, ProfileSettingsWindow.SettingsFieldName, ProfileSettingsWindow.SettingsDataStorageElementName);
             var settings = settingsList.FirstOrDefault();
-            if (settings == null || string.IsNullOrWhiteSpace(settings.SharedCoordinatesLink) || settings.SharedCoordinatesLink == "<None>") return null;
+            if (settings == null) return null;
 
-            string linkName = settings.SharedCoordinatesLink;
+            var sharedCoordsMapping = settings.CoordinateSystemMappings.FirstOrDefault(m => m.SystemName == "Shared Coordinates Source");
+            if (sharedCoordsMapping == null || string.IsNullOrWhiteSpace(sharedCoordsMapping.SelectedLink) || sharedCoordsMapping.SelectedLink == "<None>") return null;
+
+            string linkName = sharedCoordsMapping.SelectedLink;
             int idx = linkName.IndexOf("] - ");
             if (idx > 0) linkName = linkName.Substring(idx + 4);
 
@@ -1207,13 +1219,19 @@ namespace RTS.UI
 
         public static (RevitLinkInstance ceilingLink, RevitLinkInstance slabLink, string diagnosticMessage) GetLinkInstances(Document doc, ProfileSettings settings)
         {
-            string ceilingLinkName = ParseLinkName(settings.CeilingsLink);
-            string slabLinkName = ParseLinkName(settings.SlabsLink);
+            var ceilingsMapping = settings.ModelCategoryMappings.FirstOrDefault(m => m.CategoryName == "Ceilings");
+            var floorsMapping = settings.ModelCategoryMappings.FirstOrDefault(m => m.CategoryName == "Floors");
+
+            string ceilingLinkName = ParseLinkName(ceilingsMapping?.SelectedLink);
+            string slabLinkName = ParseLinkName(floorsMapping?.SelectedLink); // Assuming Slabs are represented by Floors category
+
             RevitLinkInstance ceilingLink = FindLoadedLinkInstance(doc, ceilingLinkName);
             RevitLinkInstance slabLink = FindLoadedLinkInstance(doc, slabLinkName);
+
             string diagnosticMessage = "";
-            if (ceilingLink == null) diagnosticMessage += "Ceilings link not found or not loaded.\n";
-            if (slabLink == null) diagnosticMessage += "Slabs link not found or not loaded.\n";
+            if (ceilingLink == null) diagnosticMessage += "Ceilings link not found, not loaded, or not assigned in Profile Settings.\n";
+            if (slabLink == null) diagnosticMessage += "Floors/Slabs link not found, not loaded, or not assigned in Profile Settings.\n";
+
             return (ceilingLink, slabLink, diagnosticMessage);
         }
 

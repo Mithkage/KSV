@@ -3,18 +3,16 @@
 // Company: ReTick Solutions Pty Ltd
 // Function: This script places instances of a user-selected family instance (e.g., lighting fixture,
 //           electrical outlet, etc.) in the active model. The placement is based on a geometric
-//           relationship established from a user-selected "template" reference element (e.g., a door)
+//           relationship established from a pre-selected "template" reference element (e.g., a door)
 //           in either the host or a linked model, and a "template" element to copy in the host model.
 //           The script then iterates through all other elements of the same type as the reference
 //           and creates new elements at the corresponding relative locations.
 //
 // Change Log:
 // ... (previous logs)
-// 2025-08-08: (Improvement) Implemented ISelectionFilter for a better user experience, preventing invalid selections.
-// 2025-08-08: (Improvement) Generalized the reference element; it can now be any FamilyInstance, not just a door.
-// 2025-08-08: (Improvement) Added robustness check for available 3D views for host finding.
-// 2025-08-08: (Improvement) Corrected the calculation for skipped elements in user feedback.
-// 2025-08-08: (Fix) Corrected compiler error CS0117 by removing invalid 'OST_FaceBased' category from filter.
+// 2025-08-11: (Improvement) Added logic to write reference element data to shared parameters for traceability.
+// 2025-08-11: (Fix) Corrected duplicate placement logic by tracking newly placed locations within the transaction.
+// 2025-08-11: (Fix) Implemented version-specific selection logic to support Revit 2022 and 2024.
 //
 using System;
 using System.Collections.Generic;
@@ -25,6 +23,8 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
+using RTS.UI; // Added using directive for the progress bar UI
+using System.Text; // For StringBuilder
 
 namespace RTS.Commands.MEPTools.Positioning
 {
@@ -33,6 +33,9 @@ namespace RTS.Commands.MEPTools.Positioning
     {
         private UIDocument _uidoc;
         private Document _doc;
+        // Shared Parameter GUIDs
+        private readonly Guid _refTypeGuid = new Guid("4d6ce1ad-eb55-47e2-acb6-69490634990e");
+        private readonly Guid _refIdGuid = new Guid("a377a731-1886-4b93-b477-a6208f672987");
 
         public Result Execute(
             ExternalCommandData commandData,
@@ -41,42 +44,67 @@ namespace RTS.Commands.MEPTools.Positioning
         {
             _uidoc = commandData.Application.ActiveUIDocument;
             _doc = _uidoc.Document;
+            var missingParamsFamilies = new HashSet<string>();
 
             try
             {
-                // Get the template elements from user selection
-                if (!GetTemplateElements(out FamilyInstance templateReferenceElement, out RevitLinkInstance linkInstance, out FamilyInstance elementToCopy))
-                {
-                    return Result.Cancelled;
-                }
-
-                // Calculate the geometric relationship
-                if (!CalculateGeometricRelationship(templateReferenceElement, elementToCopy, linkInstance, out Transform relativeTransform))
+                // Step 1: Get the pre-selected reference element
+                if (!GetPreselectedReference(out FamilyInstance templateReferenceElement, out RevitLinkInstance linkInstance))
                 {
                     return Result.Failed;
                 }
 
-                // Find all target elements
+                // Step 2: Prompt for the elements to copy
+                if (!GetElementsToCopy(out List<FamilyInstance> elementsToCopy))
+                {
+                    return Result.Cancelled;
+                }
+
+                // Step 3: Update parameters on the original template elements
+                using (var trans = new Transaction(_doc, "Update Template Reference Parameters"))
+                {
+                    trans.Start();
+                    foreach (var element in elementsToCopy)
+                    {
+                        UpdateReferenceParameters(element, templateReferenceElement, missingParamsFamilies);
+                    }
+                    trans.Commit();
+                }
+
+                // Step 4: Calculate the geometric relationships
+                if (!CalculateGeometricRelationships(templateReferenceElement, elementsToCopy, linkInstance, out List<Transform> relativeTransforms))
+                {
+                    return Result.Failed;
+                }
+
+                // Step 5: Find all target elements
                 List<FamilyInstance> targetElements = FindAllTargetElements(templateReferenceElement, linkInstance);
 
-                // Place new elements
-                int placedCount = PlaceNewElements(targetElements, elementToCopy, templateReferenceElement, linkInstance, relativeTransform);
-                int skippedCount = targetElements.Count - 1 - placedCount; // -1 for the template reference itself
+                // Step 6: Place new elements
+                (int placedCount, int skippedCount) = PlaceNewElements(targetElements, elementsToCopy, templateReferenceElement, linkInstance, relativeTransforms, missingParamsFamilies);
 
-                string categoryName = elementToCopy.Category.Name;
-
-                // Provide detailed feedback
-                string feedback = $"Successfully placed {placedCount} new {categoryName} elements.";
+                // Step 7: Provide final feedback
+                StringBuilder feedback = new StringBuilder();
+                feedback.AppendLine($"Successfully placed {placedCount} new elements.");
                 if (skippedCount > 0)
                 {
-                    feedback += $"\nSkipped {skippedCount} locations due to invalid target geometry.";
+                    feedback.AppendLine($"Skipped {skippedCount} locations where an element of the same type already existed or the target geometry was invalid.");
                 }
-                TaskDialog.Show("Success", feedback);
+                if (missingParamsFamilies.Any())
+                {
+                    feedback.AppendLine("\nWarning: The following families are missing the required 'RTS_CopyReference' parameters and were not updated:");
+                    foreach (var familyName in missingParamsFamilies)
+                    {
+                        feedback.AppendLine($" - {familyName}");
+                    }
+                }
+                TaskDialog.Show("Operation Complete", feedback.ToString());
 
                 return Result.Succeeded;
             }
             catch (OperationCanceledException)
             {
+                TaskDialog.Show("Cancelled", "The operation was cancelled by the user.");
                 return Result.Cancelled;
             }
             catch (Exception ex)
@@ -88,152 +116,188 @@ namespace RTS.Commands.MEPTools.Positioning
         }
 
         /// <summary>
-        /// Prompts the user to select template elements using selection filters for a better UX.
+        /// Gets the pre-selected reference element and validates it.
         /// </summary>
-        private bool GetTemplateElements(out FamilyInstance templateReferenceElement, out RevitLinkInstance linkInstance, out FamilyInstance elementToCopy)
+        private bool GetPreselectedReference(out FamilyInstance templateReferenceElement, out RevitLinkInstance linkInstance)
         {
             templateReferenceElement = null;
             linkInstance = null;
-            elementToCopy = null;
 
-            // Step 1: Select the template reference element (any FamilyInstance)
-            var referenceFilter = new FamilyInstanceSelectionFilter();
-            Reference referenceElementRef = _uidoc.Selection.PickObject(ObjectType.Element, referenceFilter, "Select a template reference element (e.g., door, window, desk).");
+#if REVIT2024_OR_GREATER
+            ICollection<Reference> selectedReferences = null;
+            try { selectedReferences = _uidoc.Selection.GetReferences(); } catch { }
 
-            Element pickedElement = _doc.GetElement(referenceElementRef.ElementId);
-            if (pickedElement is RevitLinkInstance)
+            if (selectedReferences == null || selectedReferences.Count != 1)
             {
-                linkInstance = pickedElement as RevitLinkInstance;
+                TaskDialog.Show("Selection Error", "Please select exactly one reference element before running the command.");
+                return false;
+            }
+
+            var reference = selectedReferences.First();
+            var selectedElement = _doc.GetElement(reference.ElementId);
+
+            if (selectedElement is RevitLinkInstance)
+            {
+                linkInstance = selectedElement as RevitLinkInstance;
                 Document linkedDoc = linkInstance.GetLinkDocument();
-                if (linkedDoc == null)
+                if (linkedDoc == null) { TaskDialog.Show("Selection Error", "Could not get the linked document."); return false; }
+                templateReferenceElement = linkedDoc.GetElement(reference.LinkedElementId) as FamilyInstance;
+            }
+            else if (selectedElement is FamilyInstance hostInstance)
+            {
+                templateReferenceElement = hostInstance;
+            }
+#else
+            try
+            {
+                var reference = _uidoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceSelectionFilter(), "Select a reference element in the HOST model (or press Esc for linked).");
+                var selectedElement = _doc.GetElement(reference.ElementId);
+                if (selectedElement is FamilyInstance hostInstance) { templateReferenceElement = hostInstance; }
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                try
                 {
-                    TaskDialog.Show("Selection Error", "Could not get the linked document. Ensure the link is loaded.");
-                    return false;
+                    var reference = _uidoc.Selection.PickObject(ObjectType.LinkedElement, new FamilyInstanceSelectionFilter(), "Select a reference element in a LINKED model.");
+                    var selectedElement = _doc.GetElement(reference.ElementId);
+                    if (selectedElement is RevitLinkInstance li)
+                    {
+                        linkInstance = li;
+                        Document linkedDoc = linkInstance.GetLinkDocument();
+                        if (linkedDoc == null) { TaskDialog.Show("Selection Error", "Could not get the linked document."); return false; }
+                        templateReferenceElement = linkedDoc.GetElement(reference.LinkedElementId) as FamilyInstance;
+                    }
                 }
-                templateReferenceElement = linkedDoc.GetElement(referenceElementRef.LinkedElementId) as FamilyInstance;
+                catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return false; }
             }
-            else
+#endif
+
+            if (templateReferenceElement == null)
             {
-                templateReferenceElement = pickedElement as FamilyInstance;
+                TaskDialog.Show("Selection Error", "The selected element is not a valid Family Instance.");
+                return false;
             }
-
-            if (templateReferenceElement == null) return false; // Should not happen with filter, but good practice
-
-            // Step 2: Select the element to copy (specific categories)
-            var supportedCategories = new List<BuiltInCategory>
-            {
-                BuiltInCategory.OST_LightingFixtures,
-                BuiltInCategory.OST_ElectricalFixtures,
-                BuiltInCategory.OST_ElectricalEquipment,
-                BuiltInCategory.OST_LightingDevices,
-                BuiltInCategory.OST_CommunicationDevices
-            };
-            var elementToCopyFilter = new FamilyInstanceSelectionFilter(supportedCategories);
-            Reference elementToCopyRef = _uidoc.Selection.PickObject(ObjectType.Element, elementToCopyFilter, "Select the template element to copy (e.g., light, switch, outlet).");
-
-            elementToCopy = _doc.GetElement(elementToCopyRef.ElementId) as FamilyInstance;
-
-            return elementToCopy != null;
+            return true;
         }
 
         /// <summary>
-        /// Creates a local coordinate system (Transform) from a FamilyInstance's location and orientation.
+        /// Prompts the user to select multiple elements to be copied.
         /// </summary>
-        private Transform CreateTransformFromInstance(FamilyInstance instance)
+        private bool GetElementsToCopy(out List<FamilyInstance> elementsToCopy)
         {
-            if (!(instance.Location is LocationPoint locationPoint)) return null;
+            elementsToCopy = new List<FamilyInstance>();
+            try
+            {
+                var references = _uidoc.Selection.PickObjects(ObjectType.Element, new FamilyInstanceSelectionFilter(), "Select the template elements to copy.");
+                foreach (var reference in references)
+                {
+                    var pickedElement = _doc.GetElement(reference.ElementId);
+                    if (pickedElement is FamilyInstance fi)
+                    {
+                        elementsToCopy.Add(fi);
+                    }
+                }
+
+                if (!elementsToCopy.Any())
+                {
+                    TaskDialog.Show("Invalid Selection", "No valid Family Instances were selected.");
+                    return false;
+                }
+                return true;
+            }
+            catch (OperationCanceledException) { return false; }
+        }
+
+        /// <summary>
+        /// Creates a transform from a FamilyInstance's location and orientation.
+        /// </summary>
+        private Transform CreateTransformFromInstance(FamilyInstance instance, RevitLinkInstance linkInstance = null)
+        {
+            if (!(instance.Location is LocationPoint locationPoint))
+            {
+                throw new InvalidOperationException($"Element '{instance.Name}' (ID: {instance.Id}) lacks a valid insertion point.");
+            }
 
             var origin = locationPoint.Point;
             var basisX = instance.HandOrientation.Normalize();
             var basisZ = instance.FacingOrientation.Normalize();
             var basisY = basisZ.CrossProduct(basisX).Normalize();
 
+            if (linkInstance != null)
+            {
+                Transform linkTransform = linkInstance.GetTotalTransform();
+                double determinant = linkTransform.BasisX.DotProduct(linkTransform.BasisY.CrossProduct(linkTransform.BasisZ));
+                if (determinant < 0)
+                {
+                    basisY = basisX.CrossProduct(basisZ).Normalize();
+                }
+            }
+
             var transform = Transform.Identity;
             transform.Origin = origin;
             transform.BasisX = basisX;
             transform.BasisY = basisY;
             transform.BasisZ = basisZ;
-
             return transform;
         }
 
         /// <summary>
-        /// Calculates the relative transformation from the reference element's coordinate system to the element to copy's.
+        /// Calculates the relative transformations between the reference element and each element to be copied.
         /// </summary>
-        private bool CalculateGeometricRelationship(FamilyInstance templateReference, FamilyInstance elementToCopy, RevitLinkInstance linkInstance, out Transform relativeTransform)
+        private bool CalculateGeometricRelationships(FamilyInstance templateReference, List<FamilyInstance> elementsToCopy, RevitLinkInstance linkInstance, out List<Transform> relativeTransforms)
         {
-            relativeTransform = null;
+            relativeTransforms = new List<Transform>();
             Transform linkTransform = linkInstance?.GetTotalTransform() ?? Transform.Identity;
+            Transform referenceTransform = CreateTransformFromInstance(templateReference, linkInstance);
 
-            Transform referenceTransform = CreateTransformFromInstance(templateReference);
-            Transform elementToCopyTransform = CreateTransformFromInstance(elementToCopy);
-
-            if (referenceTransform == null || elementToCopyTransform == null)
-            {
-                TaskDialog.Show("Error", "Could not determine the location of one or both template elements.");
-                return false;
-            }
+            if (referenceTransform == null) return false;
 
             Transform referenceTransformInHost = linkTransform.Multiply(referenceTransform);
-            relativeTransform = referenceTransformInHost.Inverse.Multiply(elementToCopyTransform);
+
+            foreach (var elementToCopy in elementsToCopy)
+            {
+                Transform elementToCopyTransform = CreateTransformFromInstance(elementToCopy);
+                if (elementToCopyTransform == null) return false;
+
+                relativeTransforms.Add(referenceTransformInHost.Inverse.Multiply(elementToCopyTransform));
+            }
             return true;
         }
 
         /// <summary>
-        /// Finds all elements of the same type as the template reference element in the source document (host or link).
+        /// Finds all elements of the same type as the reference.
         /// </summary>
         private List<FamilyInstance> FindAllTargetElements(FamilyInstance templateReferenceElement, RevitLinkInstance linkInstance)
         {
             Document sourceDoc = linkInstance?.GetLinkDocument() ?? _doc;
             if (sourceDoc == null) return new List<FamilyInstance>();
-
             var referenceTypeId = templateReferenceElement.GetTypeId();
-
 #if REVIT2024_OR_GREATER
             return new FilteredElementCollector(sourceDoc)
                 .OfCategory((BuiltInCategory)templateReferenceElement.Category.Id.Value)
                 .OfClass(typeof(FamilyInstance))
                 .Where(fi => fi.GetTypeId() == referenceTypeId)
-                .Cast<FamilyInstance>()
-                .ToList();
+                .Cast<FamilyInstance>().ToList();
 #else
             return new FilteredElementCollector(sourceDoc)
                 .OfCategory((BuiltInCategory)templateReferenceElement.Category.Id.IntegerValue)
                 .OfClass(typeof(FamilyInstance))
                 .Where(fi => fi.GetTypeId() == referenceTypeId)
-                .Cast<FamilyInstance>()
-                .ToList();
+                .Cast<FamilyInstance>().ToList();
 #endif
         }
 
         /// <summary>
-        /// Finds a host element by casting rays from a given point.
+        /// Finds a host element by ray casting.
         /// </summary>
         private Element GetHostElementAtPoint(Document doc, XYZ point)
         {
             View3D view3D = new FilteredElementCollector(doc).OfClass(typeof(View3D)).Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
-            if (view3D == null)
-            {
-                // This is a critical failure for host finding. We can't proceed without a 3D view.
-                // For this tool, we will allow unhosted placement, so we just return null.
-                // A more advanced implementation could warn the user here.
-                return null;
-            }
+            if (view3D == null) return null;
 
-            var categories = new List<BuiltInCategory>
-            {
-                BuiltInCategory.OST_Ceilings,
-                BuiltInCategory.OST_Floors,
-                BuiltInCategory.OST_Roofs,
-                BuiltInCategory.OST_Walls
-            };
+            var categories = new List<BuiltInCategory> { BuiltInCategory.OST_Ceilings, BuiltInCategory.OST_Floors, BuiltInCategory.OST_Roofs, BuiltInCategory.OST_Walls };
             var categoryFilter = new ElementMulticategoryFilter(categories);
-
-            var intersector = new ReferenceIntersector(categoryFilter, FindReferenceTarget.Face, view3D)
-            {
-                FindReferencesInRevitLinks = false
-            };
-
+            var intersector = new ReferenceIntersector(categoryFilter, FindReferenceTarget.Face, view3D) { FindReferencesInRevitLinks = false };
             var refUp = intersector.FindNearest(point, XYZ.BasisZ);
             var refDown = intersector.FindNearest(point, -XYZ.BasisZ);
 
@@ -245,114 +309,206 @@ namespace RTS.Commands.MEPTools.Positioning
         }
 
         /// <summary>
-        /// Places new elements based on the calculated geometric relationship and the target elements.
+        /// Places the new elements and updates their reference parameters.
         /// </summary>
-        private int PlaceNewElements(List<FamilyInstance> targetElements, FamilyInstance elementToCopy, FamilyInstance templateReferenceElement, RevitLinkInstance linkInstance, Transform relativeTransform)
+        private (int placed, int skipped) PlaceNewElements(
+            List<FamilyInstance> targetElements,
+            List<FamilyInstance> elementsToCopy,
+            FamilyInstance templateReferenceElement,
+            RevitLinkInstance linkInstance,
+            List<Transform> relativeTransforms,
+            HashSet<string> missingParamsFamilies)
         {
-            var elementSymbol = elementToCopy.Symbol;
-            int placedCount = 0;
+            int placedCount = 0, skippedCount = 0, processedCount = 0;
+            int totalOperations = targetElements.Count * elementsToCopy.Count;
 
-            if (!elementSymbol.IsActive)
+            var progressBar = new ProgressBarWindow();
+            progressBar.Show();
+
+            foreach (var element in elementsToCopy)
             {
-                using (var activateTrans = new Transaction(_doc, "Activate Family Symbol"))
+                if (!element.Symbol.IsActive)
                 {
-                    activateTrans.Start();
-                    elementSymbol.Activate();
-                    activateTrans.Commit();
+                    using (var t = new Transaction(_doc, "Activate Symbol")) { t.Start(); element.Symbol.Activate(); t.Commit(); }
                 }
             }
 
             Transform linkTransform = linkInstance?.GetTotalTransform() ?? Transform.Identity;
 
-            using (var trans = new Transaction(_doc, $"Place {elementToCopy.Category.Name} by Reference"))
+            var placedLocationsByType = new Dictionary<ElementId, HashSet<XYZ>>();
+            foreach (var elementToCopy in elementsToCopy)
             {
+                var existingInstances = new FilteredElementCollector(_doc)
+                    .OfClass(typeof(FamilyInstance))
+                    .Where(e => (e as FamilyInstance).Symbol.Id == elementToCopy.Symbol.Id)
+                    .Select(e => (e.Location as LocationPoint)?.Point)
+                    .Where(p => p != null);
+                placedLocationsByType[elementToCopy.Symbol.Id] = new HashSet<XYZ>(existingInstances, new XyzEqualityComparer());
+            }
+
+            var hostLevelsByName = new FilteredElementCollector(_doc).OfClass(typeof(Level)).Cast<Level>().ToDictionary(l => l.Name, l => l);
+
+            using (var trans = new Transaction(_doc, "Place Elements by Reference"))
+            {
+                var options = trans.GetFailureHandlingOptions();
+                options.SetFailuresPreprocessor(new DuplicateInstancesPreprocessor());
+                trans.SetFailureHandlingOptions(options);
                 trans.Start();
 
                 foreach (var targetElement in targetElements)
                 {
-                    if (targetElement.Id == templateReferenceElement.Id) continue;
-
-                    Transform targetTransform = CreateTransformFromInstance(targetElement);
-                    if (targetTransform == null) continue;
-
-                    Transform targetTransformInHost = linkTransform.Multiply(targetTransform);
-                    Transform newElementTransform = targetTransformInHost.Multiply(relativeTransform);
-                    XYZ newElementLocation = newElementTransform.Origin;
-
-                    var hostElement = GetHostElementAtPoint(_doc, newElementLocation);
-
-                    FamilyInstance newElement = _doc.Create.NewFamilyInstance(
-                        newElementLocation,
-                        elementSymbol,
-                        hostElement,
-                        StructuralType.NonStructural);
-
-                    if (newElement == null) continue;
-
-                    if (newElement.Location is LocationPoint newElementLocationPoint)
+                    if (targetElement.Id == templateReferenceElement.Id)
                     {
-                        double angle = XYZ.BasisX.AngleOnPlaneTo(newElementTransform.BasisX, XYZ.BasisZ);
-
-                        if (Math.Abs(angle) > 1e-9)
-                        {
-                            var axis = Line.CreateBound(newElementLocation, newElementLocation + XYZ.BasisZ);
-                            ElementTransformUtils.RotateElement(_doc, newElement.Id, axis, angle);
-                        }
+                        processedCount += elementsToCopy.Count;
+                        continue;
                     }
-                    placedCount++;
-                }
 
+                    Transform targetTransform = CreateTransformFromInstance(targetElement, linkInstance);
+                    if (targetTransform == null) { skippedCount += elementsToCopy.Count; continue; }
+                    Transform targetTransformInHost = linkTransform.Multiply(targetTransform);
+
+                    for (int i = 0; i < elementsToCopy.Count; i++)
+                    {
+                        processedCount++;
+                        progressBar.UpdateProgress(processedCount, totalOperations);
+                        progressBar.UpdateRoomStatus($"Processing target: {targetElement.Name}", processedCount, totalOperations);
+
+                        if (progressBar.IsCancellationPending)
+                        {
+                            trans.RollBack();
+                            progressBar.Close();
+                            throw new OperationCanceledException();
+                        }
+
+                        var elementToCopy = elementsToCopy[i];
+                        var relativeTransform = relativeTransforms[i];
+                        var elementSymbol = elementToCopy.Symbol;
+                        bool isHosted = elementToCopy.Host != null;
+
+                        Transform newElementTransform = targetTransformInHost.Multiply(relativeTransform);
+                        XYZ newElementLocation = newElementTransform.Origin;
+
+                        if (placedLocationsByType[elementSymbol.Id].Contains(newElementLocation)) { skippedCount++; continue; }
+
+                        Document sourceDoc = linkInstance?.GetLinkDocument() ?? _doc;
+                        Level sourceLevel = sourceDoc.GetElement(targetElement.LevelId) as Level;
+                        if (sourceLevel == null || !hostLevelsByName.TryGetValue(sourceLevel.Name, out Level targetHostLevel))
+                        {
+                            skippedCount++;
+                            continue;
+                        }
+
+                        Element hostElement = isHosted ? GetHostElementAtPoint(_doc, newElementLocation) : null;
+                        FamilyInstance newElement = _doc.Create.NewFamilyInstance(newElementLocation, elementSymbol, hostElement, targetHostLevel, StructuralType.NonStructural);
+
+                        if (newElement == null) { skippedCount++; continue; }
+
+                        placedLocationsByType[elementSymbol.Id].Add(newElementLocation);
+
+                        if (newElement.Location is LocationPoint)
+                        {
+                            double angle = XYZ.BasisX.AngleOnPlaneTo(newElementTransform.BasisX, XYZ.BasisZ);
+                            if (Math.Abs(angle) > 1e-9)
+                            {
+                                var axis = Line.CreateBound(newElementLocation, newElementLocation + XYZ.BasisZ);
+                                ElementTransformUtils.RotateElement(_doc, newElement.Id, axis, angle);
+                            }
+                        }
+
+                        // Update the reference parameters for the new element
+                        UpdateReferenceParameters(newElement, targetElement, missingParamsFamilies);
+
+                        placedCount++;
+                    }
+                }
                 trans.Commit();
             }
-            return placedCount;
+
+            progressBar.Close();
+            return (placedCount, skippedCount);
+        }
+
+        /// <summary>
+        /// Writes the reference element's information to the shared parameters of the target element.
+        /// </summary>
+        private void UpdateReferenceParameters(FamilyInstance elementToUpdate, Element referenceElement, ICollection<string> missingParamsFamilies)
+        {
+            var familyName = (elementToUpdate.Symbol.FamilyName);
+            if (missingParamsFamilies.Contains(familyName)) return;
+
+            var paramType = elementToUpdate.get_Parameter(_refTypeGuid);
+            var paramId = elementToUpdate.get_Parameter(_refIdGuid);
+
+            if (paramType != null && !paramType.IsReadOnly && paramId != null && !paramId.IsReadOnly)
+            {
+                paramType.Set(referenceElement.Name);
+                paramId.Set(referenceElement.UniqueId);
+            }
+            else
+            {
+                // Add the family name to the set so we don't check it again and only warn once.
+                missingParamsFamilies.Add(familyName);
+            }
         }
     }
 
     /// <summary>
-    /// A selection filter to allow the user to select only FamilyInstance elements,
-    /// optionally restricted to a list of specific categories.
+    /// A selection filter to allow the user to select only FamilyInstance elements.
     /// </summary>
     public class FamilyInstanceSelectionFilter : ISelectionFilter
     {
-        private readonly List<BuiltInCategory> _allowedCategories;
+        public bool AllowElement(Element elem) => elem is FamilyInstance;
+        public bool AllowReference(Reference reference, XYZ position) => true;
+    }
 
-        /// <summary>
-        /// Constructor to allow any FamilyInstance.
-        /// </summary>
-        public FamilyInstanceSelectionFilter()
+    /// <summary>
+    /// Custom comparer for XYZ points with a tolerance.
+    /// </summary>
+    public class XyzEqualityComparer : IEqualityComparer<XYZ>
+    {
+        private readonly double _tolerance = 1e-9;
+        private readonly int _multiplier = 10000;
+
+        public bool Equals(XYZ p1, XYZ p2)
         {
-            _allowedCategories = null; // Null means all categories are allowed
+            if (ReferenceEquals(p1, p2)) return true;
+            if (p1 is null || p2 is null) return false;
+            return p1.IsAlmostEqualTo(p2, _tolerance);
         }
 
-        /// <summary>
-        /// Constructor to restrict to specific categories.
-        /// </summary>
-        public FamilyInstanceSelectionFilter(List<BuiltInCategory> allowedCategories)
+        public int GetHashCode(XYZ p)
         {
-            _allowedCategories = allowedCategories;
-        }
-
-        public bool AllowElement(Element elem)
-        {
-            if (!(elem is FamilyInstance)) return false;
-
-            if (_allowedCategories == null || _allowedCategories.Count == 0)
+            if (p is null) return 0;
+            int hashX = ((int)(p.X * _multiplier)).GetHashCode();
+            int hashY = ((int)(p.Y * _multiplier)).GetHashCode();
+            int hashZ = ((int)(p.Z * _multiplier)).GetHashCode();
+            unchecked
             {
-                return true; // No category restriction
+                int hash = 17;
+                hash = hash * 23 + hashX;
+                hash = hash * 23 + hashY;
+                hash = hash * 23 + hashZ;
+                return hash;
             }
-
-#if REVIT2024_OR_GREATER
-            return _allowedCategories.Contains((BuiltInCategory)elem.Category.Id.Value);
-#else
-            return _allowedCategories.Contains((BuiltInCategory)elem.Category.Id.IntegerValue);
-#endif
         }
+    }
 
-        public bool AllowReference(Reference reference, XYZ position)
+    /// <summary>
+    /// Preprocessor to automatically dismiss "identical instances" warnings.
+    /// </summary>
+    public class DuplicateInstancesPreprocessor : IFailuresPreprocessor
+    {
+        public FailureProcessingResult PreprocessFailures(FailuresAccessor failuresAccessor)
         {
-            // Set to true if you need to select geometry within an element, like a face or edge.
-            // For this tool, we only need to select the element itself, so false is correct.
-            return false;
+            var failures = failuresAccessor.GetFailureMessages();
+            foreach (var failure in failures)
+            {
+                if (failure.GetFailureDefinitionId() == BuiltInFailures.OverlapFailures.DuplicateInstances)
+                {
+                    failuresAccessor.DeleteWarning(failure);
+                }
+            }
+            return FailureProcessingResult.Continue;
         }
     }
 }

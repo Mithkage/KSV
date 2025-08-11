@@ -253,6 +253,13 @@ namespace RTS
                 LargeImage = defaultIcon
             };
 
+            AddIcon("RT_WireConnect.png");
+            PushButtonData pbdRtWireConnect = new PushButtonData("CmdRtWireConnect", "Connect\nFixtures", ExecutingAssemblyPath, "RTS.Commands.MEPTools.Electrical.WireConnectClass")
+            {
+                ToolTip = "Automatically connects unconnected wire ends to nearby lighting fixtures and devices.",
+                LargeImage = GetEmbeddedPng("RT_WireConnect.png") ?? defaultIcon
+            };
+
             // MEP Tools - Cable Tray
             AddIcon("RT_TrayOccupancy.png");
             PushButtonData pbdRtTrayOccupancy = new PushButtonData("CmdRtTrayOccupancy", "Process\nTray Data", ExecutingAssemblyPath, "RTS.Commands.MEPTools.CableTray.RT_TrayOccupancyClass")
@@ -292,6 +299,13 @@ namespace RTS
             {
                 ToolTip = "Moves MEP elements vertically to align with the nearest ceiling or slab surface.",
                 LargeImage = defaultIcon
+            };
+
+            AddIcon("CopyRelativeTag.png");
+            PushButtonData pbdCopyRelativeTag = new PushButtonData("CmdCopyRelativeTag", "Copy\nTags", ExecutingAssemblyPath, "RTS.Commands.MEPTools.Positioning.CopyRelativeTagClass")
+            {
+                ToolTip = "Copies tags from a reference element to other elements of the same type while maintaining relative position.",
+                LargeImage = GetEmbeddedPng("CopyRelativeTag.png") ?? defaultIcon
             };
 
             // Document Tools - View Tools
@@ -376,6 +390,7 @@ namespace RTS
             splitElectricalButton.AddPushButton(pbdRtWireRoute);
             splitElectricalButton.AddPushButton(pbdRtCableLengths);
             splitElectricalButton.AddPushButton(pbdRtPanelConnect);
+            splitElectricalButton.AddPushButton(pbdRtWireConnect);
 
             var splitTrayButton = mepToolsPanel.AddItem(new SplitButtonData("CableTraySplit", "Cable Tray\nTools") { LargeImage = cableTrayToolsIcon }) as SplitButton;
             splitTrayButton.AddPushButton(pbdRtTrayOccupancy);
@@ -386,6 +401,7 @@ namespace RTS
             splitPositioningButton.AddPushButton(pbdCopyRelative);
             splitPositioningButton.AddPushButton(pbdScheduleLevel);
             splitPositioningButton.AddPushButton(pbdCastCeiling);
+            splitPositioningButton.AddPushButton(pbdCopyRelativeTag);
 
             // Document Tools Panel
             var splitViewButton = documentToolsPanel.AddItem(new SplitButtonData("ViewToolsSplit", "View\nTools") { LargeImage = viewToolsIcon }) as SplitButton;

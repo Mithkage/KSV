@@ -557,7 +557,11 @@ namespace RTS.Reports.Generators
             {
                 var elem = doc.GetElement(elemId);
                 if (elem == null) continue;
+#if REVIT2024_OR_GREATER
+                var catId = elem.Category.Id.Value;
+#else
                 var catId = elem.Category.Id.IntegerValue;
+#endif
                 if (catId == (int)BuiltInCategory.OST_CableTray || catId == (int)BuiltInCategory.OST_CableTrayFitting) hasTray = true;
                 else if (catId == (int)BuiltInCategory.OST_Conduit || catId == (int)BuiltInCategory.OST_ConduitFitting) hasConduit = true;
                 if (hasTray && hasConduit) return ContainmentType.Mixed;
