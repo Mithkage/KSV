@@ -154,6 +154,13 @@ namespace RTS
                 LargeImage = defaultIcon
             };
 
+            AddIcon("SharedParameters_Icon.png");
+            PushButtonData pbdSharedParameters = new PushButtonData("CmdSharedParameters", "Create\nShared Params", ExecutingAssemblyPath, "RTS.Commands.ProjectSetup.SharedParameterCommand")
+            {
+                ToolTip = "Creates a shared parameter file with all standard RTS parameters that can be loaded into projects.",
+                LargeImage = GetEmbeddedPng("SharedParameters_Icon.png") ?? parameterSetupIcon
+            };
+
             // Project Setup - Documentation
             AddIcon("RTS_Schedules.png");
             PushButtonData pbdRtsGenerateSchedules = new PushButtonData("CmdRtsGenerateSchedules", "Generate\nSchedules", ExecutingAssemblyPath, "RTS.Commands.ProjectSetup.RTS_SchedulesClass")
@@ -281,6 +288,13 @@ namespace RTS
                 LargeImage = GetEmbeddedPng("RT_TrayConduits.png") ?? defaultIcon
             };
 
+            AddIcon("CleanParameters_Icon.png");
+            PushButtonData pbdCleanParameters = new PushButtonData("CmdCleanParameters", "Clean Cable\nParameters", ExecutingAssemblyPath, "RTS.Commands.MEPTools.CableTray.CleanParametersClass")
+            {
+                ToolTip = "Standardizes cable parameter values on cable trays, conduits, and fittings for consistent naming conventions.",
+                LargeImage = GetEmbeddedPng("CleanParameters_Icon.png") ?? cableTrayToolsIcon
+            };
+
             // MEP Tools - Element Positioning
             AddIcon("CopyRelative.png");
             PushButtonData pbdCopyRelative = new PushButtonData("CmdCopyRelative", "Copy\nRelative", ExecutingAssemblyPath, "RTS.Commands.MEPTools.Positioning.CopyRelativeClass")
@@ -330,6 +344,13 @@ namespace RTS
                 LargeImage = GetEmbeddedPng("RT_UpperCase.png") ?? defaultIcon
             };
 
+            AddIcon("RT_DiagnoseConnectivity.png");
+            PushButtonData pbdRtDiagnoseConnectivity = new PushButtonData("CmdRtDiagnoseConnectivity", "Diagnose\nConnectivity", ExecutingAssemblyPath, "RTS.Commands.DocumentTools.ViewTools.RTS_DiagnoseConnectivityClass")
+            {
+                ToolTip = "Visualizes cable routing paths and connectivity gaps in 3D views for troubleshooting cable routes.",
+                LargeImage = GetEmbeddedPng("RT_DiagnoseConnectivity.png") ?? viewToolsIcon
+            };
+
             // Document Tools - Project Management
             AddIcon("LinkManager.png");
             PushButtonData pbdLinkManager = new PushButtonData("CmdLinkManager", "Link\nManager", ExecutingAssemblyPath, "RTS.Commands.DocumentTools.ProjectManagement.LinkManagerCommand")
@@ -368,6 +389,7 @@ namespace RTS
             splitSetupButton.AddPushButton(pbdRtsInitiate);
             splitSetupButton.AddPushButton(pbdRtsMapCables);
             splitSetupButton.AddPushButton(pbdPcClearData);
+            splitSetupButton.AddPushButton(pbdSharedParameters);
             projectSetupPanel.AddItem(pbdRtsGenerateSchedules);
             projectSetupPanel.AddItem(pbdRtsReports);
 
@@ -396,6 +418,7 @@ namespace RTS
             splitTrayButton.AddPushButton(pbdRtTrayOccupancy);
             splitTrayButton.AddPushButton(pbdRtTrayId);
             splitTrayButton.AddPushButton(pbdRtTrayConduits);
+            splitTrayButton.AddPushButton(pbdCleanParameters);
 
             var splitPositioningButton = mepToolsPanel.AddItem(new SplitButtonData("PositioningSplit", "Positioning\nTools") { LargeImage = positioningToolsIcon }) as SplitButton;
             splitPositioningButton.AddPushButton(pbdCopyRelative);
@@ -408,6 +431,7 @@ namespace RTS
             splitViewButton.AddPushButton(pbdRtIsolate);
             splitViewButton.AddPushButton(pbdViewportAlignment);
             splitViewButton.AddPushButton(pbdRtUppercase);
+            splitViewButton.AddPushButton(pbdRtDiagnoseConnectivity);
 
             documentToolsPanel.AddItem(pbdLinkManager);
 

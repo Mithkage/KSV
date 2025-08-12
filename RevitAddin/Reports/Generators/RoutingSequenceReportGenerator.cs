@@ -1,7 +1,7 @@
 //-----------------------------------------------------------------------------
 // <copyright file="RoutingSequenceReportGenerator.cs" company="ReTick Solutions Pty Ltd">
 //     Copyright (c) ReTick Solutions Pty Ltd. All rights reserved.
-// </copyright>
+// </copyright//
 // <summary>
 //   Generates the Routing Sequence report using Dijkstra's algorithm for shortest path,
 //   with virtual pathing between disconnected containment islands.
@@ -10,19 +10,12 @@
 
 //-----------------------------------------------------------------------------
 // CHANGE LOG:
-// 2024-08-09:
-// - Implemented high-accuracy island finding. The logic now checks every element
-//   within an island to find the true closest point, instead of using the
-//   bounding box center, for more accurate start/end points.
-// - Implemented high-accuracy jump calculation between islands using element-to-element
-//   distance checks for maximum precision.
-// - Added integrated completion state to the progress bar UI.
-// - Fixed critical logic error in GetRelevantNetwork method.
-// - Optimized GroupIntoIslands method by using a HashSet for faster lookups.
-// - Implemented "just-in-time" graph building for significant performance improvement.
-// - Refactored entire class for performance and maintainability.
-// - Implemented a PriorityQueue for Dijkstra's algorithm.
-// - Implemented intelligent separators for virtual jumps (+, ||, >>).
+// 2024-08-13:
+// - [APPLIED FIX]: Made helper classes (Pathfinder, ContainmentIsland, etc.) public to allow access from diagnostic tools.
+// - [APPLIED FIX]: Removed CleanCableReference logic, assuming data is pre-cleaned in the model.
+//
+// Author: Kyle Vorster
+//
 //-----------------------------------------------------------------------------
 
 using Autodesk.Revit.DB;
@@ -35,20 +28,17 @@ using RTS.UI;
 using RTS.Utilities;
 using System;
 using System.Collections.Generic;
+using System.IO; // Required for File operations
 using System.Linq;
 using System.Text;
 using System.Windows.Threading;
 
 namespace RTS.Reports.Generators
 {
-    /// <summary>
-    /// Main class to generate the Routing Sequence Report.
-    /// Orchestrates data collection, graph building, pathfinding, and report generation.
-    /// </summary>
     public class RoutingSequenceReportGenerator : ReportGeneratorBase
     {
-        private readonly Guid _rtsIdGuid = SharedParameters.Cable.RTS_ID_GUID;
-        private readonly List<Guid> _cableGuids = SharedParameters.Cable.RTS_Cable_GUIDs;
+        private readonly Guid _rtsIdGuid = SharedParameters.General.RTS_ID;
+        private readonly List<Guid> _cableGuids = SharedParameters.Cable.AllCableGuids;
 
         public RoutingSequenceReportGenerator(Document doc, ExternalCommandData commandData, PC_ExtensibleClass pcExtensible)
             : base(doc, commandData, pcExtensible)
@@ -57,86 +47,53 @@ namespace RTS.Reports.Generators
 
         public override void GenerateReport()
         {
-            // --- Global Exception Handler to prevent silent exits ---
             try
             {
-                // --- PRE-CHECK 1: Verify that cable data exists in the project ---
                 List<PC_ExtensibleClass.CableData> primaryData = PcExtensible.RecallDataFromExtensibleStorage<PC_ExtensibleClass.CableData>(
                     Document, PC_ExtensibleClass.PrimarySchemaGuid, PC_ExtensibleClass.PrimarySchemaName,
                     PC_ExtensibleClass.PrimaryFieldName, PC_ExtensibleClass.PrimaryDataStorageElementName);
 
                 if (primaryData == null || !primaryData.Any())
                 {
-                    ShowInfo("No Data Found", "No primary cable data was found in the project's extensible storage. Please ensure cable data has been created before running this report.");
+                    ShowInfo("No Data Found", "No primary cable data was found in the project's extensible storage.");
                     return;
                 }
 
-                // --- PRE-CHECK 2: Verify that at least one cable is assigned to containment ---
                 var containmentCollector = new ContainmentCollector(Document);
                 var allContainmentInProject = containmentCollector.GetAllContainmentElements();
-                bool isAnyCableAssigned = allContainmentInProject.OfType<MEPCurve>().Any(elem =>
-                    _cableGuids.Select(guid => elem.get_Parameter(guid))
-                               .Any(param => param != null && param.HasValue && !string.IsNullOrWhiteSpace(param.AsString()))
-                );
-
-                if (!isAnyCableAssigned)
+                if (!allContainmentInProject.Any(elem => _cableGuids.Any(guid => elem.get_Parameter(guid)?.HasValue ?? false)))
                 {
-                    ShowInfo("No Assignments Found", "Cable data was found, but no cables have been assigned to any containment elements in the model. The report would be empty.");
+                    ShowInfo("No Assignments Found", "No cables have been assigned to any containment elements.");
                     return;
                 }
 
-                // --- All checks passed, proceed with asking for a save location ---
                 string filePath = GetOutputFilePath("Routing_Sequence.csv", "Save Routing Sequence Report");
-                if (string.IsNullOrEmpty(filePath))
-                {
-                    ShowInfo("Export Cancelled", "Output file not selected. Routing Sequence export cancelled.");
-                    return;
-                }
+                if (string.IsNullOrEmpty(filePath)) return;
 
-                var projectInfo = new FilteredElementCollector(Document)
-                    .OfCategory(BuiltInCategory.OST_ProjectInformation)
-                    .WhereElementIsNotElementType()
-                    .Cast<ProjectInfo>()
-                    .FirstOrDefault();
-
+                var projectInfo = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_ProjectInformation).WhereElementIsNotElementType().Cast<ProjectInfo>().FirstOrDefault();
                 var sb = ReportFormatter.CreateReportHeader(projectInfo, Document);
+                var cableLookup = primaryData.Where(c => !string.IsNullOrWhiteSpace(c.CableReference)).GroupBy(c => c.CableReference).ToDictionary(g => g.Key, g => g.First());
 
-                var cableLookup = primaryData
-                    .Where(c => !string.IsNullOrWhiteSpace(c.CableReference))
-                    .GroupBy(c => c.CableReference)
-                    .ToDictionary(g => g.Key, g => g.First());
-
-                var progressWindow = new RoutingReportProgressBarWindow
-                {
-                    Owner = System.Windows.Application.Current?.MainWindow
-                };
+                var progressWindow = new RoutingReportProgressBarWindow { Owner = System.Windows.Application.Current?.MainWindow };
                 progressWindow.Show();
 
                 try
                 {
                     var allCandidateEquipment = containmentCollector.GetAllElectricalEquipment();
                     var allFittingsInProject = allContainmentInProject.Where(e => !(e is MEPCurve)).ToList();
-
                     int totalCables = cableLookup.Count;
                     int currentCable = 0;
 
-                    // --- DEVELOPMENT LIMIT: Process only the first 20 cables. Remove .Take(20) for production. ---
-                    foreach (var cableRef in cableLookup.Keys.Take(20))
+                    foreach (var cableRef in cableLookup.Keys.Take(20)) // DEV LIMIT
                     {
                         currentCable++;
                         var cableInfo = cableLookup[cableRef];
-
-                        double percentage = (double)currentCable / Math.Min(totalCables, 20) * 100.0; // Adjust percentage for the limited run
-                        progressWindow.UpdateProgress(currentCable, Math.Min(totalCables, 20), cableRef,
-                            cableInfo?.From ?? "N/A", cableInfo?.To ?? "N/A",
-                            percentage, "Building local network...");
+                        int progressTotal = Math.Min(totalCables, 20);
+                        double percentage = (double)currentCable / progressTotal * 100.0;
+                        progressWindow.UpdateProgress(currentCable, progressTotal, cableRef, cableInfo?.From ?? "N/A", cableInfo?.To ?? "N/A", percentage, "Building local network...");
                         Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Background);
 
-                        if (progressWindow.IsCancelled)
-                        {
-                            progressWindow.TaskDescriptionText.Text = "Operation cancelled by user.";
-                            break;
-                        }
+                        if (progressWindow.IsCancelled) break;
 
                         var result = ProcessCableRoute(cableRef, cableInfo, allContainmentInProject, allFittingsInProject, allCandidateEquipment);
                         sb.AppendLine(result);
@@ -144,8 +101,7 @@ namespace RTS.Reports.Generators
 
                     if (!progressWindow.IsCancelled)
                     {
-                        System.IO.File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
-                        // Show the completion state on the progress window itself
+                        File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
                         progressWindow.ShowCompletion(filePath);
                     }
                 }
@@ -157,103 +113,125 @@ namespace RTS.Reports.Generators
             }
             catch (Exception ex)
             {
-                // This will catch any error that happens anywhere in the command, including UI initialization.
                 ShowError($"A critical error occurred: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}");
             }
         }
 
-        /// <summary>
-        /// Processes a single cable's route and returns the formatted CSV line.
-        /// </summary>
         private string ProcessCableRoute(string cableRef, PC_ExtensibleClass.CableData cableInfo, List<Element> allContainmentInProject, List<Element> allFittingsInProject, List<Element> allCandidateEquipment)
         {
-            string status = "Error";
+            string status = "Processing Error";
+            string fromStatus = "Not Specified";
+            string toStatus = "Not Specified";
             string routingSequence = "Could not determine route.";
             string branchSequence = "N/A";
-            List<ElementId> bestPath = null;
+            double virtualLength = 0.0;
 
             try
             {
-                // Step 1: Find the specific trays/conduits this cable is assigned to.
-                var cableContainmentElements = new List<Element>();
-                foreach (Element elem in allContainmentInProject)
+                List<Element> startCandidates;
+                if (!string.IsNullOrWhiteSpace(cableInfo.From))
                 {
-                    if (!(elem is MEPCurve)) continue;
-
-                    foreach (var guid in _cableGuids)
+                    startCandidates = FindMatchingEquipment(cableInfo.From, allCandidateEquipment, _rtsIdGuid, Document);
+                    if (startCandidates.Any())
                     {
-                        Parameter cableParam = elem.get_Parameter(guid);
-                        if (string.Equals(ReportHelpers.CleanCableReference(cableParam?.AsString()), cableRef, StringComparison.OrdinalIgnoreCase))
-                        {
-                            cableContainmentElements.Add(elem);
-                            break;
-                        }
+                        string matchedName = startCandidates.First().get_Parameter(_rtsIdGuid)?.AsString() ?? startCandidates.First().get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_NAME)?.AsString() ?? "Unknown";
+                        fromStatus = $"Found: {matchedName}";
                     }
-                }
-
-                if (!cableContainmentElements.Any())
-                {
-                    status = "Pending";
-                    routingSequence = "No cable containment assigned in model.";
+                    else
+                    {
+                        fromStatus = "Not Found";
+                    }
                 }
                 else
                 {
-                    // Step 2: Build a specific, local graph for ONLY the relevant elements.
+                    startCandidates = new List<Element>();
+                }
+
+                List<Element> endCandidates;
+                if (!string.IsNullOrWhiteSpace(cableInfo.To))
+                {
+                    endCandidates = FindMatchingEquipment(cableInfo.To, allCandidateEquipment, _rtsIdGuid, Document);
+                    if (endCandidates.Any())
+                    {
+                        string matchedName = endCandidates.First().get_Parameter(_rtsIdGuid)?.AsString() ?? endCandidates.First().get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_NAME)?.AsString() ?? "Unknown";
+                        toStatus = $"Found: {matchedName}";
+                    }
+                    else
+                    {
+                        toStatus = "Not Found";
+                    }
+                }
+                else
+                {
+                    endCandidates = new List<Element>();
+                }
+
+                var cableContainmentElements = allContainmentInProject
+                    .Where(elem => _cableGuids.Any(guid => string.Equals(elem.get_Parameter(guid)?.AsString(), cableRef, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+
+                if (!cableContainmentElements.Any())
+                {
+                    status = "No Containment Assigned";
+                    routingSequence = "This cable reference was not found on any containment elements.";
+                }
+                else
+                {
                     var relevantNetwork = GetRelevantNetwork(cableContainmentElements, allFittingsInProject);
                     var containmentGraph = new ContainmentGraph(relevantNetwork, Document);
                     var elementIdToLengthMap = containmentGraph.GetElementLengthMap();
                     var rtsIdToElementMap = ReportFormatter.BuildRtsIdMap(relevantNetwork, _rtsIdGuid);
 
-                    List<Element> startCandidates = FindMatchingEquipment(cableInfo.From, allCandidateEquipment, _rtsIdGuid);
-                    List<Element> endCandidates = FindMatchingEquipment(cableInfo.To, allCandidateEquipment, _rtsIdGuid);
+                    List<ElementId> bestPath = null;
 
                     if (startCandidates.Any() && endCandidates.Any())
                     {
-                        var pathResult = Pathfinder.FindConfirmedPath(startCandidates, endCandidates, cableContainmentElements, containmentGraph, elementIdToLengthMap);
+                        var pathResult = Pathfinder.FindConfirmedPath(startCandidates, endCandidates, cableContainmentElements, containmentGraph, elementIdToLengthMap, Document);
                         if (pathResult != null && pathResult.Any())
                         {
-                            status = "Confirmed";
+                            status = "Route Confirmed";
                             bestPath = pathResult;
+                        }
+                    }
+
+                    if (bestPath == null)
+                    {
+                        if (!fromStatus.StartsWith("Found") || !toStatus.StartsWith("Found"))
+                        {
+                            status = "Route Incomplete (Start/End Not Found)";
                         }
                         else
                         {
-                            status = "Unconfirmed (Virtual)";
-                            var virtualResult = Pathfinder.FindBestDisconnectedSequence(startCandidates, endCandidates, cableContainmentElements, containmentGraph, rtsIdToElementMap, elementIdToLengthMap, Document);
-                            routingSequence = virtualResult.RoutingSequence;
-                            bestPath = virtualResult.StitchedPath;
+                            status = "Route Unconfirmed (Virtual Path)";
                         }
-                    }
-                    else
-                    {
-                        status = startCandidates.Any() ? "Confirmed (From, Virtual)" : endCandidates.Any() ? "Confirmed (To, Virtual)" : "Unconfirmed (Virtual)";
+
                         var virtualResult = Pathfinder.FindBestDisconnectedSequence(startCandidates, endCandidates, cableContainmentElements, containmentGraph, rtsIdToElementMap, elementIdToLengthMap, Document);
                         routingSequence = virtualResult.RoutingSequence;
                         bestPath = virtualResult.StitchedPath;
+                        virtualLength = virtualResult.VirtualLength;
                     }
 
                     if (bestPath != null && bestPath.Any())
                     {
-                        if (status == "Confirmed")
+                        if (status == "Route Confirmed")
                         {
-                            routingSequence = ReportFormatter.FormatPath(bestPath, containmentGraph, rtsIdToElementMap, Document);
+                            routingSequence = ReportFormatter.FormatPath(bestPath, rtsIdToElementMap, Document, _rtsIdGuid);
                         }
-                        branchSequence = ReportFormatter.FormatBranchSequence(bestPath, rtsIdToElementMap);
+                        branchSequence = ReportFormatter.FormatBranchSequence(bestPath, rtsIdToElementMap, _rtsIdGuid);
                     }
                 }
             }
             catch (Exception ex)
             {
-                status = "Error";
+                status = "Processing Error";
                 routingSequence = $"Processing failed: {ex.Message}";
                 branchSequence = "Error";
             }
 
-            return $"\"{cableRef}\",\"{cableInfo.From ?? "N/A"}\",\"{cableInfo.To ?? "N/A"}\",\"{status}\",\"{branchSequence}\",\"{routingSequence}\"";
+            double virtualLengthInMeters = virtualLength * 0.3048;
+            return $"\"{cableRef}\",\"{cableInfo.From ?? "N/A"}\",\"{cableInfo.To ?? "N/A"}\",\"{fromStatus}\",\"{toStatus}\",\"{status}\",\"{virtualLengthInMeters:F2}\",\"{branchSequence}\",\"{routingSequence}\"";
         }
 
-        /// <summary>
-        /// Finds all fittings and other MEPCurves connected to a given set of containment elements to build a complete local network.
-        /// </summary>
         private List<Element> GetRelevantNetwork(List<Element> cableContainment, List<Element> allFittings)
         {
             var relevantElements = new Dictionary<ElementId, Element>();
@@ -274,7 +252,6 @@ namespace RTS.Reports.Generators
                 foreach (Connector conn in connectors)
                 {
                     if (!conn.IsConnected) continue;
-
                     foreach (Connector connected in conn.AllRefs)
                     {
                         var owner = connected.Owner;
@@ -289,26 +266,32 @@ namespace RTS.Reports.Generators
             return relevantElements.Values.ToList();
         }
 
-        private static List<Element> FindMatchingEquipment(string idToMatch, List<Element> allCandidateEquipment, Guid rtsIdGuid)
+        private static List<Element> FindMatchingEquipment(string nameToMatch, List<Element> allCandidateEquipment, Guid rtsIdGuid, Document doc)
         {
-            if (string.IsNullOrWhiteSpace(idToMatch)) return new List<Element>();
+            if (string.IsNullOrWhiteSpace(nameToMatch)) return new List<Element>();
+
+            string cleanNameToMatch = nameToMatch.Trim();
 
             var rtsIdMatches = allCandidateEquipment.Where(e =>
             {
-                if (e == null) return false;
-                var rtsIdParam = e.get_Parameter(rtsIdGuid);
-                var rtsIdVal = rtsIdParam?.AsString();
-                return !string.IsNullOrWhiteSpace(rtsIdVal) && idToMatch.IndexOf(rtsIdVal, StringComparison.OrdinalIgnoreCase) >= 0;
+                var rtsIdVal = e?.get_Parameter(rtsIdGuid)?.AsString();
+                if (string.IsNullOrWhiteSpace(rtsIdVal)) return false;
+
+                string cleanRtsIdVal = rtsIdVal.Trim();
+                return cleanRtsIdVal.IndexOf(cleanNameToMatch, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       cleanNameToMatch.IndexOf(cleanRtsIdVal, StringComparison.OrdinalIgnoreCase) >= 0;
             }).ToList();
 
             if (rtsIdMatches.Any()) return rtsIdMatches;
 
             return allCandidateEquipment.Where(e =>
             {
-                if (e == null) return false;
-                var panelNameParam = e.get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_NAME);
-                var panelNameVal = panelNameParam?.AsString();
-                return !string.IsNullOrWhiteSpace(panelNameVal) && idToMatch.IndexOf(panelNameVal, StringComparison.OrdinalIgnoreCase) >= 0;
+                var panelNameVal = e?.get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_NAME)?.AsString();
+                if (string.IsNullOrWhiteSpace(panelNameVal)) return false;
+
+                string cleanPanelNameVal = panelNameVal.Trim();
+                return cleanPanelNameVal.IndexOf(cleanNameToMatch, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       cleanNameToMatch.IndexOf(cleanPanelNameVal, StringComparison.OrdinalIgnoreCase) >= 0;
             }).ToList();
         }
     }
@@ -327,8 +310,9 @@ namespace RTS.Reports.Generators
                 BuiltInCategory.OST_Conduit, BuiltInCategory.OST_CableTray,
                 BuiltInCategory.OST_ConduitFitting, BuiltInCategory.OST_CableTrayFitting
             };
-            var multiCatFilter = new ElementMulticategoryFilter(categories);
-            return new FilteredElementCollector(_doc).WherePasses(multiCatFilter).WhereElementIsNotElementType().ToList();
+            return new FilteredElementCollector(_doc)
+                .WherePasses(new ElementMulticategoryFilter(categories))
+                .WhereElementIsNotElementType().ToList();
         }
 
         public List<Element> GetAllElectricalEquipment()
@@ -344,7 +328,6 @@ namespace RTS.Reports.Generators
         public Dictionary<ElementId, List<ElementId>> AdjacencyGraph { get; }
         private readonly Document _doc;
 
-        // Constructor for cable-specific graphs (no progress reporting)
         public ContainmentGraph(List<Element> elements, Document doc)
         {
             _doc = doc;
@@ -354,20 +337,84 @@ namespace RTS.Reports.Generators
         private Dictionary<ElementId, List<ElementId>> BuildAdjacencyGraph(List<Element> elements)
         {
             var graph = new Dictionary<ElementId, List<ElementId>>();
-            foreach (var elemA in elements)
+            var elementDict = elements.ToDictionary(e => e.Id);
+
+            foreach (var elem in elements)
             {
-                if (!graph.ContainsKey(elemA.Id)) graph[elemA.Id] = new List<ElementId>();
-                foreach (var elemB in elements)
+                if (!graph.ContainsKey(elem.Id))
                 {
-                    if (elemA.Id == elemB.Id) continue;
-                    if (AreConnected(elemA, elemB))
-                    {
-                        graph[elemA.Id].Add(elemB.Id);
-                    }
+                    graph[elem.Id] = new List<ElementId>();
                 }
             }
+
+            foreach (var elem in elements)
+            {
+                try
+                {
+                    var connectors = GetConnectors(elem);
+                    if (connectors == null || connectors.IsEmpty) continue;
+
+                    long catId = elem.Category.Id.IntegerValue;
+                    bool isFitting = catId == (long)BuiltInCategory.OST_CableTrayFitting || catId == (long)BuiltInCategory.OST_ConduitFitting;
+
+                    if (isFitting && elem is FamilyInstance fitting)
+                    {
+                        var connectedCurves = new List<ElementId>();
+                        foreach (Connector fittingConnector in connectors)
+                        {
+                            if (!fittingConnector.IsConnected) continue;
+                            foreach (Connector connected in fittingConnector.AllRefs)
+                            {
+                                if (elementDict.ContainsKey(connected.Owner.Id) && connected.Owner is MEPCurve)
+                                {
+                                    connectedCurves.Add(connected.Owner.Id);
+                                    graph[connected.Owner.Id].Add(fitting.Id);
+                                    graph[fitting.Id].Add(connected.Owner.Id);
+                                }
+                            }
+                        }
+
+                        if (connectedCurves.Count > 1)
+                        {
+                            for (int i = 0; i < connectedCurves.Count; i++)
+                            {
+                                for (int j = i + 1; j < connectedCurves.Count; j++)
+                                {
+                                    graph[connectedCurves[i]].Add(connectedCurves[j]);
+                                    graph[connectedCurves[j]].Add(connectedCurves[i]);
+                                }
+                            }
+                        }
+                    }
+                    else if (elem is MEPCurve curve)
+                    {
+                        foreach (Connector c in connectors)
+                        {
+                            if (!c.IsConnected) continue;
+                            foreach (Connector connected in c.AllRefs)
+                            {
+                                if (elementDict.ContainsKey(connected.Owner.Id))
+                                {
+                                    graph[curve.Id].Add(connected.Owner.Id);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Could not process connectors for element {elem.Id}: {ex.Message}");
+                }
+            }
+
+            foreach (var key in graph.Keys.ToList())
+            {
+                graph[key] = graph[key].Distinct().ToList();
+            }
+
             return graph;
         }
+
 
         public Dictionary<ElementId, double> GetElementLengthMap()
         {
@@ -380,29 +427,9 @@ namespace RTS.Reports.Generators
             if (element is FamilyInstance fi) return fi.MEPModel?.ConnectorManager?.Connectors;
             return null;
         }
-
-        private static bool AreConnected(Element a, Element b)
-        {
-            try
-            {
-                var connectorsA = GetConnectors(a);
-                var connectorsB = GetConnectors(b);
-                if (connectorsA == null || connectorsB == null) return false;
-
-                foreach (Connector cA in connectorsA)
-                {
-                    if (!cA.IsConnected) continue;
-                    foreach (Connector cB in connectorsB)
-                    {
-                        if (cA.IsConnectedTo(cB)) return true;
-                    }
-                }
-            }
-            catch { }
-            return false;
-        }
     }
 
+    // *** FIX: Made Pathfinder and its nested classes public ***
     public static class Pathfinder
     {
         private const double METERS_TO_FEET = 3.28084;
@@ -411,11 +438,12 @@ namespace RTS.Reports.Generators
         {
             public string RoutingSequence { get; set; } = "Could not determine virtual route.";
             public List<ElementId> StitchedPath { get; set; } = new List<ElementId>();
+            public double VirtualLength { get; set; } = 0.0;
         }
 
         #region Public Pathfinding Methods
 
-        public static List<ElementId> FindConfirmedPath(List<Element> startCandidates, List<Element> endCandidates, List<Element> cableElements, ContainmentGraph graph, Dictionary<ElementId, double> lengthMap)
+        public static List<ElementId> FindConfirmedPath(List<Element> startCandidates, List<Element> endCandidates, List<Element> cableElements, ContainmentGraph graph, Dictionary<ElementId, double> lengthMap, Document doc)
         {
             List<ElementId> bestPath = null;
             double minLength = double.MaxValue;
@@ -424,12 +452,12 @@ namespace RTS.Reports.Generators
             {
                 foreach (var endCandidate in endCandidates)
                 {
-                    XYZ startPt = ReportHelpers.GetElementLocation(startCandidate);
-                    XYZ endPt = ReportHelpers.GetElementLocation(endCandidate);
+                    XYZ startPt = GetAccurateElementLocation(startCandidate);
+                    XYZ endPt = GetAccurateElementLocation(endCandidate);
                     if (startPt == null || endPt == null) continue;
 
-                    Element startElem = cableElements.OrderBy(e => ReportHelpers.GetElementLocation(e)?.DistanceTo(startPt) ?? double.MaxValue).FirstOrDefault();
-                    Element endElem = cableElements.OrderBy(e => ReportHelpers.GetElementLocation(e)?.DistanceTo(endPt) ?? double.MaxValue).FirstOrDefault();
+                    Element startElem = cableElements.OrderBy(e => GetClosestPointOnElement(e, startPt).DistanceTo(startPt)).FirstOrDefault();
+                    Element endElem = cableElements.OrderBy(e => GetClosestPointOnElement(e, endPt).DistanceTo(endPt)).FirstOrDefault();
 
                     if (startElem == null || endElem == null) continue;
 
@@ -461,7 +489,8 @@ namespace RTS.Reports.Generators
             if (startIsland == null && endIsland == null)
             {
                 var disconnectedPaths = islands.Select(i => i.ElementIds.ToList()).ToList();
-                return new VirtualPathResult { RoutingSequence = ReportFormatter.FormatDisconnectedPaths(disconnectedPaths, graph, rtsIdToElementMap, doc) };
+                var rtsIdGuid = SharedParameters.General.RTS_ID;
+                return new VirtualPathResult { RoutingSequence = ReportFormatter.FormatDisconnectedPaths(disconnectedPaths, rtsIdToElementMap, doc, rtsIdGuid) };
             }
 
             startIsland = startIsland ?? endIsland;
@@ -478,9 +507,9 @@ namespace RTS.Reports.Generators
 
         #region Island Hopping Logic
 
-        private enum ContainmentType { Tray, Conduit, Mixed }
+        public enum ContainmentType { Tray, Conduit, Mixed }
 
-        private class ContainmentIsland
+        public class ContainmentIsland
         {
             public int Id { get; }
             public HashSet<ElementId> ElementIds { get; } = new HashSet<ElementId>();
@@ -489,7 +518,7 @@ namespace RTS.Reports.Generators
             public ContainmentIsland(int id) { Id = id; }
         }
 
-        private static List<ContainmentIsland> GroupIntoIslands(List<Element> cableElements, ContainmentGraph graph, Document doc)
+        public static List<ContainmentIsland> GroupIntoIslands(List<Element> cableElements, ContainmentGraph graph, Document doc)
         {
             var islands = new List<ContainmentIsland>();
             var visited = new HashSet<ElementId>();
@@ -549,7 +578,7 @@ namespace RTS.Reports.Generators
             return islands;
         }
 
-        private static ContainmentType GetIslandContainmentType(ContainmentIsland island, Document doc)
+        public static ContainmentType GetIslandContainmentType(ContainmentIsland island, Document doc)
         {
             bool hasTray = false;
             bool hasConduit = false;
@@ -557,13 +586,15 @@ namespace RTS.Reports.Generators
             {
                 var elem = doc.GetElement(elemId);
                 if (elem == null) continue;
+
 #if REVIT2024_OR_GREATER
-                var catId = elem.Category.Id.Value;
+                long catId = elem.Category.Id.Value;
 #else
-                var catId = elem.Category.Id.IntegerValue;
+                long catId = elem.Category.Id.IntegerValue;
 #endif
-                if (catId == (int)BuiltInCategory.OST_CableTray || catId == (int)BuiltInCategory.OST_CableTrayFitting) hasTray = true;
-                else if (catId == (int)BuiltInCategory.OST_Conduit || catId == (int)BuiltInCategory.OST_ConduitFitting) hasConduit = true;
+
+                if (catId == (long)BuiltInCategory.OST_CableTray || catId == (long)BuiltInCategory.OST_CableTrayFitting) hasTray = true;
+                else if (catId == (long)BuiltInCategory.OST_Conduit || catId == (long)BuiltInCategory.OST_ConduitFitting) hasConduit = true;
                 if (hasTray && hasConduit) return ContainmentType.Mixed;
             }
             if (hasTray) return ContainmentType.Tray;
@@ -571,7 +602,7 @@ namespace RTS.Reports.Generators
             return ContainmentType.Mixed;
         }
 
-        private static ContainmentIsland FindClosestIsland(List<Element> equipmentCandidates, List<ContainmentIsland> islands, Document doc)
+        public static ContainmentIsland FindClosestIsland(List<Element> equipmentCandidates, List<ContainmentIsland> islands, Document doc)
         {
             if (equipmentCandidates == null || !equipmentCandidates.Any()) return null;
 
@@ -580,7 +611,7 @@ namespace RTS.Reports.Generators
 
             foreach (var equip in equipmentCandidates)
             {
-                var equipLocation = ReportHelpers.GetElementLocation(equip);
+                var equipLocation = GetAccurateElementLocation(equip);
                 if (equipLocation == null) continue;
 
                 foreach (var island in islands)
@@ -588,7 +619,7 @@ namespace RTS.Reports.Generators
                     foreach (var elementId in island.ElementIds)
                     {
                         var elem = doc.GetElement(elementId);
-                        var elemLocation = ReportHelpers.GetElementLocation(elem);
+                        var elemLocation = GetClosestPointOnElement(elem, equipLocation);
                         if (elemLocation == null) continue;
 
                         double dist = equipLocation.DistanceTo(elemLocation);
@@ -603,28 +634,26 @@ namespace RTS.Reports.Generators
             return bestIsland;
         }
 
-        private static Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> BuildIslandGraph(List<ContainmentIsland> islands, Document doc)
+        public static Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> BuildIslandGraph(List<ContainmentIsland> islands, Document doc)
         {
             var islandGraph = new Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>>();
             for (int i = 0; i < islands.Count; i++)
             {
                 islandGraph[islands[i]] = new List<Tuple<ContainmentIsland, double>>();
+                var islandA_Endpoints = GetIslandEndpoints(islands[i], doc);
+
                 for (int j = i + 1; j < islands.Count; j++)
                 {
                     if (!islandGraph.ContainsKey(islands[j])) islandGraph[islands[j]] = new List<Tuple<ContainmentIsland, double>>();
 
-                    // High-accuracy distance calculation
+                    var islandB_Endpoints = GetIslandEndpoints(islands[j], doc);
                     double minDistance = double.MaxValue;
-                    foreach (var idA in islands[i].ElementIds)
-                    {
-                        var locA = ReportHelpers.GetElementLocation(doc.GetElement(idA));
-                        if (locA == null) continue;
 
-                        foreach (var idB in islands[j].ElementIds)
+                    foreach (var p1 in islandA_Endpoints)
+                    {
+                        foreach (var p2 in islandB_Endpoints)
                         {
-                            var locB = ReportHelpers.GetElementLocation(doc.GetElement(idB));
-                            if (locB == null) continue;
-                            minDistance = Math.Min(minDistance, locA.DistanceTo(locB));
+                            minDistance = Math.Min(minDistance, p1.DistanceTo(p2));
                         }
                     }
 
@@ -638,7 +667,7 @@ namespace RTS.Reports.Generators
             return islandGraph;
         }
 
-        private static List<ContainmentIsland> FindShortestIslandPath(ContainmentIsland startIsland, ContainmentIsland endIsland, Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> islandGraph)
+        public static List<ContainmentIsland> FindShortestIslandPath(ContainmentIsland startIsland, ContainmentIsland endIsland, Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> islandGraph)
         {
             var distances = islandGraph.Keys.ToDictionary(i => i.Id, i => double.PositiveInfinity);
             var previous = new Dictionary<int, int?>();
@@ -679,28 +708,36 @@ namespace RTS.Reports.Generators
             return null;
         }
 
-        private static VirtualPathResult StitchPaths(List<ContainmentIsland> islandPath, List<Element> startCandidates, List<Element> endCandidates, Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> islandGraph, ContainmentGraph graph, Dictionary<string, Element> rtsIdToElementMap, Dictionary<ElementId, double> lengthMap, Document doc)
+        public static VirtualPathResult StitchPaths(List<ContainmentIsland> islandPath, List<Element> startCandidates, List<Element> endCandidates, Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> islandGraph, ContainmentGraph graph, Dictionary<string, Element> rtsIdToElementMap, Dictionary<ElementId, double> lengthMap, Document doc)
         {
             var finalSequence = new StringBuilder();
             var finalStitchedPath = new List<ElementId>();
             ElementId lastElementId = null;
+            var rtsIdGuid = SharedParameters.General.RTS_ID;
+            double totalVirtualLength = 0.0;
 
             if (startCandidates.Any())
             {
-                lastElementId = FindClosestElementInIsland(startCandidates.First(), islandPath.First(), doc);
+                var startPanel = startCandidates.First();
+                lastElementId = FindClosestElementInIsland(startPanel, islandPath.First(), doc);
+                double jumpLength = CalculateManhattanDistance(GetAccurateElementLocation(startPanel), GetClosestPointOnElement(doc.GetElement(lastElementId), GetAccurateElementLocation(startPanel)));
+                totalVirtualLength += jumpLength;
+                string panelName = startPanel.get_Parameter(rtsIdGuid)?.AsString() ?? startPanel.get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_NAME)?.AsString() ?? "Start";
+                finalSequence.Append(panelName).Append(" >> ");
             }
 
             for (int i = 0; i < islandPath.Count; i++)
             {
                 var currentIsland = islandPath[i];
                 ElementId startOfSegment;
-                ElementId endOfSegment = null;
 
                 if (i > 0)
                 {
                     var prevIsland = islandPath[i - 1];
                     var jumpTuple = islandGraph[prevIsland].FirstOrDefault(t => t.Item1.Id == currentIsland.Id);
                     double jumpDistance = jumpTuple?.Item2 ?? 0.0;
+                    totalVirtualLength += jumpDistance;
+
                     if (prevIsland.Type != ContainmentType.Mixed && prevIsland.Type == currentIsland.Type)
                     {
                         finalSequence.Append(jumpDistance <= METERS_TO_FEET ? " || " : " >> ");
@@ -716,6 +753,7 @@ namespace RTS.Reports.Generators
                     startOfSegment = lastElementId ?? currentIsland.ElementIds.First();
                 }
 
+                ElementId endOfSegment;
                 if (i == islandPath.Count - 1)
                 {
                     endOfSegment = endCandidates.Any() ? FindClosestElementInIsland(endCandidates.First(), currentIsland, doc) : FindFarthestElementInIsland(doc.GetElement(startOfSegment), currentIsland, doc);
@@ -732,55 +770,62 @@ namespace RTS.Reports.Generators
                 var segmentPath = FindShortestPath_Dijkstra(startOfSegment, endOfSegment, graph, lengthMap);
                 if (segmentPath != null && segmentPath.Any())
                 {
-                    finalSequence.Append(ReportFormatter.FormatPath(segmentPath, graph, rtsIdToElementMap, doc));
+                    finalSequence.Append(ReportFormatter.FormatPath(segmentPath, rtsIdToElementMap, doc, rtsIdGuid));
                     finalStitchedPath.AddRange(segmentPath);
                     lastElementId = segmentPath.Last();
                 }
                 else
                 {
+                    finalSequence.Append("[PATH_NOT_FOUND_IN_ISLAND]");
                     var fallbackPath = new List<ElementId> { startOfSegment };
-                    finalSequence.Append(ReportFormatter.FormatPath(fallbackPath, graph, rtsIdToElementMap, doc));
                     finalStitchedPath.AddRange(fallbackPath);
                     lastElementId = startOfSegment;
                 }
             }
-            return new VirtualPathResult { RoutingSequence = finalSequence.ToString(), StitchedPath = finalStitchedPath };
+
+            if (endCandidates.Any())
+            {
+                var endPanel = endCandidates.First();
+                double jumpLength = CalculateManhattanDistance(GetAccurateElementLocation(doc.GetElement(lastElementId)), GetAccurateElementLocation(endPanel));
+                totalVirtualLength += jumpLength;
+                string panelName = endPanel.get_Parameter(rtsIdGuid)?.AsString() ?? endPanel.get_Parameter(BuiltInParameter.RBS_ELEC_PANEL_NAME)?.AsString() ?? "End";
+                finalSequence.Append(" >> ").Append(panelName);
+            }
+
+            return new VirtualPathResult { RoutingSequence = finalSequence.ToString(), StitchedPath = finalStitchedPath, VirtualLength = totalVirtualLength };
         }
 
-        private static ElementId FindClosestElementInIsland(Element targetElement, ContainmentIsland island, Document doc)
+        public static ElementId FindClosestElementInIsland(Element targetElement, ContainmentIsland island, Document doc)
         {
-            var targetLocation = ReportHelpers.GetElementLocation(targetElement);
+            var targetLocation = GetAccurateElementLocation(targetElement);
             if (targetLocation == null) return island.ElementIds.FirstOrDefault();
-            return island.ElementIds.OrderBy(id => ReportHelpers.GetElementLocation(doc.GetElement(id))?.DistanceTo(targetLocation) ?? double.MaxValue).FirstOrDefault();
+            return island.ElementIds.OrderBy(id => GetClosestPointOnElement(doc.GetElement(id), targetLocation).DistanceTo(targetLocation)).FirstOrDefault();
         }
 
-        private static ElementId FindFarthestElementInIsland(Element targetElement, ContainmentIsland island, Document doc)
+        public static ElementId FindFarthestElementInIsland(Element targetElement, ContainmentIsland island, Document doc)
         {
-            var targetLocation = ReportHelpers.GetElementLocation(targetElement);
+            var targetLocation = GetAccurateElementLocation(targetElement);
             if (targetLocation == null) return island.ElementIds.FirstOrDefault();
-            return island.ElementIds.OrderByDescending(id => ReportHelpers.GetElementLocation(doc.GetElement(id))?.DistanceTo(targetLocation) ?? 0).FirstOrDefault();
+            return island.ElementIds.OrderByDescending(id => GetClosestPointOnElement(doc.GetElement(id), targetLocation).DistanceTo(targetLocation)).FirstOrDefault();
         }
 
-        private static ElementId FindClosestElementToOtherIsland(ContainmentIsland fromIsland, ContainmentIsland toIsland, Document doc)
+        public static ElementId FindClosestElementToOtherIsland(ContainmentIsland fromIsland, ContainmentIsland toIsland, Document doc)
         {
             ElementId bestElementId = fromIsland.ElementIds.FirstOrDefault();
             double minDistance = double.MaxValue;
 
-            foreach (var idFrom in fromIsland.ElementIds)
+            var fromEndpoints = GetIslandEndpoints(fromIsland, doc);
+            var toEndpoints = GetIslandEndpoints(toIsland, doc);
+
+            foreach (var p1 in fromEndpoints)
             {
-                var locFrom = ReportHelpers.GetElementLocation(doc.GetElement(idFrom));
-                if (locFrom == null) continue;
-
-                foreach (var idTo in toIsland.ElementIds)
+                foreach (var p2 in toEndpoints)
                 {
-                    var locTo = ReportHelpers.GetElementLocation(doc.GetElement(idTo));
-                    if (locTo == null) continue;
-
-                    double dist = locFrom.DistanceTo(locTo);
+                    double dist = p1.DistanceTo(p2);
                     if (dist < minDistance)
                     {
                         minDistance = dist;
-                        bestElementId = idFrom;
+                        bestElementId = fromIsland.ElementIds.OrderBy(id => GetClosestPointOnElement(doc.GetElement(id), p1).DistanceTo(p1)).First();
                     }
                 }
             }
@@ -793,7 +838,7 @@ namespace RTS.Reports.Generators
 
         private static List<ElementId> FindShortestPath_Dijkstra(ElementId startNodeId, ElementId endNodeId, ContainmentGraph graph, Dictionary<ElementId, double> elementIdToLengthMap)
         {
-            if (startNodeId == null || endNodeId == null) return null;
+            if (startNodeId == null || endNodeId == null || startNodeId.Equals(ElementId.InvalidElementId) || endNodeId.Equals(ElementId.InvalidElementId)) return null;
             if (startNodeId == endNodeId) return new List<ElementId> { startNodeId };
 
             var distances = new Dictionary<ElementId, double>();
@@ -850,11 +895,76 @@ namespace RTS.Reports.Generators
 
         #endregion
 
+        #region Location Helpers
+
+        private static XYZ GetAccurateElementLocation(Element element)
+        {
+            if (element == null || element.Location == null) return null;
+
+            try
+            {
+                if (element.Location is LocationPoint locPoint) return locPoint.Point;
+                if (element.Location is LocationCurve locCurve) return locCurve.Curve.Evaluate(0.5, true);
+            }
+            catch { }
+
+            var bbox = element.get_BoundingBox(null);
+
+#if REVIT2024_OR_GREATER
+            return bbox != null ? (bbox.Min + bbox.Max) / 2.0 : null;
+#else
+            return bbox != null ? (bbox.Min + bbox.Max) / 2.0 : null;
+#endif
+        }
+
+        private static XYZ GetClosestPointOnElement(Element element, XYZ targetPoint)
+        {
+            if (element == null || targetPoint == null) return targetPoint ?? XYZ.Zero;
+
+            if (element.Location is LocationCurve locCurve)
+            {
+                return locCurve.Curve.Project(targetPoint).XYZPoint;
+            }
+
+            return GetAccurateElementLocation(element) ?? targetPoint;
+        }
+
+        private static double CalculateManhattanDistance(XYZ p1, XYZ p2)
+        {
+            if (p1 == null || p2 == null) return 0.0;
+            return Math.Abs(p1.X - p2.X) + Math.Abs(p1.Y - p2.Y) + Math.Abs(p1.Z - p2.Z);
+        }
+
+        public static List<XYZ> GetIslandEndpoints(ContainmentIsland island, Document doc)
+        {
+            var endpoints = new List<XYZ>();
+            foreach (var elemId in island.ElementIds)
+            {
+                var elem = doc.GetElement(elemId);
+                if (elem is MEPCurve curve && curve.Location is LocationCurve lc)
+                {
+                    endpoints.Add(lc.Curve.GetEndPoint(0));
+                    endpoints.Add(lc.Curve.GetEndPoint(1));
+                }
+                else if (elem is FamilyInstance fitting)
+                {
+                    var connectors = ContainmentGraph.GetConnectors(fitting);
+                    if (connectors != null)
+                    {
+                        foreach (Connector c in connectors)
+                        {
+                            endpoints.Add(c.Origin);
+                        }
+                    }
+                }
+            }
+            return endpoints;
+        }
+
+        #endregion
+
         #region Nested PriorityQueue for .NET 4.8
 
-        /// <summary>
-        /// A simple Priority Queue implementation for use in .NET Framework 4.8.
-        /// </summary>
         private class PriorityQueue<T>
         {
             private readonly List<Tuple<T, double>> _elements = new List<Tuple<T, double>>();
@@ -884,9 +994,6 @@ namespace RTS.Reports.Generators
         #endregion
     }
 
-    /// <summary>
-    /// Handles formatting of the final report strings.
-    /// </summary>
     public static class ReportFormatter
     {
         public static StringBuilder CreateReportHeader(ProjectInfo projectInfo, Document doc)
@@ -905,7 +1012,7 @@ namespace RTS.Reports.Generators
             sb.AppendLine(",, || (Double Pipe) = Jump between non-connected containment of the same type,,,,Prefix: Service Type (LA=LV Sub-A, LB=LV Sub-B, GA=Gen-A)");
             sb.AppendLine(",, >> (Double Arrow) = Separates disconnected routing segments,,,,TypeSuffix: FLS=Fire-rated, ESS=Essential, DFT=Default");
             sb.AppendLine();
-            sb.AppendLine("Cable Reference,From,To,Status,Branch Sequencing,Routing Sequence");
+            sb.AppendLine("Cable Reference,From,To,From Status,To Status,Status,Virtual Length (m),Branch Sequencing,Routing Sequence");
             return sb;
         }
 
@@ -923,47 +1030,68 @@ namespace RTS.Reports.Generators
             return map;
         }
 
-        public static string FormatPath(List<ElementId> path, ContainmentGraph graph, Dictionary<string, Element> rtsIdToElementMap, Document doc)
+        public static string FormatPath(List<ElementId> path, Dictionary<string, Element> rtsIdToElementMap, Document doc, Guid rtsIdGuid)
         {
             if (path == null || !path.Any()) return "Path not found";
+
             var sequence = new List<string>();
+            var rtsIdCache = new Dictionary<ElementId, string>();
+
+            foreach (var kvp in rtsIdToElementMap)
+            {
+                if (!rtsIdCache.ContainsKey(kvp.Value.Id))
+                {
+                    rtsIdCache.Add(kvp.Value.Id, kvp.Key);
+                }
+            }
+
             for (int i = 0; i < path.Count; i++)
             {
                 var currentId = path[i];
                 var currentElem = doc.GetElement(currentId);
                 if (currentElem == null) continue;
-                string rtsId = rtsIdToElementMap.FirstOrDefault(kvp => kvp.Value.Id == currentId).Key;
-                if (string.IsNullOrEmpty(rtsId)) continue;
+
+                string rtsId;
+                if (!rtsIdCache.TryGetValue(currentId, out rtsId))
+                {
+                    rtsId = currentElem.get_Parameter(rtsIdGuid)?.AsString();
+                    rtsIdCache[currentId] = rtsId;
+                }
+
+                if (string.IsNullOrEmpty(rtsId))
+                {
+                    rtsId = "[MISSING_RTS_ID]";
+                }
 
                 if (i > 0)
                 {
                     var prevElem = doc.GetElement(path[i - 1]);
                     if (prevElem != null && currentElem.Category.Id != prevElem.Category.Id)
                     {
-                        sequence.Add("+");
+                        sequence.Add(" + ");
                     }
                     else
                     {
-                        sequence.Add(",");
+                        sequence.Add(", ");
                     }
                 }
                 sequence.Add(rtsId);
             }
-            return string.Join(" ", sequence).Replace(" , ", ", ").Replace(" + ", " + ");
+            return string.Join("", sequence);
         }
 
-        public static string FormatDisconnectedPaths(List<List<ElementId>> allPaths, ContainmentGraph graph, Dictionary<string, Element> rtsIdMap, Document doc)
+        public static string FormatDisconnectedPaths(List<List<ElementId>> allPaths, Dictionary<string, Element> rtsIdMap, Document doc, Guid rtsIdGuid)
         {
             var sb = new StringBuilder();
             for (int i = 0; i < allPaths.Count; i++)
             {
                 if (i > 0) sb.Append(" >> ");
-                sb.Append(FormatPath(allPaths[i], graph, rtsIdMap, doc));
+                sb.Append(FormatPath(allPaths[i], rtsIdMap, doc, rtsIdGuid));
             }
             return sb.ToString();
         }
 
-        public static string FormatBranchSequence(List<ElementId> path, Dictionary<string, Element> rtsIdToElementMap)
+        public static string FormatBranchSequence(List<ElementId> path, Dictionary<string, Element> rtsIdToElementMap, Guid rtsIdGuid)
         {
             if (path == null || !path.Any()) return "N/A";
             var uniqueBranches = new List<string>();
@@ -972,10 +1100,13 @@ namespace RTS.Reports.Generators
 
             foreach (var elementId in path)
             {
-                string rtsId = rtsIdToElementMap.FirstOrDefault(kvp => kvp.Value.Id == elementId).Key;
+                var elem = rtsIdToElementMap.Values.FirstOrDefault(e => e.Id == elementId);
+                string rtsId = elem?.get_Parameter(rtsIdGuid)?.AsString();
+
                 if (!string.IsNullOrEmpty(rtsId))
                 {
                     string branchNumber = rtsId.Length >= 4 ? rtsId.Substring(rtsId.Length - 4) : null;
+
                     if (!string.IsNullOrEmpty(branchNumber) && seenBranches.Add(branchNumber))
                     {
                         if (branchNumber.StartsWith("0") && !hasAddedLeadingZeroBranch)

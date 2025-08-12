@@ -10,9 +10,10 @@
 //
 // Change Log:
 // ... (previous logs)
-// 2025-08-11: (Improvement) Added logic to write reference element data to shared parameters for traceability.
-// 2025-08-11: (Fix) Corrected duplicate placement logic by tracking newly placed locations within the transaction.
-// 2025-08-11: (Fix) Implemented version-specific selection logic to support Revit 2022 and 2024.
+// 2025-08-12: (Fix) Corrected shared parameter lookup to check category bindings, not the instance.
+// 2025-08-12: (Improvement) Enhanced warning message to specify which parameter is missing.
+// 2025-08-12: (Refactor) Updated to use the new SetParameterValue methods from the SharedParameters utility.
+// 2025-08-11: (Fix) Reverted to a pre-selection workflow for both Revit 2022 and 2024.
 //
 using System;
 using System.Collections.Generic;
@@ -25,6 +26,8 @@ using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using RTS.UI; // Added using directive for the progress bar UI
 using System.Text; // For StringBuilder
+using RTS.Utilities; // For the SharedParameters utility
+using System.Globalization; // For number formatting
 
 namespace RTS.Commands.MEPTools.Positioning
 {
@@ -33,9 +36,6 @@ namespace RTS.Commands.MEPTools.Positioning
     {
         private UIDocument _uidoc;
         private Document _doc;
-        // Shared Parameter GUIDs
-        private readonly Guid _refTypeGuid = new Guid("4d6ce1ad-eb55-47e2-acb6-69490634990e");
-        private readonly Guid _refIdGuid = new Guid("a377a731-1886-4b93-b477-a6208f672987");
 
         public Result Execute(
             ExternalCommandData commandData,
@@ -44,7 +44,8 @@ namespace RTS.Commands.MEPTools.Positioning
         {
             _uidoc = commandData.Application.ActiveUIDocument;
             _doc = _uidoc.Document;
-            var missingParamsFamilies = new HashSet<string>();
+            var missingParamsMessages = new HashSet<string>();
+            var overwrittenElements = new List<string>();
 
             try
             {
@@ -60,16 +61,8 @@ namespace RTS.Commands.MEPTools.Positioning
                     return Result.Cancelled;
                 }
 
-                // Step 3: Update parameters on the original template elements
-                using (var trans = new Transaction(_doc, "Update Template Reference Parameters"))
-                {
-                    trans.Start();
-                    foreach (var element in elementsToCopy)
-                    {
-                        UpdateReferenceParameters(element, templateReferenceElement, missingParamsFamilies);
-                    }
-                    trans.Commit();
-                }
+                // Step 3: Ensure shared parameters exist and are bound to the correct categories
+                SharedParameters.AddMyParametersToProject(_doc);
 
                 // Step 4: Calculate the geometric relationships
                 if (!CalculateGeometricRelationships(templateReferenceElement, elementsToCopy, linkInstance, out List<Transform> relativeTransforms))
@@ -77,25 +70,40 @@ namespace RTS.Commands.MEPTools.Positioning
                     return Result.Failed;
                 }
 
-                // Step 5: Find all target elements
+                // Step 5: Update parameters on the original template elements
+                using (var trans = new Transaction(_doc, "Update Template Reference Parameters"))
+                {
+                    trans.Start();
+                    for (int i = 0; i < elementsToCopy.Count; i++)
+                    {
+                        UpdateReferenceParameters(elementsToCopy[i], templateReferenceElement, relativeTransforms[i], missingParamsMessages, overwrittenElements);
+                    }
+                    trans.Commit();
+                }
+
+                // Step 6: Find all target elements
                 List<FamilyInstance> targetElements = FindAllTargetElements(templateReferenceElement, linkInstance);
 
-                // Step 6: Place new elements
-                (int placedCount, int skippedCount) = PlaceNewElements(targetElements, elementsToCopy, templateReferenceElement, linkInstance, relativeTransforms, missingParamsFamilies);
+                // Step 7: Place new elements
+                (int placedCount, int skippedCount) = PlaceNewElements(targetElements, elementsToCopy, templateReferenceElement, linkInstance, relativeTransforms, missingParamsMessages, overwrittenElements);
 
-                // Step 7: Provide final feedback
+                // Step 8: Provide final feedback
                 StringBuilder feedback = new StringBuilder();
                 feedback.AppendLine($"Successfully placed {placedCount} new elements.");
                 if (skippedCount > 0)
                 {
                     feedback.AppendLine($"Skipped {skippedCount} locations where an element of the same type already existed or the target geometry was invalid.");
                 }
-                if (missingParamsFamilies.Any())
+                if (overwrittenElements.Any())
                 {
-                    feedback.AppendLine("\nWarning: The following families are missing the required 'RTS_CopyReference' parameters and were not updated:");
-                    foreach (var familyName in missingParamsFamilies)
+                    feedback.AppendLine($"\nWarning: Overwrote the 'RTS_CopyRelative_Position' parameter for {overwrittenElements.Count} element(s), including the original templates.");
+                }
+                if (missingParamsMessages.Any())
+                {
+                    feedback.AppendLine("\nWarning: Could not update traceability parameters for the following families:");
+                    foreach (var msg in missingParamsMessages)
                     {
-                        feedback.AppendLine($" - {familyName}");
+                        feedback.AppendLine(msg);
                     }
                 }
                 TaskDialog.Show("Operation Complete", feedback.ToString());
@@ -116,7 +124,8 @@ namespace RTS.Commands.MEPTools.Positioning
         }
 
         /// <summary>
-        /// Gets the pre-selected reference element and validates it.
+        /// Gets the pre-selected reference element and validates it. Handles both host and linked element selections.
+        /// Uses different logic for Revit 2022 due to API limitations.
         /// </summary>
         private bool GetPreselectedReference(out FamilyInstance templateReferenceElement, out RevitLinkInstance linkInstance)
         {
@@ -124,6 +133,7 @@ namespace RTS.Commands.MEPTools.Positioning
             linkInstance = null;
 
 #if REVIT2024_OR_GREATER
+            // For Revit 2024+, we can reliably get references from a pre-selection.
             ICollection<Reference> selectedReferences = null;
             try { selectedReferences = _uidoc.Selection.GetReferences(); } catch { }
 
@@ -148,28 +158,36 @@ namespace RTS.Commands.MEPTools.Positioning
                 templateReferenceElement = hostInstance;
             }
 #else
+            // For Revit 2022, we must handle host and linked selections differently.
+            var selectedIds = _uidoc.Selection.GetElementIds();
+            if (selectedIds.Count == 1)
+            {
+                var selectedElement = _doc.GetElement(selectedIds.First());
+                if (selectedElement is FamilyInstance hostInstance)
+                {
+                    // Pre-selection of a host element is successful.
+                    templateReferenceElement = hostInstance;
+                    return true;
+                }
+            }
+            
+            // If we're here, either nothing was selected, or a linked element was selected.
+            // We must prompt the user to get a valid reference for a linked element.
             try
             {
-                var reference = _uidoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceSelectionFilter(), "Select a reference element in the HOST model (or press Esc for linked).");
+                var referenceFilter = new FamilyInstanceSelectionFilter();
+                Reference reference = _uidoc.Selection.PickObject(ObjectType.LinkedElement, referenceFilter, "Please select a reference element in a LINKED model.");
+                
                 var selectedElement = _doc.GetElement(reference.ElementId);
-                if (selectedElement is FamilyInstance hostInstance) { templateReferenceElement = hostInstance; }
-            }
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
-                try
+                if (selectedElement is RevitLinkInstance li)
                 {
-                    var reference = _uidoc.Selection.PickObject(ObjectType.LinkedElement, new FamilyInstanceSelectionFilter(), "Select a reference element in a LINKED model.");
-                    var selectedElement = _doc.GetElement(reference.ElementId);
-                    if (selectedElement is RevitLinkInstance li)
-                    {
-                        linkInstance = li;
-                        Document linkedDoc = linkInstance.GetLinkDocument();
-                        if (linkedDoc == null) { TaskDialog.Show("Selection Error", "Could not get the linked document."); return false; }
-                        templateReferenceElement = linkedDoc.GetElement(reference.LinkedElementId) as FamilyInstance;
-                    }
+                    linkInstance = li;
+                    Document linkedDoc = linkInstance.GetLinkDocument();
+                    if (linkedDoc == null) { TaskDialog.Show("Selection Error", "Could not get the linked document."); return false; }
+                    templateReferenceElement = linkedDoc.GetElement(reference.LinkedElementId) as FamilyInstance;
                 }
-                catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return false; }
             }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return false; }
 #endif
 
             if (templateReferenceElement == null)
@@ -181,8 +199,46 @@ namespace RTS.Commands.MEPTools.Positioning
         }
 
         /// <summary>
-        /// Prompts the user to select multiple elements to be copied.
+        /// Updates the traceability parameters on an element.
+        /// Uses the SetParameterValue method from the SharedParameters utility.
         /// </summary>
+        private void UpdateReferenceParameters(FamilyInstance elementToUpdate, Element referenceElement, Transform relativeTransform, ICollection<string> missingParamsMessages, ICollection<string> overwrittenElements)
+        {
+            var familyName = elementToUpdate.Symbol.FamilyName;
+
+            // Set the reference type and ID using the helper method.
+            if (!SharedParameters.SetParameterValue(elementToUpdate, SharedParameters.General.RTS_CopyReference_Type, referenceElement.Name))
+            {
+                missingParamsMessages.Add($" - {familyName}: Missing or read-only 'RTS_CopyReference_Type' parameter.");
+                return; // Exit if a critical parameter is missing.
+            }
+
+            if (!SharedParameters.SetParameterValue(elementToUpdate, SharedParameters.General.RTS_CopyReference_ID, referenceElement.UniqueId))
+            {
+                missingParamsMessages.Add($" - {familyName}: Missing or read-only 'RTS_CopyReference_ID' parameter.");
+                return;
+            }
+
+            // Calculate the position string.
+            var origin = relativeTransform.Origin;
+            double angle = Math.Atan2(relativeTransform.BasisY.X, relativeTransform.BasisX.X) * (180.0 / Math.PI);
+            string positionString = $"{origin.X.ToString("F6", CultureInfo.InvariantCulture)},{origin.Y.ToString("F6", CultureInfo.InvariantCulture)},{origin.Z.ToString("F6", CultureInfo.InvariantCulture)},{angle.ToString("F6", CultureInfo.InvariantCulture)}";
+
+            // Check if the position parameter already has a value before overwriting.
+            var paramPos = elementToUpdate.get_Parameter(SharedParameters.General.RTS_CopyRelative_Position);
+            if (paramPos != null && paramPos.HasValue && !string.IsNullOrEmpty(paramPos.AsString()))
+            {
+                overwrittenElements.Add(elementToUpdate.UniqueId);
+            }
+
+            // Set the position parameter.
+            if (!SharedParameters.SetParameterValue(elementToUpdate, SharedParameters.General.RTS_CopyRelative_Position, positionString))
+            {
+                missingParamsMessages.Add($" - {familyName}: Missing or read-only 'RTS_CopyRelative_Position' parameter.");
+            }
+        }
+
+        #region Unchanged Methods
         private bool GetElementsToCopy(out List<FamilyInstance> elementsToCopy)
         {
             elementsToCopy = new List<FamilyInstance>();
@@ -208,9 +264,6 @@ namespace RTS.Commands.MEPTools.Positioning
             catch (OperationCanceledException) { return false; }
         }
 
-        /// <summary>
-        /// Creates a transform from a FamilyInstance's location and orientation.
-        /// </summary>
         private Transform CreateTransformFromInstance(FamilyInstance instance, RevitLinkInstance linkInstance = null)
         {
             if (!(instance.Location is LocationPoint locationPoint))
@@ -241,9 +294,6 @@ namespace RTS.Commands.MEPTools.Positioning
             return transform;
         }
 
-        /// <summary>
-        /// Calculates the relative transformations between the reference element and each element to be copied.
-        /// </summary>
         private bool CalculateGeometricRelationships(FamilyInstance templateReference, List<FamilyInstance> elementsToCopy, RevitLinkInstance linkInstance, out List<Transform> relativeTransforms)
         {
             relativeTransforms = new List<Transform>();
@@ -264,9 +314,6 @@ namespace RTS.Commands.MEPTools.Positioning
             return true;
         }
 
-        /// <summary>
-        /// Finds all elements of the same type as the reference.
-        /// </summary>
         private List<FamilyInstance> FindAllTargetElements(FamilyInstance templateReferenceElement, RevitLinkInstance linkInstance)
         {
             Document sourceDoc = linkInstance?.GetLinkDocument() ?? _doc;
@@ -287,9 +334,6 @@ namespace RTS.Commands.MEPTools.Positioning
 #endif
         }
 
-        /// <summary>
-        /// Finds a host element by ray casting.
-        /// </summary>
         private Element GetHostElementAtPoint(Document doc, XYZ point)
         {
             View3D view3D = new FilteredElementCollector(doc).OfClass(typeof(View3D)).Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
@@ -308,16 +352,14 @@ namespace RTS.Commands.MEPTools.Positioning
             return refUp != null ? doc.GetElement(refUp.GetReference()) : refDown != null ? doc.GetElement(refDown.GetReference()) : null;
         }
 
-        /// <summary>
-        /// Places the new elements and updates their reference parameters.
-        /// </summary>
         private (int placed, int skipped) PlaceNewElements(
             List<FamilyInstance> targetElements,
             List<FamilyInstance> elementsToCopy,
             FamilyInstance templateReferenceElement,
             RevitLinkInstance linkInstance,
             List<Transform> relativeTransforms,
-            HashSet<string> missingParamsFamilies)
+            HashSet<string> missingParamsMessages,
+            List<string> overwrittenElements)
         {
             int placedCount = 0, skippedCount = 0, processedCount = 0;
             int totalOperations = targetElements.Count * elementsToCopy.Count;
@@ -415,8 +457,7 @@ namespace RTS.Commands.MEPTools.Positioning
                             }
                         }
 
-                        // Update the reference parameters for the new element
-                        UpdateReferenceParameters(newElement, targetElement, missingParamsFamilies);
+                        UpdateReferenceParameters(newElement, targetElement, relativeTransform, missingParamsMessages, overwrittenElements);
 
                         placedCount++;
                     }
@@ -427,29 +468,7 @@ namespace RTS.Commands.MEPTools.Positioning
             progressBar.Close();
             return (placedCount, skippedCount);
         }
-
-        /// <summary>
-        /// Writes the reference element's information to the shared parameters of the target element.
-        /// </summary>
-        private void UpdateReferenceParameters(FamilyInstance elementToUpdate, Element referenceElement, ICollection<string> missingParamsFamilies)
-        {
-            var familyName = (elementToUpdate.Symbol.FamilyName);
-            if (missingParamsFamilies.Contains(familyName)) return;
-
-            var paramType = elementToUpdate.get_Parameter(_refTypeGuid);
-            var paramId = elementToUpdate.get_Parameter(_refIdGuid);
-
-            if (paramType != null && !paramType.IsReadOnly && paramId != null && !paramId.IsReadOnly)
-            {
-                paramType.Set(referenceElement.Name);
-                paramId.Set(referenceElement.UniqueId);
-            }
-            else
-            {
-                // Add the family name to the set so we don't check it again and only warn once.
-                missingParamsFamilies.Add(familyName);
-            }
-        }
+        #endregion
     }
 
     /// <summary>

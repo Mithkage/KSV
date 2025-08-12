@@ -13,39 +13,38 @@
 
 // Log:
 // - July 3, 2025: Implemented WPF InputWindow with "OK" (default/Return key), "Cancel" (closes window),
-//                and "Clear Overrides" buttons. Modified Execute method to handle these actions.
-//                Updated to use separate XAML and code-behind for InputWindow.
+//                 and "Clear Overrides" buttons. Modified Execute method to handle these actions.
+//                 Updated to use separate XAML and code-behind for InputWindow.
 // - July 3, 2025: Added wildcard '*' functionality for search values.
-//                A single '*' matches any non-empty parameter value.
-//                '*' within a string acts as a multi-character wildcard (e.g., 'Cable-*' matches 'Cable-01', 'Cable-XYZ').
-//                Matching is case-insensitive.
+//                 A single '*' matches any non-empty parameter value.
+//                 '*' within a string acts as a multi-character wildcard (e.g., 'Cable-*' matches 'Cable-01', 'Cable-XYZ').
+//                 Matching is case-insensitive.
 // - July 3, 2025: Removed duplicate 'WindowAction' enum definition to resolve CS0101 error.
-//                The 'WindowAction' enum is now solely defined in 'InputWindow.xaml.cs'.
+//                 The 'WindowAction' enum is now solely defined in 'InputWindow.xaml.cs'.
 // - July 3, 2025: Fixed CS0103 error by correcting typo 'solidRedRedOverride' to 'solidRedOverride'.
 // - July 4, 2025: Removed 'Clear Overrides' button from UI and corresponding logic.
-//                Clearing overrides is now handled by submitting a blank input.
+//                 Clearing overrides is now handled by submitting a blank input.
 // - July 15, 2025: Updated 'using' statement for InputWindow to reflect new namespace RTS.UI.
 // - August 8, 2025: Added reference to RTS.Utilities namespace for SharedParameters class.
 // - August 8, 2025: Removed dialog box for processing scope and restricted operation to active view only.
+// - [APPLIED FIX]: Updated parameter access to use the new SharedParameters structure.
 
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using RTS.UI; // UPDATED: Changed from 'RT_Isolate' to 'RTS.UI'
-using RTS.Utilities; // Added to access SharedParameters class
+using RTS.UI;
+using RTS.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Windows; // Required for WPF Window, RoutedEventArgs
-using System.Windows.Controls; // Required for WPF TextBox, Button, StackPanel, TextBlock
-using System.Windows.Input; // Required for KeyBinding (though IsDefault/IsCancel handle this for buttons)
-using System.Windows.Interop; // Required for HwndSource for WPF owner
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Interop;
 
 namespace RTS.Commands.DocumentTools.ViewTools
 {
-    // The 'WindowAction' enum definition is now in 'RTS.UI.InputWindow.xaml.cs'.
-
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
     public class RT_IsolateClass : IExternalCommand
@@ -86,13 +85,13 @@ namespace RTS.Commands.DocumentTools.ViewTools
                             // Reset overrides to default for each element
                             activeView.SetElementOverrides(elem.Id, new OverrideGraphicSettings());
                         }
+                        tResetGraphics.Commit();
                     }
                     catch (Exception ex)
                     {
-                        tResetGraphics.RollBack();
+                        if (tResetGraphics.HasStarted()) tResetGraphics.RollBack();
                         TaskDialog.Show("RT_Isolate Warning", $"Failed to reset view graphic overrides: {ex.Message}.");
                     }
-                    tResetGraphics.Commit();
                 }
             };
 
@@ -102,24 +101,17 @@ namespace RTS.Commands.DocumentTools.ViewTools
             try
             {
                 InputWindow inputWindow = new InputWindow();
-                // Pass the last used input to the window for display
                 inputWindow.UserInput = _lastUserInput;
-
-                // Set the Revit main window as the owner of the WPF dialog
                 new WindowInteropHelper(inputWindow).Owner = commandData.Application.MainWindowHandle;
-
-                // Show the WPF dialog
                 bool? dialogResult = inputWindow.ShowDialog();
 
-                // Determine the action based on DialogResult and the custom ActionChosen property
                 if (dialogResult == true) // User clicked OK
                 {
                     chosenAction = inputWindow.ActionChosen;
-                    // If OK, inputString gets the user's input
                     inputString = inputWindow.UserInput;
                     _lastUserInput = inputString; // Store the current input for the next run
                 }
-                else // User clicked Cancel or closed the window (DialogResult is false or null)
+                else // User clicked Cancel or closed the window
                 {
                     chosenAction = WindowAction.Cancel;
                 }
@@ -131,72 +123,64 @@ namespace RTS.Commands.DocumentTools.ViewTools
                 return Result.Failed;
             }
 
-            // Handle actions based on the chosen button or blank input
             if (chosenAction == WindowAction.Cancel)
             {
-                // If cancelled, just exit the command. No graphic reset.
                 return Result.Cancelled;
             }
 
-            // If chosenAction is WindowAction.Ok, proceed with processing inputString
             if (string.IsNullOrWhiteSpace(inputString))
             {
-                // If OK was clicked but the input was blank, reset graphics
                 resetAllGraphics();
                 TaskDialog.Show("RT_Isolate", "Input was blank. All graphic overrides have been cleared from the active view.");
                 return Result.Succeeded;
             }
 
-            // Always use elements from the active view only - no dialog to select scope
             ICollection<Element> elementsForProcessing = new FilteredElementCollector(doc, activeView.Id)
                 .WhereElementIsNotElementType()
                 .Where(e => e.Id != activeView.Id)
                 .ToList();
 
-            // Parse the input string into a list of search values
             List<string> searchValues = inputString.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                                                  .Select(s => s.Trim())
-                                                  .Where(s => !string.IsNullOrEmpty(s))
-                                                  .ToList();
+                                                    .Select(s => s.Trim())
+                                                    .Where(s => !string.IsNullOrEmpty(s))
+                                                    .ToList();
 
             if (!searchValues.Any())
             {
-                // If after trimming and splitting, no valid search values remain,
-                // also treat this as a signal to just reset graphics.
                 resetAllGraphics();
                 TaskDialog.Show("RT_Isolate", "No valid search values provided. All graphic overrides have been cleared from the active view.");
                 return Result.Succeeded;
             }
 
-            List<ElementId> targetedElements = new List<ElementId>();
-            List<ElementId> nonTargetedElements = new List<ElementId>();
-
             // Define graphic overrides
-            // For targeted elements: Solid Red
             OverrideGraphicSettings solidRedOverride = new OverrideGraphicSettings();
-            solidRedOverride.SetProjectionLineColor(new Color(255, 0, 0)); // Red line color
-            solidRedOverride.SetSurfaceForegroundPatternColor(new Color(255, 0, 0)); // Red fill color
-            solidRedOverride.SetSurfaceForegroundPatternId(GetSolidFillPatternId(doc)); // Get solid fill pattern
-            solidRedOverride.SetSurfaceTransparency(0); // Ensure not transparent (0 means opaque)
+            solidRedOverride.SetProjectionLineColor(new Color(255, 0, 0));
+            solidRedOverride.SetSurfaceForegroundPatternColor(new Color(255, 0, 0));
+            solidRedOverride.SetSurfaceForegroundPatternId(GetSolidFillPatternId(doc));
+            solidRedOverride.SetSurfaceTransparency(0);
 
-            // For non-targeted elements: 40% transparent, halftone
             OverrideGraphicSettings transparentHalftoneOverride = new OverrideGraphicSettings();
             transparentHalftoneOverride.SetHalftone(true);
-            transparentHalftoneOverride.SetSurfaceTransparency(40); // 40% transparent
-
-            int elementsFoundCount = 0; // Keep track of how many elements matched the criteria
+            transparentHalftoneOverride.SetSurfaceTransparency(40);
 
             using (Transaction tApplyOverrides = new Transaction(doc, "Apply Isolation Overrides"))
             {
                 tApplyOverrides.Start();
                 try
                 {
+                    // First, reset all graphics to ensure a clean slate
+                    foreach (Element elem in elementsForProcessing)
+                    {
+                        activeView.SetElementOverrides(elem.Id, new OverrideGraphicSettings());
+                    }
+
+                    // Now, apply the new overrides
                     foreach (Element elem in elementsForProcessing)
                     {
                         bool matchFound = false;
 
-                        // Check RTS_ID parameter
-                        Parameter rtsIdParam = elem.get_Parameter(SharedParameters.Cable.RTS_ID_GUID);
+                        // Check RTS_ID parameter using the new compatibility layer
+                        Parameter rtsIdParam = elem.get_Parameter(SharedParameters.General.RTS_ID);
                         if (rtsIdParam != null && !string.IsNullOrEmpty(rtsIdParam.AsString()))
                         {
                             string paramValue = rtsIdParam.AsString();
@@ -209,7 +193,8 @@ namespace RTS.Commands.DocumentTools.ViewTools
                         // If no match yet, check RTS_Cable_XX parameters
                         if (!matchFound)
                         {
-                            foreach (Guid cableParamGuid in SharedParameters.Cable.RTS_Cable_GUIDs)
+                            // Use the new dynamic list of cable GUIDs from the compatibility layer
+                            foreach (Guid cableParamGuid in SharedParameters.Cable.AllCableGuids)
                             {
                                 Parameter cableParam = elem.get_Parameter(cableParamGuid);
                                 if (cableParam != null && !string.IsNullOrEmpty(cableParam.AsString()))
@@ -218,7 +203,7 @@ namespace RTS.Commands.DocumentTools.ViewTools
                                     if (searchValues.Any(sv => MatchesWildcard(paramValue, sv)))
                                     {
                                         matchFound = true;
-                                        break; // Found a match, no need to check other cable parameters for this element
+                                        break;
                                     }
                                 }
                             }
@@ -228,17 +213,12 @@ namespace RTS.Commands.DocumentTools.ViewTools
                         if (matchFound)
                         {
                             activeView.SetElementOverrides(elem.Id, solidRedOverride);
-                            targetedElements.Add(elem.Id);
-                            elementsFoundCount++;
                         }
                         else
                         {
-                            // Only apply halftone/transparency if it's currently visible
-                            // This prevents making previously hidden elements partially visible unexpectedly
                             if (!elem.IsHidden(activeView))
                             {
                                 activeView.SetElementOverrides(elem.Id, transparentHalftoneOverride);
-                                nonTargetedElements.Add(elem.Id);
                             }
                         }
                     }
@@ -247,7 +227,7 @@ namespace RTS.Commands.DocumentTools.ViewTools
                 }
                 catch (Exception ex)
                 {
-                    tApplyOverrides.RollBack();
+                    if (tApplyOverrides.HasStarted()) tApplyOverrides.RollBack();
                     message = $"Error during element graphic modification: {ex.Message}";
                     TaskDialog.Show("RT_Isolate Error", message);
                     return Result.Failed;
@@ -257,12 +237,8 @@ namespace RTS.Commands.DocumentTools.ViewTools
             return Result.Succeeded;
         }
 
-        /// <summary>
-        /// Helper method to get the ElementId of the solid fill pattern.
-        /// </summary>
         private ElementId GetSolidFillPatternId(Document doc)
         {
-            // Find the solid fill pattern element in the document.
             FillPatternElement solidFill = new FilteredElementCollector(doc)
                 .OfClass(typeof(FillPatternElement))
                 .Cast<FillPatternElement>()
@@ -272,43 +248,23 @@ namespace RTS.Commands.DocumentTools.ViewTools
             {
                 return solidFill.Id;
             }
-
-            // This exception should ideally not be hit in a valid Revit document,
-            // as the solid fill pattern is a standard built-in type.
-            throw new Exception("Solid fill pattern not found in the document. This is unexpected.");
+            throw new Exception("Solid fill pattern not found in the document.");
         }
 
-        /// <summary>
-        /// Checks if an input string matches a given pattern, supporting '*' as a wildcard.
-        /// The '*' wildcard matches any sequence of zero or more characters.
-        /// A pattern of a single '*' matches any non-empty input string.
-        /// Matching is case-insensitive.
-        /// </summary>
-        /// <param name="input">The string to check (e.g., a parameter value).</param>
-        /// <param name="pattern">The pattern to match against (e.g., user input with wildcards).</param>
-        /// <returns>True if the input matches the pattern, false otherwise.</returns>
         private bool MatchesWildcard(string input, string pattern)
         {
             if (string.IsNullOrEmpty(input))
             {
-                return false; // An empty input string cannot match any pattern (unless pattern is also empty, which is not the intent for wildcard functionality here).
+                return false;
             }
 
-            // Special case: if the pattern is exactly "*", it matches any non-empty input.
             if (pattern.Equals("*", StringComparison.OrdinalIgnoreCase))
             {
                 return !string.IsNullOrEmpty(input);
             }
 
-            // Escape regex special characters in the pattern, then replace unescaped '*' with '.*'
-            // Regex.Escape escapes most special characters, but we want '*' to be a wildcard,
-            // so we escape the pattern first, then replace the escaped '*' ('\*') with '.*'.
             string regexPattern = "^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$";
-
-            // Create a Regex object for case-insensitive matching
-            Regex regex = new Regex(regexPattern, RegexOptions.IgnoreCase);
-
-            return regex.IsMatch(input);
+            return Regex.IsMatch(input, regexPattern, RegexOptions.IgnoreCase);
         }
     }
 }

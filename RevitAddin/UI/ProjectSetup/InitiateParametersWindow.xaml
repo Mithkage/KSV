@@ -4,16 +4,16 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="RTS - Initiate Shared Parameters" Height="320" Width="450"
+        Title="RTS - Initiate Shared Parameters" Height="Auto" Width="480"
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
         Topmost="True"
         Background="#FFE0F2F1"
+        SizeToContent="Height"
         ResizeMode="NoResize">
 
     <!-- Resource Dictionary for Styles -->
     <Window.Resources>
-        <!-- Modern Button Style from your example -->
         <Style x:Key="ModernButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="#FF26A69A"/>
             <Setter Property="Foreground" Value="White" />
@@ -46,11 +46,6 @@
                 <Trigger Property="IsPressed" Value="True">
                     <Setter Property="Background" Value="#FF00897B"/>
                     <Setter Property="BorderBrush" Value="#FF00695C"/>
-                    <Setter Property="Effect">
-                        <Setter.Value>
-                            <DropShadowEffect Color="#FF616161" Direction="270" ShadowDepth="1" BlurRadius="2" Opacity="0.6" />
-                        </Setter.Value>
-                    </Setter>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
                     <Setter Property="Background" Value="#FFBDBDBD"/>
@@ -60,12 +55,15 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Style for CheckBoxes -->
         <Style TargetType="CheckBox">
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Foreground" Value="#FF333333"/>
             <Setter Property="Margin" Value="0,8"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style TargetType="Separator">
+            <Setter Property="Margin" Value="0,10"/>
         </Style>
     </Window.Resources>
 
@@ -77,17 +75,31 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header Text -->
-        <TextBlock Grid.Row="0" Text="Select Parameter Groups to Initiate"
-                   FontSize="18" FontWeight="SemiBold" Margin="0,0,0,20"
+        <TextBlock Grid.Row="0" Text="Select Parameters to Initiate"
+                   FontSize="18" FontWeight="SemiBold" Margin="0,0,0,15"
                    HorizontalAlignment="Center" Foreground="#FF333333" TextWrapping="Wrap" TextAlignment="Center"/>
 
         <!-- Parameter Selection Checkboxes -->
         <StackPanel Grid.Row="1" VerticalAlignment="Center">
-            <CheckBox x:Name="DetailItemsCheckBox" Content="Detail Item Parameters (PC_)" IsChecked="True"/>
-            <CheckBox x:Name="CableConduitCheckBox" Content="Cable/Conduit Parameters (RTS_)" IsChecked="True"/>
-            <CheckBox x:Name="RtsIdCheckBox" Content="RTS_ID Parameter" IsChecked="True"/>
-            <CheckBox x:Name="WiresCheckBox" Content="Wire Parameters (PC_)" IsChecked="True"/>
+            <TextBlock Text="Project Setup:" FontWeight="Bold" Foreground="#FF00796B"/>
+            <CheckBox x:Name="InitiateAllParamsCheckBox" Content="Initiate All Shared Parameters in Project" IsChecked="True"/>
+            <CheckBox x:Name="MapCablesCheckBox" Content="Initiate Parameters for Cable Mapping" IsChecked="True"/>
+
+            <!-- Schedule Parameters Section with Sub-options -->
+            <CheckBox x:Name="SchedulesCheckBox" Content="Initiate Parameters for Standard Schedules" IsChecked="True" Click="SchedulesCheckBox_Click"/>
+            <StackPanel Margin="20,0,0,0">
+                <CheckBox x:Name="ScheduleDetailItemsCheckBox" Content="Detail Items Schedule" IsChecked="{Binding IsChecked, ElementName=SchedulesCheckBox}"/>
+                <CheckBox x:Name="ScheduleElecEquipCheckBox" Content="Electrical Equipment Schedule" IsChecked="{Binding IsChecked, ElementName=SchedulesCheckBox}"/>
+                <CheckBox x:Name="ScheduleLightingCheckBox" Content="Lighting Fixtures Schedule" IsChecked="{Binding IsChecked, ElementName=SchedulesCheckBox}"/>
+                <CheckBox x:Name="ScheduleElecFixturesCheckBox" Content="Electrical Fixtures Schedule" IsChecked="{Binding IsChecked, ElementName=SchedulesCheckBox}"/>
+                <CheckBox x:Name="ScheduleCableTraysCheckBox" Content="Cable Trays &amp; Conduits Schedule" IsChecked="{Binding IsChecked, ElementName=SchedulesCheckBox}"/>
+            </StackPanel>
+
+            <Separator/>
+
+            <TextBlock Text="Family Setup (Only available in Family Editor):" FontWeight="Bold" Foreground="#FF00796B"/>
+            <CheckBox x:Name="AddRtsTypeFamilyCheckBox" Content="Add 'RTS_Type' to current Family" IsEnabled="False"/>
+            <CheckBox x:Name="CopyRelativeCheckBox" Content="Initiate Parameters for Copy Relative" IsEnabled="False"/>
         </StackPanel>
 
         <!-- Action Buttons at the bottom -->

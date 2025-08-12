@@ -1,32 +1,32 @@
-﻿Cable Routing Sequence,,,,,,,,
-Project:,Luddenham Station,,,,,,,
-Project No:,SMWSASSM-PLD-LDN-SN250-EL-M3D-80001,,,,,,,
-Date:,9/08/2025,,,,,,,
-,,,,,,,,
-Separator Legend:,,,,Tray/Conduit ID Legend:,,,,
-,, (Comma) = Direct connection between same containment types,,,,Format: [Prefix]-[TypeSuffix]-[Level]-[ElevMM]-[BranchNum],,
-,, + (Plus) = Transition between different containment types,,,,Example: LA-FLS-L01-4285-0001,,
+﻿Cable Routing Sequence
+Project:,Luddenham Station
+Project No:,SMWSASSM-PLD-LDN-SN250-EL-M3D-80001
+Date:,13/08/2025
+
+Separator Legend:,,,,Tray/Conduit ID Legend:
+,, (Comma) = Direct connection between same containment types,,,,Format: [Prefix]-[TypeSuffix]-[Level]-[ElevMM]-[BranchNum]
+,, + (Plus) = Transition between different containment types,,,,Example: LA-FLS-L01-4285-0001
 ,, || (Double Pipe) = Jump between non-connected containment of the same type,,,,Prefix: Service Type (LA=LV Sub-A, LB=LV Sub-B, GA=Gen-A)
 ,, >> (Double Arrow) = Separates disconnected routing segments,,,,TypeSuffix: FLS=Fire-rated, ESS=Essential, DFT=Default
-,,,,,,,,
-Cable Reference,From,To,Status,Branch Sequencing,Routing Sequence,,,
-CTX1A-01,T1,LDN-SN250/MSB/L00/1100A (Bus MAIN),Pending,N/A,No cable containment assigned in model.,,,
-CM11A-01,LDN-SN250/MSB/L00/1100A (Bus MAIN),LDN-SN250/MSB/L00/2100B (MSB 2 ATS CONNECTION),Unconfirmed (Virtual),'0015,LA-FLS-L00-2780-0015 >> LA-FLS-L00-2875-0015,,,
-CM11A-11,LDN-SN250/MSB/L00/1100A (Bus LIFE SAFETY BUS),LDN-SN250/PMP/L00/0001 FIRE PUMP,Pending,N/A,No cable containment assigned in model.,,,
-CM11A-12,LDN-SN250/MSB/L00/1100A (Bus LIFE SAFETY BUS),LDN-SN250/PMP/L00/0004 TEMPORARY FIRE PUMP,Unconfirmed (Virtual),"'0017, 0186",LA-FLS-L00-2644-0017 + LA-FLS-L00--1865-0186,,,
-CM11A-14,LDN-SN250/MSB/L00/1100A (Bus LIFE SAFETY BUS),LDN-SN250/ULIO/L00/1101A (INPUT BUS) RSGx,Unconfirmed (Virtual),N/A,Could not determine virtual route.,,,
-CL11A-01,LDN-SN250/ULIO/L00/1101A (INPUT BUS) RSGx,LDN-SN250/ULIO/L00/1101A (EM. LIGHTING UPS),Pending,N/A,No cable containment assigned in model.,,,
-CL11A-02,LDN-SN250/ULIO/L00/1101A (EM. LIGHTING UPS),LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx,Pending,N/A,No cable containment assigned in model.,,,
-CL11A-04,LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx,LDN-SN250/ULDB/L00/1102A RSGx,Pending,N/A,No cable containment assigned in model.,,,
-CL11A-07,LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx,LDN-SN250/ULDB/L02/1106A RSGx,Pending,N/A,No cable containment assigned in model.,,,
-CL11A-05,LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx,LDN-SN250/ULDB/L02/1105A RSGx,Pending,N/A,No cable containment assigned in model.,,,
-CL11A-03,LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx,LDN-SN250/ULDB/L00/1101A RSGx,Unconfirmed (Virtual),"'0012, 0013",LA-FLS-L00-1950-0012 >> LA-FLS-L00-1750-0013,,,
-CL11A-06,LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx,LDN-SN250/ULDB/L00/1107A RSGx,Confirmed,'0014,LA-FLS-L00-1950-0014,,,
-CM11A-15,LDN-SN250/MSB/L00/1100A (Bus LIFE SAFETY BUS),LDN-SN250/UPIO/L00/1101A (INPUT BUS) ON HOLD,Unconfirmed (Virtual),"'0017, 0009",LA-FLS-L00-2644-0017 >> LA-FLS-L00-3378-0009,,,
-CG11A-01,LDN-SN250/UPIO/L00/1101A (INPUT BUS) ON HOLD,LDN-SN250/UPIO/L00/1101A (GRN UPS),Confirmed,'0009,LA-FLS-L00-3378-0009,,,
-CG11A-02,LDN-SN250/UPIO/L00/1101A (GRN UPS),LDN-SN250/UPIO/L00/1101A (OUTPUT BUS),Confirmed,'0009,LA-FLS-L00-3378-0009,,,
-CG11A-03,LDN-SN250/UPIO/L00/1101A (OUTPUT BUS),LDN-SN250/UCDB/L00/1111A (10HR) RSGx,Unconfirmed (Virtual),'0010, >> LA-FLS-L00-3208-0010,,,
-CM11A-16,LDN-SN250/MSB/L00/1100A (Bus LIFE SAFETY BUS),LDN-SN250/UPIO/L00/1102A (INPUT BUS) ON HOLD,Unconfirmed (Virtual),"'0017, 0008",LA-FLS-L00-2644-0017 >> LA-FLS-L00-3278-0008,,,
-CA11A-01,LDN-SN250/UPIO/L00/1102A (INPUT BUS) ON HOLD,LDN-SN250/UPS/L00/1103A (PA/EWIS UPS),Pending,N/A,No cable containment assigned in model.,,,
-CA11A-02,LDN-SN250/UPS/L00/1103A (PA/EWIS UPS),LDN-SN250/UPIO/L00/1102A (OUTPUT BUS),Pending,N/A,No cable containment assigned in model.,,,
-CA11A-11,LDN-SN250/UPIO/L00/1102A (OUTPUT BUS),LDN-SN250/UCDB/L00/1112A (6HR) RSGx,Unconfirmed (Virtual),"'0008, 0001",LA-FLS-L00-3278-0008 >> LA-FLS-L00-3208-0001,,,
+
+Cable Reference,From,To,From Status,To Status,Status,Virtual Length (m),Branch Sequencing,Routing Sequence
+"CTX1A-01","T1","LDN-SN250/MSB/L00/1100A (Bus MAIN)","Not Found","Found: LDN-SN250/MSB/L00/1100A","No Containment Assigned","0.00","N/A","This cable reference was not found on any containment elements."
+"CM11A-01","LDN-SN250/MSB/L00/1100A (Bus MAIN)","LDN-SN250/MSB/L00/2100B (MSB 2 ATS CONNECTION)","Found: LDN-SN250/MSB/L00/1100A","Found: LDN-SN250/MSB/L00/2100B","Route Unconfirmed (Virtual Path)","26.63","'0015","LDN-SN250/MSB/L00/1100A >> LA-FLS-L00-2780-0015, LA-FLS-L00-3355-0015, LA-FLS-L00-3454-0015, LA-FLS-L00-3775-0015, LA-FLS-L00-3775-0015 >> LA-FLS-L00-3450-0015, LA-FLS-L00-3450-0015, LA-FLS-L00-2875-0015 >> LDN-SN250/MSB/L00/2100B"
+"CM11A-11","LDN-SN250/MSB/L00/1100A (Bus LIFE SAFETY BUS)","LDN-SN250/PMP/L00/0001 FIRE PUMP","Found: LDN-SN250/MSB/L00/1100A","Not Found","No Containment Assigned","0.00","N/A","This cable reference was not found on any containment elements."
+"CM11A-12","LDN-SN250/MSB/L00/1100A (Bus LIFE SAFETY BUS)","LDN-SN250/PMP/L00/0004 TEMPORARY FIRE PUMP","Found: LDN-SN250/MSB/L00/1100A","Found: LDN-SN250/PMP/L00/0004","Route Unconfirmed (Virtual Path)","0.00","N/A","Could not determine virtual route."
+"CM11A-14","LDN-SN250/MSB/L00/1100A (Bus LIFE SAFETY BUS)","LDN-SN250/ULIO/L00/1101A (INPUT BUS) RSGx","Found: LDN-SN250/MSB/L00/1100A","Found: LDN-SN250/ULIO/L00/1101A","Route Unconfirmed (Virtual Path)","0.00","N/A","Could not determine virtual route."
+"CL11A-01","LDN-SN250/ULIO/L00/1101A (INPUT BUS) RSGx","LDN-SN250/ULIO/L00/1101A (EM. LIGHTING UPS)","Found: LDN-SN250/ULIO/L00/1101A","Found: LDN-SN250/ULIO/L00/1101A","No Containment Assigned","0.00","N/A","This cable reference was not found on any containment elements."
+"CL11A-02","LDN-SN250/ULIO/L00/1101A (EM. LIGHTING UPS)","LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx","Found: LDN-SN250/ULIO/L00/1101A","Found: LDN-SN250/ULIO/L00/1101A","No Containment Assigned","0.00","N/A","This cable reference was not found on any containment elements."
+"CL11A-04","LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx","LDN-SN250/ULDB/L00/1102A RSGx","Found: LDN-SN250/ULIO/L00/1101A","Found: LDN-SN250/ULDB/L00/1102A","No Containment Assigned","0.00","N/A","This cable reference was not found on any containment elements."
+"CL11A-07","LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx","LDN-SN250/ULDB/L02/1106A RSGx","Found: LDN-SN250/ULIO/L00/1101A","Found: LDN-SN250/ULDB/L02/1106A","No Containment Assigned","0.00","N/A","This cable reference was not found on any containment elements."
+"CL11A-05","LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx","LDN-SN250/ULDB/L02/1105A RSGx","Found: LDN-SN250/ULIO/L00/1101A","Found: LDN-SN250/ULDB/L02/1105A","No Containment Assigned","0.00","N/A","This cable reference was not found on any containment elements."
+"CL11A-03","LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx","LDN-SN250/ULDB/L00/1101A RSGx","Found: LDN-SN250/ULIO/L00/1101A","Found: LDN-SN250/ULDB /L00/1101A","Route Unconfirmed (Virtual Path)","40.03","'0012, 0004, 0013","LDN-SN250/ULIO/L00/1101A >> LA-FLS-L00-1950-0012, LA-FLS-L00-3300-0012, LA-FLS-L00-3300-0012, LA-FLS-L00-3300-0012, LA-FLS-L00-3650-0012, LA-FLS-L01-1570-0012 >> [MISSING_RTS_ID] + LA-FLS-L00-3516-0004, LA-FLS-L00-3516-0004, LA-FLS-L00-3665-0004, LA-FLS-L00-3735-0004 >> LA-FLS-L00-1750-0013 >> LDN-SN250/ULDB /L00/1101A"
+"CL11A-06","LDN-SN250/ULIO/L00/1101A (OUTPUT BUS) RSGx","LDN-SN250/ULDB/L00/1107A RSGx","Found: LDN-SN250/ULIO/L00/1101A","Found: LDN-SN250/ULDB/L00/1107A","Route Confirmed","0.00","'0014","LA-FLS-L00-1950-0014, LA-FLS-L00-3300-0014, LA-FLS-L00-3300-0014, LA-FLS-L00-3300-0014, LA-FLS-L00-3100-0014"
+"CM11A-15","LDN-SN250/MSB/L00/1100A (Bus LIFE SAFETY BUS)","LDN-SN250/UPIO/L00/1101A (INPUT BUS) ON HOLD","Found: LDN-SN250/MSB/L00/1100A","Found: LDN-SN250/UPIO/L00/1101A","Route Unconfirmed (Virtual Path)","51.46","'0017, 0009","LDN-SN250/MSB/L00/1100A >> LA-FLS-L00-2644-0017, LA-FLS-L00-3316-0017, LA-FLS-L00-3316-0017, LA-FLS-L00-3316-0017, LA-FLS-L00-2766-0017 >> LA-FLS-L00-3900-0009, LA-FLS-L00-3378-0009 >> LDN-SN250/UPIO/L00/1101A"
+"CG11A-01","LDN-SN250/UPIO/L00/1101A (INPUT BUS) ON HOLD","LDN-SN250/UPIO/L00/1101A (GRN UPS)","Found: LDN-SN250/UPIO/L00/1101A","Found: LDN-SN250/UPIO/L00/1101A","Route Confirmed","0.00","'0009","LA-FLS-L00-3378-0009"
+"CG11A-02","LDN-SN250/UPIO/L00/1101A (GRN UPS)","LDN-SN250/UPIO/L00/1101A (OUTPUT BUS)","Found: LDN-SN250/UPIO/L00/1101A","Found: LDN-SN250/UPIO/L00/1101A","Route Confirmed","0.00","'0009","LA-FLS-L00-3378-0009"
+"CG11A-03","LDN-SN250/UPIO/L00/1101A (OUTPUT BUS)","LDN-SN250/UCDB/L00/1111A (10HR) RSGx","Found: LDN-SN250/UPIO/L00/1101A","Found: LDN-SN250/UCDB/L00/1111A","Route Unconfirmed (Virtual Path)","29.54","'0002, 0005, 0182, 0010","LDN-SN250/UPIO/L00/1101A >> LA-FLS-L00-3800-0002, LA-FLS-L00-3800-0005, LA-FLS-L00-3800-0005, LA-FLS-L00-3800-0005 + LA-FLS-L00-3810-0182, LA-FLS-L00-3810-0182, LA-FLS-L00-2900-0182 + LA-FLS-L00-3208-0010 >> LDN-SN250/UCDB/L00/1111A"
+"CM11A-16","LDN-SN250/MSB/L00/1100A (Bus LIFE SAFETY BUS)","LDN-SN250/UPIO/L00/1102A (INPUT BUS) ON HOLD","Found: LDN-SN250/MSB/L00/1100A","Found: LDN-SN250/UPIO/L00/1102A","Route Unconfirmed (Virtual Path)","0.00","N/A","Could not determine virtual route."
+"CA11A-01","LDN-SN250/UPIO/L00/1102A (INPUT BUS) ON HOLD","LDN-SN250/UPS/L00/1103A (PA/EWIS UPS)","Found: LDN-SN250/UPIO/L00/1102A","Not Found","No Containment Assigned","0.00","N/A","This cable reference was not found on any containment elements."
+"CA11A-02","LDN-SN250/UPS/L00/1103A (PA/EWIS UPS)","LDN-SN250/UPIO/L00/1102A (OUTPUT BUS)","Not Found","Found: LDN-SN250/UPIO/L00/1102A","No Containment Assigned","0.00","N/A","This cable reference was not found on any containment elements."
+"CA11A-11","LDN-SN250/UPIO/L00/1102A (OUTPUT BUS)","LDN-SN250/UCDB/L00/1112A (6HR) RSGx","Found: LDN-SN250/UPIO/L00/1102A","Found: LDN-SN250/UCDB/L00/1112A","Route Unconfirmed (Virtual Path)","26.80","'0008, 0002, 0005, 0182, 0001","LDN-SN250/UPIO/L00/1102A >> LA-FLS-L00-3278-0008, LA-FLS-L00-3800-0008, LA-FLS-L00-3800-0008, LA-FLS-L00-3800-0002, LA-FLS-L00-3800-0005, LA-FLS-L00-3800-0005, LA-FLS-L00-3800-0005 + LA-FLS-L00-3810-0182, LA-FLS-L00-3810-0182, LA-FLS-L00-2900-0182 + LA-FLS-L00-3208-0001 >> LDN-SN250/UCDB/L00/1112A"

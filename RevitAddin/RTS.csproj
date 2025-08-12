@@ -167,7 +167,6 @@
 	<ItemGroup>
 		<!-- Main structure -->
 		<Folder Include="App\" />
-		<Folder Include="UI\" />
 
 		<!-- Commands subfolders -->
 		<Folder Include="Commands\ProjectSetup\" />
