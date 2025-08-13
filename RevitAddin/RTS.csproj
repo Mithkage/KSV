@@ -138,6 +138,9 @@
 		<Reference Include="Microsoft.VisualBasic" />
 		<Reference Include="PresentationCore" />
 		<Reference Include="PresentationFramework" />
+		<Reference Include="RevitAPIIFC">
+		  <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Revit 2024\RevitAPIIFC.dll</HintPath>
+		</Reference>
 		<Reference Include="System.Xaml" />
 		<Reference Include="WindowsBase" />
 	</ItemGroup>
@@ -145,6 +148,9 @@
 	<!-- Resource Files (Icons, etc.) -->
 	<ItemGroup>
 		<EmbeddedResource Include="Resources\**\*.*" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Compile Remove="Commands\DocumentTools\ViewTools\RTS_DiagnoseConnectivity.cs" />
 	</ItemGroup>
 	<ItemGroup>
 		<EmbeddedResource Remove="Resources\RTS Logo.png" />
@@ -178,8 +184,6 @@
 		<Folder Include="Commands\MEPTools\Electrical\" />
 		<Folder Include="Commands\MEPTools\CableTray\" />
 		<Folder Include="Commands\MEPTools\Positioning\" />
-		<Folder Include="Commands\DocumentTools\" />
-		<Folder Include="Commands\DocumentTools\ViewTools\" />
 		<Folder Include="Commands\DocumentTools\ProjectManagement\" />
 
 		<!-- UI subfolders -->

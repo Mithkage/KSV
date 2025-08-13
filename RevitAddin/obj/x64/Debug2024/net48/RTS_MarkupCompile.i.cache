@@ -10,11 +10,11 @@ none
 false
 DEBUG;TRACE;REVIT2024_OR_GREATER;DEBUG2024;NETFRAMEWORK;NET48;;NET30_OR_GREATER;NET35_OR_GREATER;NET40_OR_GREATER;NET45_OR_GREATER;NET451_OR_GREATER;NET452_OR_GREATER;NET46_OR_GREATER;NET461_OR_GREATER;NET462_OR_GREATER;NET47_OR_GREATER;NET471_OR_GREATER;NET472_OR_GREATER;NET48_OR_GREATER
 
-11-728941850
+12695360897
 
-63-33611943
-43552155252
-UI\Common\ProgressBarWindow.xaml;UI\Common\RoutingReportProgressBarWindow.xaml;UI\DataExchange\PC_Extensible_Window.xaml;UI\DocumentTools\InputWindow.xaml;UI\DocumentTools\LinkManagerWindow.xaml;UI\DocumentTools\ProfileSettingsWindow.xaml;UI\MEPTools\CastCeilingWindow.xaml;UI\ProjectSetup\InitiateParametersWindow.xaml;UI\ProjectSetup\ScheduleSelectionWindow.xaml;UI\ProjectSetup\UserSelectionWindow.xaml;UI\Windows\ReportSelectionWindow.xaml;
+67-1578900539
+44-1174166506
+UI\Common\ProgressBarWindow.xaml;UI\Common\RoutingReportProgressBarWindow.xaml;UI\DataExchange\PC_Extensible_Window.xaml;UI\DocumentTools\InputWindow.xaml;UI\DocumentTools\LinkManagerWindow.xaml;UI\DocumentTools\ProfileSettingsWindow.xaml;UI\MapCablesWindow.xaml;UI\MEPTools\CastCeilingWindow.xaml;UI\ProjectSetup\InitiateParametersWindow.xaml;UI\ProjectSetup\ScheduleSelectionWindow.xaml;UI\ProjectSetup\UserSelectionWindow.xaml;UI\Windows\ReportSelectionWindow.xaml;
 
-False
+True
 

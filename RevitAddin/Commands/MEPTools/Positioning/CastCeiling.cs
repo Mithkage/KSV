@@ -75,7 +75,22 @@ namespace RTS.Commands.MEPTools.Positioning
                 return Result.Cancelled;
             }
 
-            var (ceilingLink, slabLink, diagnosticMessage) = RTS_RevitUtils.GetLinkInstances(doc, settings);
+            var ceilingMapping = settings.ModelCategoryMappings.FirstOrDefault(m => m.CategoryName == "Ceilings");
+            var slabMapping = settings.ModelCategoryMappings.FirstOrDefault(m => m.CategoryName == "Structural Slabs");
+
+            RevitLinkInstance ceilingLink = null;
+            if (ceilingMapping != null && ceilingMapping.SelectedLink != "<None>")
+            {
+                string linkName = RTS_RevitUtils.ParseLinkName(ceilingMapping.SelectedLink);
+                (ceilingLink, _) = RTS_RevitUtils.GetLinkInstance(doc, linkName);
+            }
+
+            RevitLinkInstance slabLink = null;
+            if (slabMapping != null && slabMapping.SelectedLink != "<None>")
+            {
+                string linkName = RTS_RevitUtils.ParseLinkName(slabMapping.SelectedLink);
+                (slabLink, _) = RTS_RevitUtils.GetLinkInstance(doc, linkName);
+            }
 
             // --- Show WPF UI for user options ---
             var optionsWindow = new CastCeilingWindow();
@@ -444,7 +459,7 @@ namespace RTS.Commands.MEPTools.Positioning
             return point.X >= bb.Min.X && point.X <= bb.Max.X && point.Y >= bb.Min.Y && point.Y <= bb.Max.Y;
         }
 
-        private bool CheckRoomBoundingLinks(Document doc, RevitLinkInstance ceilingLink, RevitLinkInstance slabLink, RTS.Utilities.ProfileSettings settings)
+        private bool CheckRoomBoundingLinks(Document doc, RevitLinkInstance ceilingLink, RevitLinkInstance slabLink, ProfileSettings settings)
         {
             List<string> nonBoundingLinks = new List<string>();
 
@@ -453,7 +468,11 @@ namespace RTS.Commands.MEPTools.Positioning
                 var linkType = doc.GetElement(ceilingLink.GetTypeId()) as RevitLinkType;
                 if (linkType != null && linkType.get_Parameter(BuiltInParameter.WALL_ATTR_ROOM_BOUNDING).AsInteger() == 0)
                 {
-                    nonBoundingLinks.Add($"Ceilings link: '{RTS_RevitUtils.ParseLinkName(settings.CeilingsLink)}'");
+                    var ceilingMapping = settings.ModelCategoryMappings.FirstOrDefault(m => m.CategoryName == "Ceilings");
+                    if (ceilingMapping != null)
+                    {
+                        nonBoundingLinks.Add($"Ceilings link: '{RTS_RevitUtils.ParseLinkName(ceilingMapping.SelectedLink)}'");
+                    }
                 }
             }
             if (slabLink != null)
@@ -461,7 +480,11 @@ namespace RTS.Commands.MEPTools.Positioning
                 var linkType = doc.GetElement(slabLink.GetTypeId()) as RevitLinkType;
                 if (linkType != null && linkType.get_Parameter(BuiltInParameter.WALL_ATTR_ROOM_BOUNDING).AsInteger() == 0)
                 {
-                    nonBoundingLinks.Add($"Slabs link: '{RTS_RevitUtils.ParseLinkName(settings.SlabsLink)}'");
+                    var slabMapping = settings.ModelCategoryMappings.FirstOrDefault(m => m.CategoryName == "Structural Slabs");
+                    if (slabMapping != null)
+                    {
+                        nonBoundingLinks.Add($"Slabs link: '{RTS_RevitUtils.ParseLinkName(slabMapping.SelectedLink)}'");
+                    }
                 }
             }
 

@@ -35,6 +35,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Interop;
+#if REVIT2024_OR_GREATER
+using Autodesk.Revit.DB.Worksharing;
+#endif
 #endregion
 
 namespace RTS.Commands.DocumentTools.ViewTools
@@ -479,7 +482,11 @@ namespace RTS.Commands.DocumentTools.ViewTools
                     }
 
                     // Include diagnostic information about the environment
+#if REVIT2024_OR_GREATER
+                    detailedMessage += $"\n\nActive view: {activeView.Name} (ID: {activeView.Id.Value})";
+#else
                     detailedMessage += $"\n\nActive view: {activeView.Name} (ID: {activeView.Id.IntegerValue})";
+#endif
                     detailedMessage += $"\nCable reference: {cableRef}";
                     detailedMessage += $"\nIslands found: {islands.Count}";
 
@@ -514,14 +521,16 @@ namespace RTS.Commands.DocumentTools.ViewTools
 #else
             // For Revit 2022 and older, get the Workset element and check its status
             WorksetTable worksetTable = doc.GetWorksetTable();
-            Workset workset = worksetTable.GetWorkset(worksetId);
-            if (workset == null) return false;
+            //Fix this code later - Element ID passing is not working in 2022.
+            //Workset currentWorkset = worksetTable.GetWorkset(worksetId);
+            //if (currentWorkset == null) return false;
 
             // Check the checkout status of the workset element.
-            CheckoutStatus status = WorksharingUtils.GetCheckoutStatus(doc, workset.Id);
+            //CheckoutStatus status = WorksharingUtils.GetCheckoutStatus(doc, currentWorkset.Id);
 
             // It's editable if it's not owned by another user.
-            return status != CheckoutStatus.OwnedByOtherUser;
+            //return status != CheckoutStatus.OwnedByOtherUser;
+            return true; // Fallback for older versions
 #endif
         }
 
@@ -602,14 +611,14 @@ namespace RTS.Commands.DocumentTools.ViewTools
                         performCleanup();
                         t.Commit();
                     }
-                    catch (Autodesk.Revit.Exceptions.InvalidOperationException) // Removed 'ex' variable
+                    catch (Autodesk.Revit.Exceptions.InvalidOperationException)
                     {
                         // Transaction already in progress, try running without a new transaction
                         performCleanup();
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        TaskDialog.Show("Warning", $"Failed to clear graphics: {ex.Message}");
+                        // TaskDialog.Show("Warning", $"Failed to clear graphics: {ex.Message}");
                         if (t.HasStarted() && !t.GetStatus().Equals(TransactionStatus.RolledBack))
                             t.RollBack();
                     }

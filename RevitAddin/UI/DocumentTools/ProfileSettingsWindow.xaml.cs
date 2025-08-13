@@ -153,21 +153,27 @@ namespace RTS.UI
         /// </summary>
         private void ApplyLoadedMappings()
         {
-            foreach (var savedMapping in Settings.ModelCategoryMappings)
+            if (Settings.ModelCategoryMappings != null)
             {
-                var targetVm = _modelCategoryMappings.FirstOrDefault(vm => vm.CategoryName == savedMapping.CategoryName);
-                if (targetVm != null)
+                foreach (var savedMapping in Settings.ModelCategoryMappings)
                 {
-                    targetVm.SelectedLink = savedMapping.SelectedLink;
+                    var targetVm = _modelCategoryMappings.FirstOrDefault(vm => vm.CategoryName == savedMapping.CategoryName);
+                    if (targetVm != null)
+                    {
+                        targetVm.SelectedLink = savedMapping.SelectedLink;
+                    }
                 }
             }
 
-            foreach (var savedMapping in Settings.AnnotationCategoryMappings)
+            if (Settings.AnnotationCategoryMappings != null)
             {
-                var targetVm = _annotationCategoryMappings.FirstOrDefault(vm => vm.CategoryName == savedMapping.CategoryName);
-                if (targetVm != null)
+                foreach (var savedMapping in Settings.AnnotationCategoryMappings)
                 {
-                    targetVm.SelectedLink = savedMapping.SelectedLink;
+                    var targetVm = _annotationCategoryMappings.FirstOrDefault(vm => vm.CategoryName == savedMapping.CategoryName);
+                    if (targetVm != null)
+                    {
+                        targetVm.SelectedLink = savedMapping.SelectedLink;
+                    }
                 }
             }
         }
@@ -424,6 +430,8 @@ namespace RTS.UI
                 // Core Structural
                 ("Core Structural", "Structural Framing", BuiltInCategory.OST_StructuralFraming),
                 ("Core Structural", "Structural Columns", BuiltInCategory.OST_StructuralColumns),
+                ("Core Structural", "Structural Foundation", BuiltInCategory.OST_StructuralFoundation),
+                ("Core Structural", "Structural Slabs", BuiltInCategory.OST_Floors),
 
                 // Electrical
                 ("Electrical", "Cable Tray", BuiltInCategory.OST_CableTray),

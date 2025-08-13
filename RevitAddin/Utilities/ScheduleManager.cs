@@ -33,6 +33,7 @@ namespace RTS.Utilities
         public string Name { get; set; }
         public BuiltInCategory Category { get; set; }
         public List<Guid> RequiredSharedParameterGuids { get; set; } = new List<Guid>();
+        public List<BuiltInParameter> RequiredBuiltInParameters { get; set; } = new List<BuiltInParameter>();
     }
 
     /// <summary>
@@ -78,6 +79,15 @@ namespace RTS.Utilities
                     RequiredSharedParameterGuids = new List<Guid>
                     {
                         SharedParameters.General.RTS_ID
+                    },
+                    RequiredBuiltInParameters = new List<BuiltInParameter>
+                    {
+                        BuiltInParameter.RBS_ELEC_PANEL_NAME,
+                        BuiltInParameter.FAMILY_LEVEL_PARAM,
+                        BuiltInParameter.ELEM_PARTITION_PARAM, // Workset
+                        BuiltInParameter.FAMILY_HEIGHT_PARAM,
+                        BuiltInParameter.FAMILY_WIDTH_PARAM,
+                        BuiltInParameter.INSTANCE_LENGTH_PARAM
                     }
                 },
                 new ScheduleDefinition

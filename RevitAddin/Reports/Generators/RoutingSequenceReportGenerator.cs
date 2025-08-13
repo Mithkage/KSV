@@ -20,15 +20,13 @@
 
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using PC_Extensible;
 using RTS.Commands.DataExchange.DataManagement;
 using RTS.Reports.Base;
-using RTS.Reports.Utils;
 using RTS.UI;
 using RTS.Utilities;
 using System;
 using System.Collections.Generic;
-using System.IO; // Required for File operations
+using System.IO; 
 using System.Linq;
 using System.Text;
 using System.Windows.Threading;
@@ -354,7 +352,11 @@ namespace RTS.Reports.Generators
                     var connectors = GetConnectors(elem);
                     if (connectors == null || connectors.IsEmpty) continue;
 
+#if REVIT2024_OR_GREATER
+                    long catId = elem.Category.Id.Value;
+#else
                     long catId = elem.Category.Id.IntegerValue;
+#endif
                     bool isFitting = catId == (long)BuiltInCategory.OST_CableTrayFitting || catId == (long)BuiltInCategory.OST_ConduitFitting;
 
                     if (isFitting && elem is FamilyInstance fitting)
@@ -874,8 +876,8 @@ namespace RTS.Reports.Generators
 
                 foreach (var neighborId in neighbors)
                 {
-                    double costToNeighbor = elementIdToLengthMap.ContainsKey(neighborId) ? elementIdToLengthMap[neighborId] : 0.0;
-                    double altDistance = distances[currentNodeId] + costToNeighbor;
+                    double costFromCurrent = elementIdToLengthMap.ContainsKey(currentNodeId) ? elementIdToLengthMap[currentNodeId] : 0.0;
+                    double altDistance = distances[currentNodeId] + costFromCurrent;
                     if (altDistance < distances[neighborId])
                     {
                         distances[neighborId] = altDistance;

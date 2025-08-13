@@ -22,6 +22,7 @@ using Autodesk.Revit.UI;
 using Microsoft.VisualBasic.FileIO; // Required for TextFieldParser
 using Microsoft.Win32;
 using RTS.UI;
+using RTS.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -252,6 +253,12 @@ namespace RTS.UI
                     Links.Add(link);
                 }
                 _linksView.Refresh();
+
+                // If no links are found, inform the user.
+                if (!Links.Any())
+                {
+                    TaskDialog.Show("Link Manager", "No Revit links were found in the current project, and no saved link profile exists.\n\nTo get started, you can:\n  - Load a Revit link into the project and reopen this tool.\n  - Use the 'Add Placeholder' button to manually create a profile entry.");
+                }
             }
             catch (Exception ex)
             {
@@ -1202,57 +1209,16 @@ namespace RTS.UI
 
         private Autodesk.Revit.DB.Transform GetSharedCoordinatesTransform()
         {
-            var settingsList = RecallDataFromExtensibleStorage<ProfileSettings>(_doc, ProfileSettingsWindow.SettingsSchemaGuid, ProfileSettingsWindow.SettingsSchemaName, ProfileSettingsWindow.SettingsFieldName, ProfileSettingsWindow.SettingsDataStorageElementName);
-            var settings = settingsList.FirstOrDefault();
+            var settings = RTS_RevitUtils.GetProfileSettings(_doc);
             if (settings == null) return null;
 
             var sharedCoordsMapping = settings.CoordinateSystemMappings.FirstOrDefault(m => m.SystemName == "Shared Coordinates Source");
             if (sharedCoordsMapping == null || string.IsNullOrWhiteSpace(sharedCoordsMapping.SelectedLink) || sharedCoordsMapping.SelectedLink == "<None>") return null;
 
-            string linkName = sharedCoordsMapping.SelectedLink;
-            int idx = linkName.IndexOf("] - ");
-            if (idx > 0) linkName = linkName.Substring(idx + 4);
+            string linkName = RTS_RevitUtils.ParseLinkName(sharedCoordsMapping.SelectedLink);
 
             var linkVm = Links.FirstOrDefault(l => l.LinkName.Equals(linkName, StringComparison.OrdinalIgnoreCase) && l.IsRevitLink && l.LinkStatus == "Loaded" && l.InstanceTransforms.Any());
             return linkVm?.InstanceTransforms.First();
-        }
-
-        public static (RevitLinkInstance ceilingLink, RevitLinkInstance slabLink, string diagnosticMessage) GetLinkInstances(Document doc, ProfileSettings settings)
-        {
-            var ceilingsMapping = settings.ModelCategoryMappings.FirstOrDefault(m => m.CategoryName == "Ceilings");
-            var floorsMapping = settings.ModelCategoryMappings.FirstOrDefault(m => m.CategoryName == "Floors");
-
-            string ceilingLinkName = ParseLinkName(ceilingsMapping?.SelectedLink);
-            string slabLinkName = ParseLinkName(floorsMapping?.SelectedLink); // Assuming Slabs are represented by Floors category
-
-            RevitLinkInstance ceilingLink = FindLoadedLinkInstance(doc, ceilingLinkName);
-            RevitLinkInstance slabLink = FindLoadedLinkInstance(doc, slabLinkName);
-
-            string diagnosticMessage = "";
-            if (ceilingLink == null) diagnosticMessage += "Ceilings link not found, not loaded, or not assigned in Profile Settings.\n";
-            if (slabLink == null) diagnosticMessage += "Floors/Slabs link not found, not loaded, or not assigned in Profile Settings.\n";
-
-            return (ceilingLink, slabLink, diagnosticMessage);
-        }
-
-        private static string ParseLinkName(string formatted)
-        {
-            if (string.IsNullOrWhiteSpace(formatted) || formatted == "<None>") return null;
-            int idx = formatted.IndexOf("] - ");
-            return idx > 0 ? formatted.Substring(idx + 4) : formatted;
-        }
-
-        private static RevitLinkInstance FindLoadedLinkInstance(Document doc, string linkName)
-        {
-            if (string.IsNullOrWhiteSpace(linkName)) return null;
-            return new FilteredElementCollector(doc)
-                .OfClass(typeof(RevitLinkInstance))
-                .Cast<RevitLinkInstance>()
-                .FirstOrDefault(l =>
-                {
-                    var type = doc.GetElement(l.GetTypeId()) as RevitLinkType;
-                    return type != null && type.Name.Equals(linkName, StringComparison.OrdinalIgnoreCase) && RevitLinkType.IsLoaded(doc, type.Id);
-                });
         }
     }
 

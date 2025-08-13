@@ -170,14 +170,14 @@ namespace RTS.Commands.MEPTools.Positioning
                     return true;
                 }
             }
-            
+
             // If we're here, either nothing was selected, or a linked element was selected.
             // We must prompt the user to get a valid reference for a linked element.
             try
             {
                 var referenceFilter = new FamilyInstanceSelectionFilter();
                 Reference reference = _uidoc.Selection.PickObject(ObjectType.LinkedElement, referenceFilter, "Please select a reference element in a LINKED model.");
-                
+
                 var selectedElement = _doc.GetElement(reference.ElementId);
                 if (selectedElement is RevitLinkInstance li)
                 {
@@ -266,28 +266,50 @@ namespace RTS.Commands.MEPTools.Positioning
 
         private Transform CreateTransformFromInstance(FamilyInstance instance, RevitLinkInstance linkInstance = null)
         {
-            if (!(instance.Location is LocationPoint locationPoint))
+            XYZ localOrigin = null;
+
+            // First, try to get the origin from the LocationPoint. This is in the instance's local coordinates.
+            if (instance.Location is LocationPoint locationPoint)
             {
-                throw new InvalidOperationException($"Element '{instance.Name}' (ID: {instance.Id}) lacks a valid insertion point.");
+                localOrigin = locationPoint.Point;
             }
-
-            var origin = locationPoint.Point;
-            var basisX = instance.HandOrientation.Normalize();
-            var basisZ = instance.FacingOrientation.Normalize();
-            var basisY = basisZ.CrossProduct(basisX).Normalize();
-
-            if (linkInstance != null)
+            else
             {
-                Transform linkTransform = linkInstance.GetTotalTransform();
-                double determinant = linkTransform.BasisX.DotProduct(linkTransform.BasisY.CrossProduct(linkTransform.BasisZ));
-                if (determinant < 0)
+                // If no LocationPoint, fall back to the bounding box.
+                var view = new FilteredElementCollector(instance.Document)
+                    .OfClass(typeof(View3D))
+                    .Cast<View3D>()
+                    .FirstOrDefault(v => !v.IsTemplate);
+
+                if (view != null)
                 {
-                    basisY = basisX.CrossProduct(basisZ).Normalize();
+                    var bbox = instance.get_BoundingBox(view);
+                    if (bbox != null)
+                    {
+                        // Calculate the bottom-center of the bounding box in the instance's local coordinates.
+                        XYZ center = (bbox.Min + bbox.Max) / 2.0;
+                        localOrigin = new XYZ(center.X, center.Y, bbox.Min.Z);
+                    }
                 }
             }
 
+            if (localOrigin == null)
+            {
+                return null; // Cannot determine a valid origin.
+            }
+
+            // Get the link's transform if it exists; otherwise, use the identity transform.
+            Transform linkTransform = linkInstance?.GetTotalTransform() ?? Transform.Identity;
+
+            // Transform the local origin and orientation vectors into the host's world coordinate system.
+            XYZ worldOrigin = linkTransform.OfPoint(localOrigin);
+            XYZ basisX = linkTransform.OfVector(instance.HandOrientation).Normalize();
+            XYZ basisZ = linkTransform.OfVector(instance.FacingOrientation).Normalize();
+            XYZ basisY = basisZ.CrossProduct(basisX).Normalize();
+
+            // Create the final transform in the host's world coordinates.
             var transform = Transform.Identity;
-            transform.Origin = origin;
+            transform.Origin = worldOrigin;
             transform.BasisX = basisX;
             transform.BasisY = basisY;
             transform.BasisZ = basisZ;
@@ -297,17 +319,24 @@ namespace RTS.Commands.MEPTools.Positioning
         private bool CalculateGeometricRelationships(FamilyInstance templateReference, List<FamilyInstance> elementsToCopy, RevitLinkInstance linkInstance, out List<Transform> relativeTransforms)
         {
             relativeTransforms = new List<Transform>();
-            Transform linkTransform = linkInstance?.GetTotalTransform() ?? Transform.Identity;
-            Transform referenceTransform = CreateTransformFromInstance(templateReference, linkInstance);
+            // The CreateTransformFromInstance method now returns the transform in the host's coordinate system.
+            Transform referenceTransformInHost = CreateTransformFromInstance(templateReference, linkInstance);
 
-            if (referenceTransform == null) return false;
-
-            Transform referenceTransformInHost = linkTransform.Multiply(referenceTransform);
+            if (referenceTransformInHost == null)
+            {
+                TaskDialog.Show("Error", $"Could not determine a valid geometric transform for the template reference element '{templateReference.Name}'. The element may lack a clear insertion point or valid geometry.");
+                return false;
+            }
 
             foreach (var elementToCopy in elementsToCopy)
             {
-                Transform elementToCopyTransform = CreateTransformFromInstance(elementToCopy);
-                if (elementToCopyTransform == null) return false;
+                // The element to copy is always in the host, so no linkInstance is passed.
+                Transform elementToCopyTransform = CreateTransformFromInstance(elementToCopy, null);
+                if (elementToCopyTransform == null)
+                {
+                    TaskDialog.Show("Error", $"Could not determine a valid geometric transform for the element to copy '{elementToCopy.Name}'. The element may lack a clear insertion point or valid geometry.");
+                    return false;
+                }
 
                 relativeTransforms.Add(referenceTransformInHost.Inverse.Multiply(elementToCopyTransform));
             }
@@ -375,8 +404,6 @@ namespace RTS.Commands.MEPTools.Positioning
                 }
             }
 
-            Transform linkTransform = linkInstance?.GetTotalTransform() ?? Transform.Identity;
-
             var placedLocationsByType = new Dictionary<ElementId, HashSet<XYZ>>();
             foreach (var elementToCopy in elementsToCopy)
             {
@@ -405,9 +432,9 @@ namespace RTS.Commands.MEPTools.Positioning
                         continue;
                     }
 
-                    Transform targetTransform = CreateTransformFromInstance(targetElement, linkInstance);
-                    if (targetTransform == null) { skippedCount += elementsToCopy.Count; continue; }
-                    Transform targetTransformInHost = linkTransform.Multiply(targetTransform);
+                    // CreateTransformFromInstance now returns the transform in the host's coordinate system.
+                    Transform targetTransformInHost = CreateTransformFromInstance(targetElement, linkInstance);
+                    if (targetTransformInHost == null) { skippedCount += elementsToCopy.Count; continue; }
 
                     for (int i = 0; i < elementsToCopy.Count; i++)
                     {

@@ -53,3 +53,8 @@ C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\RTS.csproj.Fo
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\RTS.csproj.Up2Date
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\RTS.dll
 C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\RTS.pdb
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2024\net48\RevitAPIIFC.dll
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2024\net48\IntfIFCAPI.dll
+C:\Users\kyles\source\repos\KSV\RevitAddin\bin\x64\Debug2024\net48\RevitAPIIFC.xml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\UI\MapCablesWindow.baml
+C:\Users\kyles\source\repos\KSV\RevitAddin\obj\x64\Debug2024\net48\UI\MapCablesWindow.g.cs
