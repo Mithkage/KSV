@@ -110,15 +110,14 @@ namespace RTS.Reports.Generators
                     int currentCable = 0;
 
                     // Step 6: Process each cable to determine its route.
-                    foreach (var cableRef in cableLookup.Keys.Take(10)) // DEV LIMIT: Process only the first 10 cables for development/testing.
+                    foreach (var cableRef in cableLookup.Keys)
                     {
                         currentCable++;
                         var cableInfo = cableLookup[cableRef];
 
                         // Update the progress window.
-                        int progressTotal = Math.Min(totalCables, 10);
-                        double percentage = (double)currentCable / progressTotal * 100.0;
-                        progressWindow.UpdateProgress(currentCable, progressTotal, cableRef, cableInfo?.From ?? "N/A", cableInfo?.To ?? "N/A", percentage, "Building local network...");
+                        double percentage = (double)currentCable / totalCables * 100.0;
+                        progressWindow.UpdateProgress(currentCable, totalCables, cableRef, cableInfo?.From ?? "N/A", cableInfo?.To ?? "N/A", percentage, "Building local network...");
                         Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Background); // Allow UI to update.
 
                         if (progressWindow.IsCancelled) break;
@@ -273,7 +272,7 @@ namespace RTS.Reports.Generators
 
                         bestPath = virtualResult.StitchedPath;
                         supportedLengthFeet = bestPath?.Sum(id => elementIdToLengthMap.ContainsKey(id) ? elementIdToLengthMap[id] : 0.0) ?? 0.0;
-                        unsupportedLengthFeet = virtualResult.VirtualLength;
+                        unsupportedLengthFeet = virtualResult.VirtualLength * 1.20; // Apply 20% contingency
                         islandCount = virtualResult.IslandCount > 0 ? virtualResult.IslandCount : islandCount;
                     }
 
@@ -283,7 +282,10 @@ namespace RTS.Reports.Generators
                     {
                         if (status == "Route Confirmed") // Only re-format if it wasn't already formatted by the virtual pathfinder.
                         {
-                            routingSequence = ReportFormatter.FormatPath(bestPath, rtsIdToElementMap, Document, _rtsIdGuid);
+                            string fromPanel = ReportFormatter.FormatEquipment(startCandidates.FirstOrDefault(), Document, _rtsIdGuid);
+                            string toPanel = ReportFormatter.FormatEquipment(endCandidates.FirstOrDefault(), Document, _rtsIdGuid);
+                            string pathSequence = ReportFormatter.FormatPath(bestPath, rtsIdToElementMap, Document, _rtsIdGuid);
+                            routingSequence = $"{fromPanel} >> {pathSequence} >> {toPanel}";
                         }
                         branchSequence = ReportFormatter.FormatBranchSequence(bestPath, rtsIdToElementMap, _rtsIdGuid);
                     }
