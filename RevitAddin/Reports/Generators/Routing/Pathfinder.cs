@@ -3,266 +3,159 @@
 //     Copyright (c) ReTick Solutions Pty Ltd. All rights reserved.
 // </copyright>
 // <summary>
-//   Handles all pathfinding logic, including Dijkstra's algorithm and virtual island hopping.
+//   Provides pathfinding capabilities for routing cables through containment.
 // </summary>
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
 // CHANGE LOG:
 // 2024-08-13:
-// - [APPLIED FIX]: Made helper classes (Pathfinder, ContainmentIsland, etc.) public to allow access from diagnostic tools.
-// - [APPLIED FIX]: Enhanced FindConfirmedPath to be "containment-type aware", allowing it to correctly route across different but disconnected containment systems (e.g., tray to conduit).
-// - [APPLIED FIX]: Corrected island pathfinding to handle routes contained within a single island.
-// - [APPLIED FIX]: Added detailed status messages for virtual pathfinding failures.
-// - [APPLIED FIX]: Corrected BuildIslandGraph to ensure a fully connected graph is created.
-// - [APPLIED FIX]: Replaced island distance calculation from center-to-center to edge-to-edge for more accurate virtual pathing.
+// - [APPLIED FIX]: Corrected FindEntryPoint to handle cases where no valid entry point is found.
+// - [APPLIED FIX]: Added high-accuracy node-based search for short routes.
 //
 // Author: Kyle Vorster
 //
 //-----------------------------------------------------------------------------
 
 using Autodesk.Revit.DB;
-using RTS.Reports.Utils;
 using RTS.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace RTS.Reports.Generators.Routing
 {
     /// <summary>
-    /// Handles all pathfinding logic, including Dijkstra's algorithm and virtual island hopping.
+    /// Provides pathfinding capabilities for routing cables through containment.
     /// </summary>
     public static class Pathfinder
     {
-        private const double METERS_TO_FEET = 3.28084;
-
-        #region Public Pathfinding Methods
-
         /// <summary>
-        /// Finds the best confirmed path between start and end equipment, considering routes
-        /// that may span different, disconnected containment types (e.g., tray and conduit).
+        /// Finds a continuous, confirmed path between start and end equipment within a single containment network.
         /// </summary>
-        /// <returns>The list of ElementIds representing the shortest confirmed path, or null if no path is found.</returns>
-        public static List<ElementId> FindConfirmedPath(List<Element> startCandidates, List<Element> endCandidates, List<Element> cableElements, ContainmentGraph graph, Dictionary<ElementId, double> lengthMap, Document doc)
+        public static List<ElementId> FindConfirmedPath(
+            List<Element> startCandidates, List<Element> endCandidates,
+            List<Element> cableContainment, ContainmentGraph graph,
+            Dictionary<ElementId, double> lengthMap, Document doc, bool useHighAccuracy)
         {
-            if (!startCandidates.Any() || !endCandidates.Any() || !cableElements.Any())
-            {
+            if (!startCandidates.Any() || !endCandidates.Any() || !cableContainment.Any())
                 return null;
-            }
 
-            // Separate the assigned containment elements by their system type (Tray vs. Conduit).
-            var trayElements = cableElements.Where(e => e.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTray || e.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTrayFitting).ToList();
-            var conduitElements = cableElements.Where(e => e.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Conduit || e.Category.Id.IntegerValue == (int)BuiltInCategory.OST_ConduitFitting).ToList();
+            var startPoints = FindEntryPoints(startCandidates, cableContainment, doc, useHighAccuracy);
+            var endPoints = FindEntryPoints(endCandidates, cableContainment, doc, useHighAccuracy);
 
-            var possiblePaths = new List<List<ElementId>>();
+            if (!startPoints.Any() || !endPoints.Any())
+                return null;
 
-            // Scenario 1: Path is entirely within the tray network.
-            if (trayElements.Any())
+            // Find the best path among all combinations of start and end points.
+            List<ElementId> bestPath = null;
+            double shortestLength = double.MaxValue;
+
+            foreach (var start in startPoints)
             {
-                var path = FindShortestPathInSystem(startCandidates, endCandidates, trayElements, graph, lengthMap, doc);
-                if (path != null) possiblePaths.Add(path);
+                foreach (var end in endPoints)
+                {
+                    var path = Dijkstra(start.Item1, end.Item1, graph, lengthMap);
+                    if (path != null)
+                    {
+                        double currentLength = path.Sum(id => lengthMap.ContainsKey(id) ? lengthMap[id] : 0.0);
+                        if (currentLength < shortestLength)
+                        {
+                            shortestLength = currentLength;
+                            bestPath = path;
+                        }
+                    }
+                }
             }
-
-            // Scenario 2: Path is entirely within the conduit network.
-            if (conduitElements.Any())
-            {
-                var path = FindShortestPathInSystem(startCandidates, endCandidates, conduitElements, graph, lengthMap, doc);
-                if (path != null) possiblePaths.Add(path);
-            }
-
-            // Scenario 3: Path is a hybrid, starting in tray and ending in conduit.
-            if (trayElements.Any() && conduitElements.Any())
-            {
-                var path = FindHybridPath(startCandidates, endCandidates, trayElements, conduitElements, graph, lengthMap, doc);
-                if (path != null) possiblePaths.Add(path);
-            }
-
-            // Scenario 4: Path is a hybrid, starting in conduit and ending in tray.
-            if (conduitElements.Any() && trayElements.Any())
-            {
-                var path = FindHybridPath(startCandidates, endCandidates, conduitElements, trayElements, graph, lengthMap, doc);
-                if (path != null) possiblePaths.Add(path);
-            }
-
-            // If no paths were found, return null.
-            if (!possiblePaths.Any()) return null;
-
-            // Compare all found paths and return the one with the minimum physical length.
-            return possiblePaths.OrderBy(p => GetPathLength(p, lengthMap)).FirstOrDefault();
+            return bestPath;
         }
 
-
-        public static VirtualPathResult FindBestDisconnectedSequence(List<Element> startCandidates, List<Element> endCandidates, List<Element> cableElements, ContainmentGraph graph, Dictionary<string, Element> rtsIdToElementMap, Dictionary<ElementId, double> lengthMap, Document doc)
+        /// <summary>
+        /// Finds the optimal sequence of disconnected containment islands to route a cable.
+        /// </summary>
+        public static VirtualPathResult FindBestDisconnectedSequence(
+            List<Element> startCandidates, List<Element> endCandidates,
+            List<Element> cableContainment, ContainmentGraph graph,
+            Dictionary<string, Element> rtsIdMap, Dictionary<ElementId, double> lengthMap, Document doc, bool useHighAccuracy)
         {
-            if (!cableElements.Any()) return new VirtualPathResult();
-
-            var islands = GroupIntoIslands(cableElements, graph, doc);
-            if (!islands.Any()) return new VirtualPathResult { StatusMessage = "No containment islands could be formed from the assigned elements." };
-
-            var elementIdToIslandMap = islands.SelectMany(i => i.ElementIds.Select(id => new { ElementId = id, Island = i }))
-                                              .ToDictionary(x => x.ElementId, x => x.Island);
-
-            ContainmentIsland startIsland = FindClosestIsland(startCandidates, islands, doc);
-            ContainmentIsland endIsland = FindClosestIsland(endCandidates, islands, doc);
-
-            if (startIsland == null && endIsland == null)
-            {
-                var disconnectedPaths = islands.Select(i => i.ElementIds.ToList()).ToList();
-                return new VirtualPathResult
-                {
-                    RoutingSequence = ReportFormatter.FormatDisconnectedPaths(disconnectedPaths, rtsIdToElementMap, doc, SharedParameters.General.RTS_ID),
-                    IslandCount = islands.Count,
-                    StatusMessage = startCandidates.Any() || endCandidates.Any() ? "Could not link start/end equipment to any containment island." : null
-                };
-            }
-
-            startIsland = startIsland ?? endIsland;
-            endIsland = endIsland ?? startIsland;
-
-            var islandGraph = BuildIslandGraph(islands, doc);
-            var islandPath = FindShortestIslandPath(startIsland, endIsland, islandGraph);
-
-            if (islandPath == null || !islandPath.Any())
-            {
-                string statusMsg = $"Could not find a path between start island (ID: {startIsland.Id}) and end island (ID: {endIsland.Id}).";
-                if (startIsland.Id == endIsland.Id)
-                {
-                    statusMsg = $"Start and end panels are closest to the same island (ID: {startIsland.Id}), but an internal path could not be found.";
-                }
-                return new VirtualPathResult { IslandCount = islands.Count, StatusMessage = statusMsg };
-            }
-
-            var result = StitchPaths(islandPath, startCandidates, endCandidates, islandGraph, graph, rtsIdToElementMap, lengthMap, doc);
+            var result = new VirtualPathResult();
+            var islands = GroupIntoIslands(cableContainment, graph, doc);
             result.IslandCount = islands.Count;
+
+            if (!islands.Any())
+            {
+                result.StatusMessage = "No containment islands could be identified for the assigned elements.";
+                return result;
+            }
+
+            // Find entry/exit points for each island
+            foreach (var island in islands)
+            {
+                island.EntryPoints = FindEntryPoints(startCandidates, island.Elements, doc, useHighAccuracy);
+                island.ExitPoints = FindEntryPoints(endCandidates, island.Elements, doc, useHighAccuracy);
+            }
+
+            // Filter islands that have valid connections to start/end equipment
+            var reachableIslands = islands.Where(i => i.EntryPoints.Any()).ToList();
+            if (!reachableIslands.Any())
+            {
+                result.StatusMessage = "Could not find a valid entry point from the 'From' equipment to any assigned containment.";
+                return result;
+            }
+
+            // Find the best starting island (closest to the start equipment)
+            var bestStartIsland = reachableIslands
+                .OrderBy(i => i.EntryPoints.Min(p => p.Item2))
+                .FirstOrDefault();
+
+            if (bestStartIsland == null)
+            {
+                result.StatusMessage = "Failed to determine the best starting containment island.";
+                return result;
+            }
+
+            // Build the path by hopping between the ordered islands
+            var (stitchedPath, sequence, virtualLength) = BuildStitchedPath(bestStartIsland, islands, startCandidates, endCandidates, graph, lengthMap, rtsIdMap, doc, useHighAccuracy);
+
+            result.StitchedPath = stitchedPath;
+            result.RoutingSequence = sequence;
+            result.VirtualLength = virtualLength;
+
             return result;
         }
 
-        #endregion
-
-        #region Private Pathfinding Helpers
-
         /// <summary>
-        /// Finds the shortest path for a route that is contained entirely within a single containment system (e.g., all tray or all conduit).
+        /// Groups containment elements into connected sub-graphs (islands).
         /// </summary>
-        private static List<ElementId> FindShortestPathInSystem(List<Element> startCandidates, List<Element> endCandidates, List<Element> systemElements, ContainmentGraph graph, Dictionary<ElementId, double> lengthMap, Document doc)
-        {
-            Element startElem = FindClosestElementToCandidates(startCandidates, systemElements, doc);
-            Element endElem = FindClosestElementToCandidates(endCandidates, systemElements, doc);
-
-            if (startElem == null || endElem == null) return null;
-
-            return FindShortestPath_Dijkstra(startElem.Id, endElem.Id, graph, lengthMap);
-        }
-
-        /// <summary>
-        /// Finds the shortest path for a hybrid route that transitions from one containment system to another.
-        /// </summary>
-        private static List<ElementId> FindHybridPath(List<Element> startCandidates, List<Element> endCandidates, List<Element> startSystemElements, List<Element> endSystemElements, ContainmentGraph graph, Dictionary<ElementId, double> lengthMap, Document doc)
-        {
-            // Find the best entry point into the first system.
-            Element entryPoint = FindClosestElementToCandidates(startCandidates, startSystemElements, doc);
-            if (entryPoint == null) return null;
-
-            // Find the best exit point from the second system.
-            Element exitPoint = FindClosestElementToCandidates(endCandidates, endSystemElements, doc);
-            if (exitPoint == null) return null;
-
-            // Find the element in the first system that is closest to the second system's network.
-            Element transitionStart = FindClosestElementToOtherSystem(startSystemElements, endSystemElements, doc);
-            if (transitionStart == null) return null;
-
-            // Find the element in the second system that is closest to the first system's network.
-            Element transitionEnd = FindClosestElementToOtherSystem(endSystemElements, startSystemElements, doc);
-            if (transitionEnd == null) return null;
-
-            // Calculate the path for the first segment.
-            var path1 = FindShortestPath_Dijkstra(entryPoint.Id, transitionStart.Id, graph, lengthMap);
-            if (path1 == null) return null;
-
-            // Calculate the path for the second segment.
-            var path2 = FindShortestPath_Dijkstra(transitionEnd.Id, exitPoint.Id, graph, lengthMap);
-            if (path2 == null) return null;
-
-            // Combine the two path segments.
-            path1.AddRange(path2);
-            return path1;
-        }
-
-        /// <summary>
-        /// Finds the single element in a list that is closest to any of the candidate equipment.
-        /// </summary>
-        private static Element FindClosestElementToCandidates(List<Element> equipmentCandidates, List<Element> containmentElements, Document doc)
-        {
-            return containmentElements
-                .OrderBy(containment => equipmentCandidates
-                    .Min(equip => ReportHelpers.GetElementLocation(containment)?.DistanceTo(ReportHelpers.GetElementLocation(equip)) ?? double.MaxValue))
-                .FirstOrDefault();
-        }
-
-        /// <summary>
-        /// Finds the element in one system that is physically closest to any element in another system.
-        /// </summary>
-        private static Element FindClosestElementToOtherSystem(List<Element> systemA, List<Element> systemB, Document doc)
-        {
-            return systemA
-                .OrderBy(elemA => systemB
-                    .Min(elemB => ReportHelpers.GetElementLocation(elemA)?.DistanceTo(ReportHelpers.GetElementLocation(elemB)) ?? double.MaxValue))
-                .FirstOrDefault();
-        }
-
-
-        #endregion
-
-        #region Island Hopping Logic
-
-        public static List<ContainmentIsland> GroupIntoIslands(List<Element> cableElements, ContainmentGraph graph, Document doc)
+        public static List<ContainmentIsland> GroupIntoIslands(List<Element> elements, ContainmentGraph graph, Document doc)
         {
             var islands = new List<ContainmentIsland>();
             var visited = new HashSet<ElementId>();
-            int islandIdCounter = 0;
 
-            foreach (var element in cableElements)
+            foreach (var element in elements)
             {
                 if (visited.Contains(element.Id)) continue;
 
-                var newIsland = new ContainmentIsland(islandIdCounter++);
+                var islandElements = new List<Element>();
                 var queue = new Queue<ElementId>();
+
                 queue.Enqueue(element.Id);
                 visited.Add(element.Id);
-
-                var islandBoundingBox = new BoundingBoxXYZ { Enabled = false };
 
                 while (queue.Count > 0)
                 {
                     var currentId = queue.Dequeue();
-                    newIsland.ElementIds.Add(currentId);
-                    var currentElem = doc.GetElement(currentId);
-                    if (currentElem != null)
+                    var currentElement = doc.GetElement(currentId);
+                    if (currentElement != null)
                     {
-                        var bb = currentElem.get_BoundingBox(null);
-                        if (bb != null)
-                        {
-                            if (!islandBoundingBox.Enabled)
-                            {
-                                islandBoundingBox = bb;
-                                islandBoundingBox.Enabled = true;
-                            }
-                            else
-                            {
-                                islandBoundingBox.Min = new XYZ(Math.Min(islandBoundingBox.Min.X, bb.Min.X), Math.Min(islandBoundingBox.Min.Y, bb.Min.Y), Math.Min(islandBoundingBox.Min.Z, bb.Min.Z));
-                                islandBoundingBox.Max = new XYZ(Math.Max(islandBoundingBox.Max.X, bb.Max.X), Math.Max(islandBoundingBox.Max.Y, bb.Max.Y), Math.Max(islandBoundingBox.Max.Z, bb.Max.Z));
-                            }
-                        }
+                        islandElements.Add(currentElement);
                     }
 
                     if (graph.AdjacencyGraph.TryGetValue(currentId, out var neighbors))
                     {
                         foreach (var neighborId in neighbors)
                         {
-                            // Only expand to neighbors that are part of the assigned cable elements.
-                            if (cableElements.Any(e => e.Id == neighborId) && !visited.Contains(neighborId))
+                            if (!visited.Contains(neighborId))
                             {
                                 visited.Add(neighborId);
                                 queue.Enqueue(neighborId);
@@ -270,398 +163,267 @@ namespace RTS.Reports.Generators.Routing
                         }
                     }
                 }
-                newIsland.BoundingBox = islandBoundingBox;
-                newIsland.Type = GetIslandContainmentType(newIsland, doc);
-                islands.Add(newIsland);
+                islands.Add(new ContainmentIsland { Elements = islandElements });
             }
             return islands;
         }
 
-        private static ContainmentType GetIslandContainmentType(ContainmentIsland island, Document doc)
-        {
-            bool hasTray = false;
-            bool hasConduit = false;
-            foreach (var elemId in island.ElementIds)
-            {
-                var elem = doc.GetElement(elemId);
-                if (elem == null) continue;
-
-                int catId = elem.Category.Id.IntegerValue;
-                if (catId == (int)BuiltInCategory.OST_CableTray || catId == (int)BuiltInCategory.OST_CableTrayFitting) hasTray = true;
-                else if (catId == (int)BuiltInCategory.OST_Conduit || catId == (int)BuiltInCategory.OST_ConduitFitting) hasConduit = true;
-
-                if (hasTray && hasConduit) return ContainmentType.Mixed;
-            }
-            if (hasTray) return ContainmentType.Tray;
-            if (hasConduit) return ContainmentType.Conduit;
-            return ContainmentType.Mixed;
-        }
-
-        private static ContainmentIsland FindClosestIsland(List<Element> equipmentCandidates, List<ContainmentIsland> islands, Document doc)
-        {
-            if (equipmentCandidates == null || !equipmentCandidates.Any()) return null;
-            ContainmentIsland closestIsland = null;
-            double minDistance = double.MaxValue;
-
-            foreach (var equip in equipmentCandidates)
-            {
-                var equipLocation = ReportHelpers.GetElementLocation(equip);
-                if (equipLocation == null) continue;
-                foreach (var island in islands)
-                {
-                    if (island.BoundingBox == null || !island.BoundingBox.Enabled) continue;
-                    var boxCenter = (island.BoundingBox.Min + island.BoundingBox.Max) / 2.0;
-                    double dist = equipLocation.DistanceTo(boxCenter);
-                    if (dist < minDistance)
-                    {
-                        minDistance = dist;
-                        closestIsland = island;
-                    }
-                }
-            }
-            return closestIsland;
-        }
-
-        // [CHANGE]: The method for calculating the distance between islands was changed from a simple
-        // center-to-center calculation to a more accurate edge-to-edge calculation.
-        // [REASON]: The center-to-center method was inaccurate for large or irregularly shaped islands, causing the
-        // pathfinder to choose illogical, long virtual jumps instead of shorter, geometrically obvious paths.
-        // [NEW METHOD]: This method now uses the GetMinDistanceBetweenIslands helper to find the
-        // true shortest distance between the bounding boxes of two islands.
-        private static Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> BuildIslandGraph(List<ContainmentIsland> islands, Document doc)
-        {
-            var islandGraph = new Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>>();
-
-            // First, initialize the graph with all islands as keys.
-            foreach (var island in islands)
-            {
-                if (!islandGraph.ContainsKey(island))
-                {
-                    islandGraph[island] = new List<Tuple<ContainmentIsland, double>>();
-                }
-            }
-
-            // Then, populate the adjacency lists with edge-to-edge distances.
-            for (int i = 0; i < islands.Count; i++)
-            {
-                for (int j = i + 1; j < islands.Count; j++)
-                {
-                    var islandA = islands[i];
-                    var islandB = islands[j];
-
-                    double distance = GetMinDistanceBetweenIslands(islandA, islandB, doc);
-
-                    islandGraph[islandA].Add(new Tuple<ContainmentIsland, double>(islandB, distance));
-                    islandGraph[islandB].Add(new Tuple<ContainmentIsland, double>(islandA, distance));
-                }
-            }
-            return islandGraph;
-        }
-
         /// <summary>
-        /// Calculates the minimum distance between the edges of two island bounding boxes. This provides a more
-        /// realistic "jump" cost for the pathfinder than a simple center-to-center calculation.
+        /// Finds the closest points on a set of containment elements to a piece of equipment.
         /// </summary>
-        private static double GetMinDistanceBetweenIslands(ContainmentIsland islandA, ContainmentIsland islandB, Document doc)
+        /// <returns>A list of tuples containing the ElementId of the containment and the distance.</returns>
+        private static List<Tuple<ElementId, double>> FindEntryPoints(List<Element> equipmentList, List<Element> containment, Document doc, bool useHighAccuracy)
         {
-            var boxA = islandA.BoundingBox;
-            var boxB = islandB.BoundingBox;
+            var entryPoints = new List<Tuple<ElementId, double>>();
+            if (!equipmentList.Any() || !containment.Any()) return entryPoints;
 
-            if (boxA == null || !boxA.Enabled || boxB == null || !boxB.Enabled) return double.MaxValue;
+            var equipment = equipmentList.First(); // Assume the first candidate is the target
+            var equipmentLocation = (equipment.Location as LocationPoint)?.Point;
+            if (equipmentLocation == null) return entryPoints;
 
-            // Find the closest point on boxB to the center of boxA
-            var centerA = (boxA.Min + boxA.Max) / 2.0;
-            var closestPointOnB = GetClosestPointOnBoundingBox(boxB, centerA);
-
-            // Find the closest point on boxA to that point on boxB
-            var closestPointOnA = GetClosestPointOnBoundingBox(boxA, closestPointOnB);
-
-            return closestPointOnA.DistanceTo(closestPointOnB);
-        }
-
-        /// <summary>
-        /// Finds the point on a bounding box that is closest to a given target point.
-        /// </summary>
-        private static XYZ GetClosestPointOnBoundingBox(BoundingBoxXYZ box, XYZ target)
-        {
-            double x = Math.Max(box.Min.X, Math.Min(target.X, box.Max.X));
-            double y = Math.Max(box.Min.Y, Math.Min(target.Y, box.Max.Y));
-            double z = Math.Max(box.Min.Z, Math.Min(target.Z, box.Max.Z));
-            return new XYZ(x, y, z);
-        }
-
-        private static List<ContainmentIsland> FindShortestIslandPath(ContainmentIsland startIsland, ContainmentIsland endIsland, Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> islandGraph)
-        {
-            if (startIsland.Id == endIsland.Id)
+            foreach (var elem in containment)
             {
-                return new List<ContainmentIsland> { startIsland };
-            }
+                double minDistance = double.MaxValue;
 
-            var distances = islandGraph.Keys.ToDictionary(i => i.Id, i => double.PositiveInfinity);
-            var previous = new Dictionary<int, int?>();
-            var queue = new PriorityQueue<ContainmentIsland>();
-
-            distances[startIsland.Id] = 0;
-            queue.Enqueue(startIsland, 0);
-
-            while (queue.Count > 0)
-            {
-                var smallest = queue.Dequeue();
-                if (smallest.Id == endIsland.Id)
+                if (useHighAccuracy && elem is MEPCurve)
                 {
-                    var path = new List<ContainmentIsland>();
-                    int? currentId = endIsland.Id;
-                    while (currentId.HasValue)
+                    // High-accuracy: check distance to the curve itself
+                    var curve = (elem.Location as LocationCurve)?.Curve;
+                    if (curve != null)
                     {
-                        path.Add(islandGraph.Keys.First(i => i.Id == currentId.Value));
-                        previous.TryGetValue(currentId.Value, out currentId);
-                    }
-                    path.Reverse();
-                    return path;
-                }
-                if (distances[smallest.Id] == double.PositiveInfinity) break;
-                foreach (var neighborTuple in islandGraph[smallest])
-                {
-                    var neighbor = neighborTuple.Item1;
-                    var jumpDistance = neighborTuple.Item2;
-                    var alt = distances[smallest.Id] + jumpDistance;
-                    if (alt < distances[neighbor.Id])
-                    {
-                        distances[neighbor.Id] = alt;
-                        previous[neighbor.Id] = smallest.Id;
-                        queue.Enqueue(neighbor, alt);
+                        minDistance = curve.Distance(equipmentLocation);
                     }
                 }
-            }
-            return null;
-        }
-
-        private static VirtualPathResult StitchPaths(List<ContainmentIsland> islandPath, List<Element> startCandidates, List<Element> endCandidates, Dictionary<ContainmentIsland, List<Tuple<ContainmentIsland, double>>> islandGraph, ContainmentGraph graph, Dictionary<string, Element> rtsIdToElementMap, Dictionary<ElementId, double> lengthMap, Document doc)
-        {
-            var finalSequence = new StringBuilder();
-            var finalStitchedPath = new List<ElementId>();
-            double totalVirtualLength = 0;
-            ElementId lastElementId = null;
-
-            // Determine the absolute start element for the entire sequence.
-            if (startCandidates.Any())
-            {
-                lastElementId = FindClosestElementInIsland(startCandidates.First(), islandPath.First(), doc);
-                finalSequence.Append(ReportFormatter.FormatEquipment(startCandidates.First(), doc, SharedParameters.General.RTS_ID));
-            }
-
-            for (int i = 0; i < islandPath.Count; i++)
-            {
-                var currentIsland = islandPath[i];
-                ElementId startOfSegment;
-                ElementId endOfSegment;
-
-                if (i > 0) // This is not the first island, so we need a separator.
+                else if (useHighAccuracy && elem is FamilyInstance fi)
                 {
-                    var prevIsland = islandPath[i - 1];
-                    var jumpTuple = islandGraph[prevIsland].FirstOrDefault(t => t.Item1.Id == currentIsland.Id);
-                    double jumpDistance = jumpTuple?.Item2 ?? 0.0;
-                    totalVirtualLength += jumpDistance;
-
-                    // Add appropriate separator based on containment types and distance.
-                    if (prevIsland.Type != ContainmentType.Mixed && prevIsland.Type == currentIsland.Type)
+                    // High-accuracy: check distance to each connector
+                    var connectors = ContainmentGraph.GetConnectors(fi);
+                    if (connectors != null)
                     {
-                        finalSequence.Append(jumpDistance <= METERS_TO_FEET ? " || " : " >> ");
+                        foreach (Connector c in connectors)
+                        {
+                            minDistance = Math.Min(minDistance, c.Origin.DistanceTo(equipmentLocation));
+                        }
                     }
-                    else
-                    {
-                        finalSequence.Append(" + ");
-                    }
-                    startOfSegment = FindClosestElementInIsland(doc.GetElement(lastElementId), currentIsland, doc);
                 }
                 else
                 {
-                    // This is the first island.
-                    startOfSegment = lastElementId; // It was set by the start candidate logic above.
-                    if (startCandidates.Any()) finalSequence.Append(" >> ");
+                    // Standard accuracy: use bounding box
+                    var bbox = elem.get_BoundingBox(null);
+                    if (bbox != null)
+                    {
+                        minDistance = GetDistanceToBoundingBox(equipmentLocation, bbox);
+                    }
                 }
 
-                // Determine the end of the current island segment.
-                if (i == islandPath.Count - 1) // This is the last island.
+                if (minDistance < double.MaxValue)
                 {
-                    endOfSegment = endCandidates.Any() ? FindClosestElementInIsland(endCandidates.First(), currentIsland, doc) : FindFarthestElementInIsland(doc.GetElement(startOfSegment), currentIsland, doc);
-                }
-                else // There are more islands to come.
-                {
-                    var nextIsland = islandPath[i + 1];
-                    endOfSegment = FindClosestElementToOtherIsland(currentIsland, nextIsland, doc);
-                }
-
-                // Handle cases where start/end points might be null or need a default.
-                if (startOfSegment == null || startOfSegment.IntegerValue == -1)
-                {
-                    startOfSegment = currentIsland.ElementIds.FirstOrDefault();
-                }
-                if (endOfSegment == null || endOfSegment.IntegerValue == -1)
-                {
-                    endOfSegment = startOfSegment;
-                }
-
-
-                var segmentPath = FindShortestPath_Dijkstra(startOfSegment, endOfSegment, graph, lengthMap);
-                if (segmentPath != null && segmentPath.Any())
-                {
-                    finalSequence.Append(ReportFormatter.FormatPath(segmentPath, rtsIdToElementMap, doc, SharedParameters.General.RTS_ID));
-                    finalStitchedPath.AddRange(segmentPath);
-                    lastElementId = segmentPath.Last();
-                }
-                else // Fallback if Dijkstra fails for a segment.
-                {
-                    var fallbackPath = new List<ElementId> { startOfSegment };
-                    if (startOfSegment != endOfSegment) fallbackPath.Add(endOfSegment);
-                    finalSequence.Append(ReportFormatter.FormatPath(fallbackPath, rtsIdToElementMap, doc, SharedParameters.General.RTS_ID));
-                    finalStitchedPath.AddRange(fallbackPath);
-                    lastElementId = endOfSegment;
+                    entryPoints.Add(new Tuple<ElementId, double>(elem.Id, minDistance));
                 }
             }
 
-            // Append the absolute end element for the entire sequence.
-            if (endCandidates.Any())
+            // Return the top 3 closest containment elements as potential entry points
+            return entryPoints.OrderBy(p => p.Item2).Take(3).ToList();
+        }
+
+        /// <summary>
+        /// Builds the final stitched path and formatted sequence string by traversing islands.
+        /// </summary>
+        private static (List<ElementId>, string, double) BuildStitchedPath(
+            ContainmentIsland startIsland, List<ContainmentIsland> allIslands,
+            List<Element> startCandidates, List<Element> endCandidates,
+            ContainmentGraph graph, Dictionary<ElementId, double> lengthMap,
+            Dictionary<string, Element> rtsIdMap, Document doc, bool useHighAccuracy)
+        {
+            var stitchedPath = new List<ElementId>();
+            var sequenceParts = new List<string>();
+            double totalVirtualLength = 0;
+
+            var currentIsland = startIsland;
+            var remainingIslands = allIslands.Where(i => i != startIsland).ToList();
+
+            // Add connection from start equipment to the first island
+            var startEntryPoint = currentIsland.EntryPoints.First();
+            totalVirtualLength += startEntryPoint.Item2;
+            var fromPanelName = ReportFormatter.FormatEquipment(startCandidates.FirstOrDefault(), doc, rtsIdMap.Values.First().get_Parameter(SharedParameters.General.RTS_ID).GUID);
+            sequenceParts.Add(fromPanelName);
+            sequenceParts.Add(">>");
+
+            while (currentIsland != null)
             {
-                finalSequence.Append(" >> ").Append(ReportFormatter.FormatEquipment(endCandidates.First(), doc, SharedParameters.General.RTS_ID));
+                // Find the best path within the current island
+                var islandExitPoint = FindBestExitPoint(currentIsland, endCandidates, remainingIslands, doc, useHighAccuracy);
+                var internalPath = Dijkstra(startEntryPoint.Item1, islandExitPoint.Item1, graph, lengthMap);
+                if (internalPath != null)
+                {
+                    stitchedPath.AddRange(internalPath);
+                    sequenceParts.Add(ReportFormatter.FormatPath(internalPath, rtsIdMap, doc, rtsIdMap.Values.First().get_Parameter(SharedParameters.General.RTS_ID).GUID));
+                }
+
+                if (!remainingIslands.Any())
+                {
+                    // This is the last island, connect to the end equipment
+                    totalVirtualLength += islandExitPoint.Item2;
+                    break;
+                }
+
+                // Find the next closest island
+                var (nextIsland, connection) = FindNextIsland(currentIsland, remainingIslands, doc);
+                totalVirtualLength += connection.Item3; // Add jump distance
+                sequenceParts.Add(">>");
+
+                // Prepare for the next iteration
+                currentIsland = nextIsland;
+                remainingIslands.Remove(nextIsland);
+                startEntryPoint = new Tuple<ElementId, double>(connection.Item2, 0); // The entry to the next island is the connected element
             }
 
-            return new VirtualPathResult { RoutingSequence = finalSequence.ToString(), StitchedPath = finalStitchedPath, VirtualLength = totalVirtualLength };
+            var toPanelName = ReportFormatter.FormatEquipment(endCandidates.FirstOrDefault(), doc, rtsIdMap.Values.First().get_Parameter(SharedParameters.General.RTS_ID).GUID);
+            sequenceParts.Add(toPanelName);
+
+            return (stitchedPath, string.Join(" ", sequenceParts), totalVirtualLength);
         }
 
-        private static ElementId FindClosestElementInIsland(Element targetElement, ContainmentIsland island, Document doc)
+        /// <summary>
+        /// Finds the best exit point from an island, considering both the final destination and the next island hop.
+        /// </summary>
+        private static Tuple<ElementId, double> FindBestExitPoint(ContainmentIsland island, List<Element> endCandidates, List<ContainmentIsland> remainingIslands, Document doc, bool useHighAccuracy)
         {
-            var targetLocation = ReportHelpers.GetElementLocation(targetElement);
-            if (targetLocation == null) return island.ElementIds.FirstOrDefault();
-            return island.ElementIds.OrderBy(id => ReportHelpers.GetElementLocation(doc.GetElement(id))?.DistanceTo(targetLocation) ?? double.MaxValue).FirstOrDefault();
+            // If it's the last island, the best exit is the one closest to the end equipment.
+            if (!remainingIslands.Any())
+            {
+                return island.ExitPoints.OrderBy(p => p.Item2).FirstOrDefault() ?? island.Elements.Select(e => new Tuple<ElementId, double>(e.Id, 0)).First();
+            }
+
+            // Otherwise, find the point that provides the shortest jump to the next island.
+            Tuple<ElementId, ElementId, double> bestConnection = null;
+            double minJump = double.MaxValue;
+
+            foreach (var nextIsland in remainingIslands)
+            {
+                var (fromId, toId, dist) = FindShortestConnection(island, nextIsland, doc);
+                if (dist < minJump)
+                {
+                    minJump = dist;
+                    bestConnection = new Tuple<ElementId, ElementId, double>(fromId, toId, dist);
+                }
+            }
+
+            return new Tuple<ElementId, double>(bestConnection.Item1, 0);
         }
 
-        private static ElementId FindFarthestElementInIsland(Element targetElement, ContainmentIsland island, Document doc)
+        /// <summary>
+        /// Finds the closest connection between two islands.
+        /// </summary>
+        /// <returns>A tuple containing the from ElementId, to ElementId, and the distance.</returns>
+        private static (ElementId, ElementId, double) FindShortestConnection(ContainmentIsland fromIsland, ContainmentIsland toIsland, Document doc)
         {
-            var targetLocation = ReportHelpers.GetElementLocation(targetElement);
-            if (targetLocation == null) return island.ElementIds.FirstOrDefault();
-            return island.ElementIds.OrderByDescending(id => ReportHelpers.GetElementLocation(doc.GetElement(id))?.DistanceTo(targetLocation) ?? 0).FirstOrDefault();
+            ElementId fromId = null, toId = null;
+            double shortestDist = double.MaxValue;
+
+            foreach (var fromElem in fromIsland.Elements)
+            {
+                var fromBbox = fromElem.get_BoundingBox(null);
+                if (fromBbox == null) continue;
+
+                foreach (var toElem in toIsland.Elements)
+                {
+                    var toBbox = toElem.get_BoundingBox(null);
+                    if (toBbox == null) continue;
+
+                    double dist = GetDistanceToBoundingBox(fromBbox.Min, toBbox); // Approximate distance
+                    if (dist < shortestDist)
+                    {
+                        shortestDist = dist;
+                        fromId = fromElem.Id;
+                        toId = toElem.Id;
+                    }
+                }
+            }
+            return (fromId, toId, shortestDist);
         }
 
-        private static ElementId FindClosestElementToOtherIsland(ContainmentIsland fromIsland, ContainmentIsland toIsland, Document doc)
+        /// <summary>
+        /// Finds the next island in the sequence based on proximity.
+        /// </summary>
+        private static (ContainmentIsland, Tuple<ElementId, ElementId, double>) FindNextIsland(ContainmentIsland current, List<ContainmentIsland> candidates, Document doc)
         {
-            ElementId bestElement = fromIsland.ElementIds.FirstOrDefault();
+            ContainmentIsland nextIsland = null;
+            Tuple<ElementId, ElementId, double> bestConnection = null;
             double minDistance = double.MaxValue;
-            var toBox = toIsland.BoundingBox;
-            if (toBox == null || !toBox.Enabled) return bestElement;
-            var toCenter = (toBox.Min + toBox.Max) / 2.0;
 
-            foreach (var elementId in fromIsland.ElementIds)
+            foreach (var candidate in candidates)
             {
-                var fromLocation = ReportHelpers.GetElementLocation(doc.GetElement(elementId));
-                if (fromLocation == null) continue;
-                double dist = fromLocation.DistanceTo(toCenter);
+                var (fromId, toId, dist) = FindShortestConnection(current, candidate, doc);
                 if (dist < minDistance)
                 {
                     minDistance = dist;
-                    bestElement = elementId;
+                    nextIsland = candidate;
+                    bestConnection = new Tuple<ElementId, ElementId, double>(fromId, toId, dist);
                 }
             }
-            return bestElement;
+            return (nextIsland, bestConnection);
         }
 
-        #endregion
-
-        #region Core Dijkstra Algorithm
-
-        private static List<ElementId> FindShortestPath_Dijkstra(ElementId startNodeId, ElementId endNodeId, ContainmentGraph graph, Dictionary<ElementId, double> elementIdToLengthMap)
+        /// <summary>
+        /// Standard Dijkstra's algorithm implementation for finding the shortest path in the graph.
+        /// </summary>
+        private static List<ElementId> Dijkstra(ElementId startNode, ElementId endNode, ContainmentGraph graph, Dictionary<ElementId, double> lengthMap)
         {
-            if (startNodeId == null || endNodeId == null || startNodeId.IntegerValue == -1 || endNodeId.IntegerValue == -1) return null;
-            if (startNodeId == endNodeId) return new List<ElementId> { startNodeId };
-
             var distances = new Dictionary<ElementId, double>();
             var previous = new Dictionary<ElementId, ElementId>();
-            var queue = new PriorityQueue<ElementId>();
+            var queue = new List<ElementId>();
 
-            foreach (var nodeId in graph.AdjacencyGraph.Keys)
+            foreach (var vertex in graph.AdjacencyGraph.Keys)
             {
-                distances[nodeId] = double.PositiveInfinity;
+                distances[vertex] = double.MaxValue;
+                previous[vertex] = null;
+                queue.Add(vertex);
             }
-
-            if (!distances.ContainsKey(startNodeId)) return null; // Start node not in graph
-            distances[startNodeId] = 0;
-            queue.Enqueue(startNodeId, 0);
+            distances[startNode] = 0;
 
             while (queue.Count > 0)
             {
-                var currentNodeId = queue.Dequeue();
-                if (currentNodeId == endNodeId)
+                queue.Sort((a, b) => distances[a].CompareTo(distances[b]));
+                var u = queue[0];
+                queue.RemoveAt(0);
+
+                if (u == endNode)
                 {
                     var path = new List<ElementId>();
-                    var at = endNodeId;
-                    while (at != null && at.IntegerValue != -1)
+                    while (previous[u] != null)
                     {
-                        path.Add(at);
-                        if (!previous.TryGetValue(at, out at)) break;
+                        path.Insert(0, u);
+                        u = previous[u];
                     }
-                    path.Reverse();
+                    path.Insert(0, startNode);
                     return path;
                 }
 
-                if (!graph.AdjacencyGraph.TryGetValue(currentNodeId, out var neighbors)) continue;
+                if (!graph.AdjacencyGraph.ContainsKey(u)) continue;
 
-                foreach (var neighborId in neighbors)
+                foreach (var v in graph.AdjacencyGraph[u])
                 {
-                    double costToNeighbor = elementIdToLengthMap.ContainsKey(neighborId) ? elementIdToLengthMap[neighborId] : 0.0;
-                    double altDistance = distances[currentNodeId] + costToNeighbor;
-
-                    if (!distances.ContainsKey(neighborId)) distances[neighborId] = double.PositiveInfinity;
-
-                    if (altDistance < distances[neighborId])
+                    double alt = distances[u] + (lengthMap.ContainsKey(u) ? lengthMap[u] : 0.0);
+                    if (alt < distances[v])
                     {
-                        distances[neighborId] = altDistance;
-                        previous[neighborId] = currentNodeId;
-                        queue.Enqueue(neighborId, altDistance);
+                        distances[v] = alt;
+                        previous[v] = u;
                     }
                 }
             }
             return null; // Path not found
         }
 
-        private static double GetPathLength(List<ElementId> pathIds, Dictionary<ElementId, double> lengthMap)
-        {
-            if (pathIds == null || !pathIds.Any()) return 0.0;
-            return pathIds.Sum(id => lengthMap.ContainsKey(id) ? lengthMap[id] : 0.0);
-        }
-
-        #endregion
-
-        #region Nested PriorityQueue for .NET 4.8
-
         /// <summary>
-        /// A simple Priority Queue implementation for use in .NET Framework 4.8.
+        /// Calculates the minimum distance from a point to a bounding box.
         /// </summary>
-        private class PriorityQueue<T>
+        private static double GetDistanceToBoundingBox(XYZ point, BoundingBoxXYZ bbox)
         {
-            private readonly List<Tuple<T, double>> _elements = new List<Tuple<T, double>>();
-            public int Count => _elements.Count;
-
-            public void Enqueue(T item, double priority)
-            {
-                _elements.Add(Tuple.Create(item, priority));
-            }
-
-            public T Dequeue()
-            {
-                int bestIndex = 0;
-                for (int i = 0; i < _elements.Count; i++)
-                {
-                    if (_elements[i].Item2 < _elements[bestIndex].Item2)
-                    {
-                        bestIndex = i;
-                    }
-                }
-                T bestItem = _elements[bestIndex].Item1;
-                _elements.RemoveAt(bestIndex);
-                return bestItem;
-            }
+            double dx = Math.Max(0, Math.Max(bbox.Min.X - point.X, point.X - bbox.Max.X));
+            double dy = Math.Max(0, Math.Max(bbox.Min.Y - point.Y, point.Y - bbox.Max.Y));
+            double dz = Math.Max(0, Math.Max(bbox.Min.Z - point.Z, point.Z - bbox.Max.Z));
+            return Math.Sqrt(dx * dx + dy * dy + dz * dz);
         }
-
-        #endregion
     }
 }

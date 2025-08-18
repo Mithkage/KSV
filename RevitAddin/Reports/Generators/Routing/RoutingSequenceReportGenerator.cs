@@ -15,6 +15,7 @@
 // - [APPLIED FIX]: Corrected virtual path length calculation to include the physical length of segments.
 // - [APPLIED FIX]: Corrected GetRelevantNetwork to properly expand the containment graph.
 // - [APPLIED FIX]: Added detailed status messages for virtual pathfinding failures.
+// - [APPLIED FIX]: Removed network expansion logic to ensure graph only uses assigned containment.
 //
 // Author: Kyle Vorster
 //
@@ -150,7 +151,7 @@ namespace RTS.Reports.Generators
 
         /// <summary>
         /// Processes a single cable to find its route, handling both connected and disconnected (virtual) paths.
-        /// </summary>
+        /// /// </summary>
         /// <returns>A CSV-formatted string representing the routing result for the cable.</returns>
         private string ProcessCableRoute(string cableRef, PC_ExtensibleClass.CableData cableInfo, List<Element> allContainmentInProject, List<Element> allFittingsInProject, List<Element> allCandidateEquipment)
         {
@@ -165,6 +166,8 @@ namespace RTS.Reports.Generators
             string assignedContainmentStr = "N/A";
             string graphedContainmentStr = "N/A";
             int islandCount = 0;
+            string traySystems = "N/A";
+            string containmentRating = "N/A";
 
             try
             {
@@ -212,6 +215,24 @@ namespace RTS.Reports.Generators
                     endCandidates = new List<Element>();
                 }
 
+                // Determine if a high-accuracy node-based search should be used.
+                bool useHighAccuracy = false;
+                if (startFound && endFound)
+                {
+                    var startPoint = (startCandidates.First().Location as LocationPoint)?.Point;
+                    var endPoint = (endCandidates.First().Location as LocationPoint)?.Point;
+
+                    if (startPoint != null && endPoint != null)
+                    {
+                        const double feetToMeters = 0.3048;
+                        double distanceMeters = startPoint.DistanceTo(endPoint) * feetToMeters;
+                        if (distanceMeters < 15)
+                        {
+                            useHighAccuracy = true;
+                        }
+                    }
+                }
+
                 // Step 3: Find all containment elements assigned to this specific cable.
                 var cableContainmentElements = allContainmentInProject
                     .Where(elem => _cableGuids.Any(guid => string.Equals(elem.get_Parameter(guid)?.AsString(), cableRef, StringComparison.OrdinalIgnoreCase)))
@@ -224,15 +245,18 @@ namespace RTS.Reports.Generators
                 }
                 else
                 {
-                    // Step 4: Build a graph of the relevant containment network.
-                    var relevantNetwork = GetRelevantNetwork(cableContainmentElements, allFittingsInProject);
-                    var containmentGraph = new ContainmentGraph(relevantNetwork, Document);
+                    // Step 4: Build a graph of the containment network.
+                    // The graph is built *only* from the elements explicitly assigned to this cable.
+                    // This prevents the pathfinder from using containment that is not allocated for this route.
+                    var containmentGraph = new ContainmentGraph(cableContainmentElements, Document);
                     var elementIdToLengthMap = containmentGraph.GetElementLengthMap();
-                    var rtsIdToElementMap = ReportFormatter.BuildRtsIdMap(relevantNetwork, _rtsIdGuid);
+                    var rtsIdToElementMap = ReportFormatter.BuildRtsIdMap(cableContainmentElements, _rtsIdGuid);
 
                     // Format the list of assigned and graphed containment for the diagnostic columns.
                     assignedContainmentStr = ReportFormatter.FormatRtsIdList(cableContainmentElements, _rtsIdGuid, elementIdToLengthMap);
-                    graphedContainmentStr = ReportFormatter.FormatRtsIdList(relevantNetwork, _rtsIdGuid, elementIdToLengthMap);
+                    graphedContainmentStr = ReportFormatter.FormatRtsIdList(cableContainmentElements, _rtsIdGuid, elementIdToLengthMap);
+                    traySystems = ReportFormatter.FormatTraySystems(cableContainmentElements, _rtsIdGuid);
+                    containmentRating = ReportFormatter.FormatContainmentRatings(cableContainmentElements, _rtsIdGuid);
 
                     List<ElementId> bestPath = null;
 
@@ -245,7 +269,7 @@ namespace RTS.Reports.Generators
                     if (!forceVirtualPath)
                     {
                         // Attempt to find a direct, confirmed path as it's a single network.
-                        var pathResult = Pathfinder.FindConfirmedPath(startCandidates, endCandidates, cableContainmentElements, containmentGraph, elementIdToLengthMap, Document);
+                        var pathResult = Pathfinder.FindConfirmedPath(startCandidates, endCandidates, cableContainmentElements, containmentGraph, elementIdToLengthMap, Document, useHighAccuracy);
                         if (pathResult != null && pathResult.Any())
                         {
                             status = "Route Confirmed";
@@ -257,7 +281,7 @@ namespace RTS.Reports.Generators
                     // Step 6: If no confirmed path was found (or if virtual path was forced), use island hopping.
                     if (bestPath == null)
                     {
-                        var virtualResult = Pathfinder.FindBestDisconnectedSequence(startCandidates, endCandidates, cableContainmentElements, containmentGraph, rtsIdToElementMap, elementIdToLengthMap, Document);
+                        var virtualResult = Pathfinder.FindBestDisconnectedSequence(startCandidates, endCandidates, cableContainmentElements, containmentGraph, rtsIdToElementMap, elementIdToLengthMap, Document, useHighAccuracy);
 
                         if (!string.IsNullOrEmpty(virtualResult.StatusMessage))
                         {
@@ -304,51 +328,7 @@ namespace RTS.Reports.Generators
             double supportedLengthMeters = supportedLengthFeet * 0.3048;
             double unsupportedLengthMeters = unsupportedLengthFeet * 0.3048;
 
-            return $"\"{cableRef}\",\"{cableInfo.From ?? "N/A"}\",\"{cableInfo.To ?? "N/A"}\",\"{fromStatus}\",\"{toStatus}\",\"{status}\",\"{totalLengthMeters:F2}\",\"{supportedLengthMeters:F2}\",\"{unsupportedLengthMeters:F2}\",\"{branchSequence}\",\"{routingSequence}\",\"{assignedContainmentStr}\",\"{graphedContainmentStr}\",\"{islandCount}\"";
-        }
-
-        /// <summary>
-        /// Expands a set of initial containment elements to include all connected elements,
-        /// forming the complete relevant network for pathfinding.
-        /// </summary>
-        /// <param name="cableContainment">The initial list of containment elements assigned to a cable.</param>
-        /// <param name="allFittings">A pre-filtered list of all fittings in the project.</param>
-        /// <returns>A list of all elements in the connected network.</returns>
-        private List<Element> GetRelevantNetwork(List<Element> cableContainment, List<Element> allFittings)
-        {
-            var relevantElements = new Dictionary<ElementId, Element>();
-            var queue = new Queue<Element>(cableContainment);
-
-            // Initialize the dictionary and queue with the starting elements.
-            foreach (var el in cableContainment)
-            {
-                if (!relevantElements.ContainsKey(el.Id))
-                    relevantElements.Add(el.Id, el);
-            }
-
-            // Breadth-first search (BFS) to find all connected elements.
-            while (queue.Count > 0)
-            {
-                var current = queue.Dequeue();
-                var connectors = ContainmentGraph.GetConnectors(current);
-                if (connectors == null) continue;
-
-                foreach (Connector conn in connectors)
-                {
-                    if (!conn.IsConnected) continue;
-                    foreach (Connector connected in conn.AllRefs)
-                    {
-                        var owner = connected.Owner;
-                        // If the connected element is not yet in our network, add it and enqueue it for processing.
-                        if (owner != null && !relevantElements.ContainsKey(owner.Id))
-                        {
-                            relevantElements.Add(owner.Id, owner);
-                            queue.Enqueue(owner);
-                        }
-                    }
-                }
-            }
-            return relevantElements.Values.ToList();
+            return $"\"{cableRef}\",\"{cableInfo.From ?? "N/A"}\",\"{cableInfo.To ?? "N/A"}\",\"{fromStatus}\",\"{toStatus}\",\"{status}\",\"{totalLengthMeters:F2}\",\"{supportedLengthMeters:F2}\",\"{unsupportedLengthMeters:F2}\",\"{branchSequence}\",\"{routingSequence}\",\"{assignedContainmentStr}\",\"{graphedContainmentStr}\",\"{islandCount}\",\"{traySystems}\",\"{containmentRating}\"";
         }
 
         /// <summary>

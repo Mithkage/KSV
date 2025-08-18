@@ -51,7 +51,7 @@ namespace RTS.Reports.Generators.Routing
             sb.AppendLine(",, || (Double Pipe) = Jump between non-connected containment of the same type,,,,Prefix: Service Type (LA=LV Sub-A, LB=LV Sub-B, GA=Gen-A)");
             sb.AppendLine(",, >> (Double Arrow) = Separates disconnected routing segments,,,,TypeSuffix: FLS=Fire-rated, ESS=Essential, DFT=Default");
             sb.AppendLine();
-            sb.AppendLine("Cable Reference,From,To,From Status,To Status,Status,Total Length (m),Supported Length (m),Unsupported Length (m),Branch Sequencing,Routing Sequence,Assigned Containment,Graphed Containment,Island Count");
+            sb.AppendLine("Cable Reference,From,To,From Status,To Status,Status,Total Length (m),Supported Length (m),Unsupported Length (m),Branch Sequencing,Routing Sequence,Assigned Containment,Graphed Containment,Island Count,Tray Systems,Containment Rating");
             return sb;
         }
 
@@ -143,6 +143,66 @@ namespace RTS.Reports.Generators.Routing
                 }
             }
             return string.Join(", ", uniqueBranches);
+        }
+
+        /// <summary>
+        /// Extracts and formats the unique service type prefixes from a list of containment elements.
+        /// </summary>
+        public static string FormatTraySystems(List<Element> containmentElements, Guid rtsIdGuid)
+        {
+            if (containmentElements == null || !containmentElements.Any()) return "N/A";
+
+            var uniquePrefixes = new HashSet<string>();
+
+            foreach (var elem in containmentElements)
+            {
+                string rtsId = elem.get_Parameter(rtsIdGuid)?.AsString();
+                if (!string.IsNullOrWhiteSpace(rtsId))
+                {
+                    string[] parts = rtsId.Split('-');
+                    if (parts.Length > 0 && !string.IsNullOrEmpty(parts[0]))
+                    {
+                        uniquePrefixes.Add(parts[0]);
+                    }
+                }
+            }
+
+            if (uniquePrefixes.Any())
+            {
+                return string.Join(", ", uniquePrefixes.OrderBy(p => p));
+            }
+
+            return "N/A";
+        }
+
+        /// <summary>
+        /// Extracts and formats the unique containment rating suffixes from a list of containment elements.
+        /// </summary>
+        public static string FormatContainmentRatings(List<Element> containmentElements, Guid rtsIdGuid)
+        {
+            if (containmentElements == null || !containmentElements.Any()) return "N/A";
+
+            var uniqueSuffixes = new HashSet<string>();
+
+            foreach (var elem in containmentElements)
+            {
+                string rtsId = elem.get_Parameter(rtsIdGuid)?.AsString();
+                if (!string.IsNullOrWhiteSpace(rtsId))
+                {
+                    string[] parts = rtsId.Split('-');
+                    if (parts.Length > 1 && !string.IsNullOrEmpty(parts[1]))
+                    {
+                        uniqueSuffixes.Add(parts[1]);
+                    }
+                }
+            }
+
+            if (uniqueSuffixes.Any())
+            {
+                return string.Join(", ", uniqueSuffixes.OrderBy(s => s));
+            }
+
+            return "N/A";
         }
 
         /// <summary>
