@@ -195,7 +195,6 @@
 
 		<!-- Reports structure -->
 		<Folder Include="Reports\Models\" />
-		<Folder Include="Reports\Generators\" />
 		<Folder Include="Reports\Utils\" />
 		<Folder Include="Reports\Base\" />
 	</ItemGroup>

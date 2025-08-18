@@ -51,7 +51,10 @@ namespace RTS.Commands.MEPTools.CableTray
             Document doc = uidoc.Document;
 
             var idToCableValuesMap = new Dictionary<string, List<string>>();
-            int updatedTrayCount = 0, updatedConduitCount = 0, updatedOtherCount = 0;
+            int renamedTrayCount = 0, unchangedTrayCount = 0;
+            int renamedConduitCount = 0, unchangedConduitCount = 0;
+            int renamedFittingCount = 0, unchangedFittingCount = 0;
+            int renamedDetailCount = 0, unchangedDetailCount = 0;
 
             using (var t = new Transaction(doc, "Generate and Apply RTS_IDs"))
             {
@@ -59,33 +62,89 @@ namespace RTS.Commands.MEPTools.CableTray
                 {
                     t.Start();
 
-                    // --- 1. Process Cable Trays ---
-                    var allCableTrays = new FilteredElementCollector(doc)
-                        .OfCategory(BuiltInCategory.OST_CableTray)
-                        .WhereElementIsNotElementType().ToList();
-                    ProcessElements(doc, allCableTrays, idToCableValuesMap, ref updatedTrayCount, 0);
+                    // --- 1. Collect all processable elements ---
+                    var allTrays = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_CableTray).WhereElementIsNotElementType().ToList();
+                    var allConduits = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Conduit).WhereElementIsNotElementType().ToList();
+                    var allFittings = new FilteredElementCollector(doc).WherePasses(new ElementMulticategoryFilter(new[] { BuiltInCategory.OST_CableTrayFitting, BuiltInCategory.OST_ConduitFitting })).WhereElementIsNotElementType().ToList();
 
-                    // --- 2. Process Conduits ---
-                    var allConduits = new FilteredElementCollector(doc)
-                        .OfCategory(BuiltInCategory.OST_Conduit)
-                        .WhereElementIsNotElementType().ToList();
-                    ProcessElements(doc, allConduits, idToCableValuesMap, ref updatedConduitCount, updatedTrayCount);
+                    var allProcessableElements = new List<Element>();
+                    allProcessableElements.AddRange(allTrays);
+                    allProcessableElements.AddRange(allConduits);
+                    allProcessableElements.AddRange(allFittings);
 
-                    // --- 3. Process Dependent Elements ---
-                    var categoriesToUpdate = new List<BuiltInCategory>
+                    // --- 2. Separate elements into categories for processing ---
+                    var elementsWithValues = new List<Element>();
+                    var fittingsWithoutValues = new List<Element>();
+                    var traysAndConduitsWithoutValues = new List<Element>();
+
+                    foreach (var elem in allProcessableElements)
                     {
-                        BuiltInCategory.OST_DetailComponents,
-                        BuiltInCategory.OST_CableTrayFitting,
-                        BuiltInCategory.OST_ConduitFitting
-                    };
-                    var dependentElements = new FilteredElementCollector(doc)
-                        .WherePasses(new ElementMulticategoryFilter(categoriesToUpdate))
-                        .WhereElementIsNotElementType().ToList();
+                        if (RTS_Cable_GUIDs.Any(g => !string.IsNullOrEmpty(elem.get_Parameter(g)?.AsString())))
+                        {
+                            elementsWithValues.Add(elem);
+                        }
+                        else
+                        {
+                            if (elem is FamilyInstance) fittingsWithoutValues.Add(elem);
+                            else traysAndConduitsWithoutValues.Add(elem);
+                        }
+                    }
 
-                    UpdateDependentElements(dependentElements, idToCableValuesMap, ref updatedOtherCount);
+                    // --- 3. Globally determine branch numbers based on unique cable sets ---
+                    var cableKeyToBranchMap = new Dictionary<string, int>();
+                    int branchCounter = 0;
+                    var groupedByCableKey = elementsWithValues.GroupBy(e => GetAllCableParamValues(e)).OrderBy(g => g.Key);
+
+                    foreach (var group in groupedByCableKey)
+                    {
+                        branchCounter++;
+                        cableKeyToBranchMap[group.Key] = branchCounter;
+                    }
+
+                    // --- 4. Apply IDs to elements with cable data ---
+                    foreach (var elem in elementsWithValues)
+                    {
+                        string cableKey = GetAllCableParamValues(elem);
+                        int branchNumber = cableKeyToBranchMap[cableKey];
+                        bool changed = GenerateAndApplyId(doc, elem, branchNumber, idToCableValuesMap);
+
+                        if (elem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTray) { if (changed) renamedTrayCount++; else unchangedTrayCount++; }
+                        else if (elem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Conduit) { if (changed) renamedConduitCount++; else unchangedConduitCount++; }
+                        else { if (changed) renamedFittingCount++; else unchangedFittingCount++; }
+                    }
+
+                    // --- 5. Handle trays and conduits without cable data ---
+                    int noValueCounter = (branchCounter == 0 ? 1000 : (branchCounter / 1000 + 1) * 1000);
+                    foreach (var elem in traysAndConduitsWithoutValues)
+                    {
+                        bool changed = GenerateAndApplyId(doc, elem, noValueCounter, idToCableValuesMap);
+                        if (elem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTray) { if (changed) renamedTrayCount++; else unchangedTrayCount++; }
+                        else { if (changed) renamedConduitCount++; else unchangedConduitCount++; }
+                        noValueCounter++;
+                    }
+
+                    // --- 6. Handle fittings without cable data ---
+                    foreach (var elem in fittingsWithoutValues)
+                    {
+                        if (ClearIdParameters(elem)) renamedFittingCount++;
+                        else unchangedFittingCount++;
+                    }
+
+                    // --- 7. Process Dependent Detail Components ---
+                    var detailComponents = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_DetailComponents).WhereElementIsNotElementType().ToList();
+                    UpdateDependentElements(detailComponents, idToCableValuesMap, ref renamedDetailCount, ref unchangedDetailCount);
 
                     t.Commit();
-                    TaskDialog.Show("RT_TrayID", $"{updatedTrayCount} Cable Trays, {updatedConduitCount} Conduits, and {updatedOtherCount} other elements updated successfully.");
+
+                    var summary = new StringBuilder();
+                    summary.AppendLine("RTS_ID Generation Complete.");
+                    summary.AppendLine();
+                    summary.AppendLine($"Cable Trays: {renamedTrayCount} renamed, {unchangedTrayCount} unchanged.");
+                    summary.AppendLine($"Conduits: {renamedConduitCount} renamed, {unchangedConduitCount} unchanged.");
+                    summary.AppendLine($"Fittings: {renamedFittingCount} updated or cleared, {unchangedFittingCount} unchanged.");
+                    summary.AppendLine($"Detail Components: {renamedDetailCount} updated, {unchangedDetailCount} unchanged.");
+
+                    TaskDialog.Show("RT_TrayID", summary.ToString());
                 }
                 catch (Exception ex)
                 {
@@ -98,62 +157,19 @@ namespace RTS.Commands.MEPTools.CableTray
             return Result.Succeeded;
         }
 
-        private void ProcessElements(Document doc, List<Element> elements, Dictionary<string, List<string>> idMap, ref int updatedCount, int initialCounter)
-        {
-            var elementsWithValues = new List<Element>();
-            var elementsWithoutValues = new List<Element>();
-
-            foreach (var elem in elements)
-            {
-                if (RTS_Cable_GUIDs.Any(g => !string.IsNullOrEmpty(elem.get_Parameter(g)?.AsString())))
-                    elementsWithValues.Add(elem);
-                else
-                    elementsWithoutValues.Add(elem);
-            }
-
-            var sortedElementsWithValues = elementsWithValues
-                .OrderBy(e => GetFirstCableParamValue(e).Item1)
-                .ThenBy(e => GetFirstCableParamValue(e).Item2);
-
-            foreach (var guid in RTS_Cable_GUIDs)
-            {
-                sortedElementsWithValues = sortedElementsWithValues.ThenBy(e => e.get_Parameter(guid)?.AsString() ?? "");
-            }
-
-            int uniqueIdCounter = initialCounter;
-            string previousCableKey = null;
-
-            foreach (var elem in sortedElementsWithValues)
-            {
-                string currentCableKey = GetAllCableParamValues(elem);
-                if (uniqueIdCounter == initialCounter || currentCableKey != previousCableKey)
-                {
-                    uniqueIdCounter++;
-                }
-                GenerateAndApplyId(doc, elem, uniqueIdCounter, idMap);
-                previousCableKey = currentCableKey;
-                updatedCount++;
-            }
-
-            int noValueCounter = (uniqueIdCounter == initialCounter ? 1000 : (uniqueIdCounter / 1000 + 1) * 1000);
-            foreach (var elem in elementsWithoutValues)
-            {
-                GenerateAndApplyId(doc, elem, noValueCounter, idMap);
-                noValueCounter++;
-                updatedCount++;
-            }
-        }
-
-        private void GenerateAndApplyId(Document doc, Element elem, int counter, Dictionary<string, List<string>> idMap)
+        private bool GenerateAndApplyId(Document doc, Element elem, int counter, Dictionary<string, List<string>> idMap)
         {
             Parameter rtsIdParam = elem.get_Parameter(RTS_ID_GUID);
             Parameter branchNumberParam = elem.get_Parameter(BRANCH_NUMBER_GUID);
 
-            if (rtsIdParam == null || rtsIdParam.IsReadOnly) return;
+            if (rtsIdParam == null || rtsIdParam.IsReadOnly) return false;
+
+            string oldRtsId = rtsIdParam.AsString();
+            string oldBranchNumber = branchNumberParam?.AsString();
 
             string prefix = GetPrefixFromTypeName(doc, elem);
             string suffix = "DFT";
-            ElementType type = doc.GetElement(elem.GetTypeId()) as ElementType; // FIX: Added 'as ElementType' cast
+            ElementType type = doc.GetElement(elem.GetTypeId()) as ElementType;
             if (type != null)
             {
                 string typeName = type.Name.ToUpper();
@@ -168,36 +184,123 @@ namespace RTS.Commands.MEPTools.CableTray
                 levelAbbr = level.Name.Length >= 3 ? level.Name.Substring(0, 3).ToUpper() : level.Name.ToUpper().PadRight(3, '?');
             }
 
-            double offset = elem.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.AsDouble() ?? 0;
-            double height = elem.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)?.AsDouble() ?? // For Cable Tray
-                            elem.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM)?.AsDouble() ?? 0; // For Conduit
-
-            double bottomElevation = offset - (height / 2.0);
-            long elevationMm = (long)Math.Round(bottomElevation * 304.8);
+            long elevationMm = GetElevationInMm(elem, doc);
             string formattedElevation = elevationMm.ToString("D4");
 
             string uniqueSuffix = counter.ToString("D4");
             string newRtsId = $"{prefix}-{suffix}-{levelAbbr}-{formattedElevation}-{uniqueSuffix}";
 
-            rtsIdParam.Set(newRtsId);
-            branchNumberParam?.Set(uniqueSuffix);
+            bool idChanged = oldRtsId != newRtsId;
+            bool branchChanged = branchNumberParam != null && oldBranchNumber != uniqueSuffix;
+
+            if (idChanged) rtsIdParam.Set(newRtsId);
+            if (branchChanged) branchNumberParam.Set(uniqueSuffix);
 
             var cableValues = RTS_Cable_GUIDs
                 .Select(g => elem.get_Parameter(g)?.AsString())
                 .Where(v => !string.IsNullOrEmpty(v)).ToList();
 
-            if (!idMap.ContainsKey(newRtsId))
+            if (idChanged && !string.IsNullOrEmpty(newRtsId) && !idMap.ContainsKey(newRtsId))
             {
                 idMap.Add(newRtsId, cableValues);
             }
+
+            return idChanged || branchChanged;
         }
 
-        private void UpdateDependentElements(List<Element> elements, Dictionary<string, List<string>> idMap, ref int updatedCount)
+        private bool ClearIdParameters(Element elem)
+        {
+            bool changed = false;
+            Parameter rtsIdParam = elem.get_Parameter(RTS_ID_GUID);
+            if (rtsIdParam != null && !rtsIdParam.IsReadOnly && !string.IsNullOrEmpty(rtsIdParam.AsString()))
+            {
+                rtsIdParam.Set(string.Empty);
+                changed = true;
+            }
+
+            Parameter branchNumberParam = elem.get_Parameter(BRANCH_NUMBER_GUID);
+            if (branchNumberParam != null && !branchNumberParam.IsReadOnly && !string.IsNullOrEmpty(branchNumberParam.AsString()))
+            {
+                branchNumberParam.Set(string.Empty);
+                changed = true;
+            }
+            return changed;
+        }
+
+        private long GetElevationInMm(Element elem, Document doc)
+        {
+            // Handle MEPCurves (Trays/Conduits)
+            if (elem is MEPCurve curve)
+            {
+                double offset = curve.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.AsDouble() ?? 0;
+                double height = curve.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)?.AsDouble() ?? // For Cable Tray
+                                curve.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM)?.AsDouble() ?? 0; // For Conduit
+                double bottomElevation = offset - (height / 2.0);
+                return (long)Math.Round(bottomElevation * 304.8);
+            }
+
+            // Handle FamilyInstances (Fittings)
+            if (elem is FamilyInstance fitting)
+            {
+                var mepModel = fitting.MEPModel;
+                if (mepModel?.ConnectorManager?.Connectors != null && mepModel.ConnectorManager.Connectors.Size > 0)
+                {
+                    // Method 3: Try to inherit from a connected element
+                    foreach (Connector connector in mepModel.ConnectorManager.Connectors)
+                    {
+                        if (connector.IsConnected)
+                        {
+                            foreach (Connector connectedRef in connector.AllRefs)
+                            {
+                                Element connectedElem = connectedRef.Owner;
+                                if (connectedElem is MEPCurve)
+                                {
+                                    Parameter connectedRtsIdParam = connectedElem.get_Parameter(RTS_ID_GUID);
+                                    if (connectedRtsIdParam != null && connectedRtsIdParam.HasValue)
+                                    {
+                                        string connectedRtsId = connectedRtsIdParam.AsString();
+                                        string[] parts = connectedRtsId.Split('-');
+                                        if (parts.Length == 5 && long.TryParse(parts[3], out long inheritedElevation))
+                                        {
+                                            return inheritedElevation; // Success!
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Method 2 (Fallback): Average elevation of connectors
+                    double totalZ = 0;
+                    int connectorCount = 0;
+                    foreach (Connector connector in mepModel.ConnectorManager.Connectors)
+                    {
+                        totalZ += connector.Origin.Z;
+                        connectorCount++;
+                    }
+                    if (connectorCount > 0)
+                    {
+                        double avgElevationInFeet = totalZ / connectorCount;
+                        return (long)Math.Round(avgElevationInFeet * 304.8);
+                    }
+                }
+            }
+
+            // Default fallback for any other element type or if fitting has no connectors
+            return 0;
+        }
+
+        private void UpdateDependentElements(List<Element> elements, Dictionary<string, List<string>> idMap, ref int renamedCount, ref int unchangedCount)
         {
             foreach (var elem in elements)
             {
+                bool elementChanged = false;
                 string rtsId = elem.get_Parameter(RTS_ID_GUID)?.AsString();
-                if (string.IsNullOrEmpty(rtsId) || !idMap.TryGetValue(rtsId, out var cableValues)) continue;
+                if (string.IsNullOrEmpty(rtsId) || !idMap.TryGetValue(rtsId, out var cableValues))
+                {
+                    unchangedCount++;
+                    continue;
+                }
 
                 int cableIndex = 0;
                 foreach (var guid in RTS_Cable_GUIDs)
@@ -209,40 +312,33 @@ namespace RTS.Commands.MEPTools.CableTray
                         if (p.AsString() != newValue)
                         {
                             p.Set(newValue);
+                            elementChanged = true;
                         }
                         cableIndex++;
                     }
                 }
-                updatedCount++;
-            }
-        }
 
-        private Tuple<int, string> GetFirstCableParamValue(Element elem)
-        {
-            for (int i = 0; i < RTS_Cable_GUIDs.Count; i++)
-            {
-                Parameter cableParam = elem.get_Parameter(RTS_Cable_GUIDs[i]);
-                if (cableParam != null && !string.IsNullOrEmpty(cableParam.AsString()))
-                {
-                    return new Tuple<int, string>(i, cableParam.AsString());
-                }
+                if (elementChanged)
+                    renamedCount++;
+                else
+                    unchangedCount++;
             }
-            return new Tuple<int, string>(RTS_Cable_GUIDs.Count, string.Empty);
         }
 
         private string GetAllCableParamValues(Element elem)
         {
-            var sb = new StringBuilder();
-            foreach (var guid in RTS_Cable_GUIDs)
-            {
-                sb.Append(elem.get_Parameter(guid)?.AsString() ?? "").Append("|");
-            }
-            return sb.ToString();
+            var cableValues = RTS_Cable_GUIDs
+                .Select(g => elem.get_Parameter(g)?.AsString())
+                .Where(v => !string.IsNullOrEmpty(v))
+                .OrderBy(v => v) // Sort alphabetically to create a canonical key
+                .ToList();
+
+            return string.Join("|", cableValues);
         }
 
         private string GetPrefixFromTypeName(Document doc, Element elem)
         {
-            ElementType type = doc.GetElement(elem.GetTypeId()) as ElementType; // FIX: Added 'as ElementType' cast
+            ElementType type = doc.GetElement(elem.GetTypeId()) as ElementType;
             if (type != null)
             {
                 string typeName = type.Name.ToUpper();
