@@ -102,8 +102,7 @@
               "RelativeToolTip": "RevitAddin\\Reports\\Generators\\Routing\\Routing_Sequence14.csv",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002120|",
-              "WhenOpened": "2025-08-18T12:21:30.7Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-18T12:21:30.7Z"
             },
             {
               "$type": "Document",
@@ -115,8 +114,7 @@
               "RelativeToolTip": "RevitAddin\\Commands\\MEPTools\\CableTray\\RT_TrayOccupancy.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAB0AAAAbAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-18T12:21:03.966Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-18T12:21:03.966Z"
             },
             {
               "$type": "Document",
@@ -140,8 +138,7 @@
               "RelativeToolTip": "RevitAddin\\Reports\\Base\\ReportGeneratorBase.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-17T23:21:19.184Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-17T23:21:19.184Z"
             },
             {
               "$type": "Document",
@@ -149,12 +146,11 @@
               "Title": "ReportFormatter.cs",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\Routing\\ReportFormatter.cs",
               "RelativeDocumentMoniker": "RevitAddin\\Reports\\Generators\\Routing\\ReportFormatter.cs",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\Routing\\ReportFormatter.cs*",
-              "RelativeToolTip": "RevitAddin\\Reports\\Generators\\Routing\\ReportFormatter.cs*",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\Routing\\ReportFormatter.cs",
+              "RelativeToolTip": "RevitAddin\\Reports\\Generators\\Routing\\ReportFormatter.cs",
               "ViewState": "AgIAAKcAAAAAAAAAAAAmwLEAAAASAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-17T22:56:23.265Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-17T22:56:23.265Z"
             },
             {
               "$type": "Document",
@@ -166,8 +162,7 @@
               "RelativeToolTip": "RevitAddin\\Reports\\Generators\\Routing\\Pathfinder.cs",
               "ViewState": "AgIAAIwBAAAAAAAAAAAiwKwBAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-17T22:55:30.077Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-17T22:55:30.077Z"
             },
             {
               "$type": "Document",
@@ -191,8 +186,7 @@
               "RelativeToolTip": "RevitAddin\\Reports\\Generators\\Routing\\VirtualPathResult.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAAtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-17T22:54:28.121Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-17T22:54:28.121Z"
             },
             {
               "$type": "Document",
@@ -332,9 +326,9 @@
               "Title": "RoutingSequenceReportGenerator.cs",
               "DocumentMoniker": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\Routing\\RoutingSequenceReportGenerator.cs",
               "RelativeDocumentMoniker": "RevitAddin\\Reports\\Generators\\Routing\\RoutingSequenceReportGenerator.cs",
-              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\Routing\\RoutingSequenceReportGenerator.cs*",
-              "RelativeToolTip": "RevitAddin\\Reports\\Generators\\Routing\\RoutingSequenceReportGenerator.cs*",
-              "ViewState": "AgIAAFUBAAAAAAAAAAAiwHMBAAABAAAAAAAAAA==",
+              "ToolTip": "C:\\Users\\kyles\\source\\repos\\KSV\\RevitAddin\\Reports\\Generators\\Routing\\RoutingSequenceReportGenerator.cs",
+              "RelativeToolTip": "RevitAddin\\Reports\\Generators\\Routing\\RoutingSequenceReportGenerator.cs",
+              "ViewState": "AgIAAE0BAAAAAAAAAAAUwGABAAA1AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-08-13T00:00:51.918Z",
               "EditorCaption": ""
