@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+File: RTS_2024_Debug.addin
+Description: This is the Revit Add-in manifest file for the RTS application,
+             specifically configured for Revit 2024. It points to the loader
+             application to enable hot reloading during development.
+
+Author: Kyle Vorster
+Company: ReTick Solutions (RTS)
+
+Log:
+- August 22, 2025: Updated to use RTS.Loader for hot reloading.
+- July 8, 2025: Added commented header and generated 2024 add-in manifest.
+-->
+<RevitAddIns>
+	<AddIn Type="Application">
+		<Name>RTS Revit Add-in (Debug)</Name>
+		<Assembly>RTS.dll</Assembly>
+		<!-- New, unique GUID for Revit 2024 add-in -->
+		<AddInId>33100BBE-4C33-4E31-883D-F63EFE4C378F</AddInId>
+		<FullClassName>RTS.App</FullClassName>
+		<VendorId>ReTick_Solutions</VendorId>
+		<VendorDescription>ReTick Solutions</VendorDescription>
+	</AddIn>
+</RevitAddIns>

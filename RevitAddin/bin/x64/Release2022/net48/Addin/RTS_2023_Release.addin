@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+File: RTS_2023_Release.addin
+Description: This is the Revit Add-in manifest file for the RTS application,
+             specifically configured for Revit 2023 for release.
+
+Author: Kyle Vorster
+Company: ReTick Solutions (RTS)
+
+Log:
+- September 04, 2025: Created 2023 release add-in manifest.
+-->
+<RevitAddIns>
+	<AddIn Type="Application">
+		<Name>RTS Revit Add-in</Name>
+		<Assembly>RTS.dll</Assembly>
+		<!-- New, unique GUID for Revit 2023 add-in -->
+		<AddInId>A3E00BBE-4C33-4E31-883D-F63EFE4C378F</AddInId>
+		<FullClassName>RTS.App</FullClassName>
+		<VendorId>ReTick_Solutions</VendorId>
+		<VendorDescription>ReTick Solutions</VendorDescription>
+	</AddIn>
+</RevitAddIns>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+	<AddIn Type="Application">
+		<Name>RTS</Name>
+		<Assembly>C:\ProgramData\Autodesk\Revit\Addins\2022\RTS.dll</Assembly>
+		<AddInId>E8A2D6C0-2B3D-4E5F-8A9B-C0D1E2F3A4B5</AddInId>
+		<FullClassName>RTS.App</FullClassName>
+		<VendorId>ReTick_Solutions</VendorId>
+		<VendorDescription>ReTick Solutions</VendorDescription>
+	</AddIn>
+</RevitAddIns>
